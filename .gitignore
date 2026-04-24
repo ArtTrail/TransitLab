@@ -1,0 +1,27 @@
+# .NET build artifacts
+bin/
+obj/
+publish/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# NuGet
+*.nupkg
+packages/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# User config (don't ship personal settings)
+config.json
+submission_history.json
+eaConf.json
+
+# Logs
+logs/
+*.log

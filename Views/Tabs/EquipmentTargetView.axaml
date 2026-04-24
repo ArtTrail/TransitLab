@@ -1,0 +1,538 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TransitLab.ViewModels"
+             x:DataType="vm:MainWindowViewModel"
+             x:CompileBindings="False"
+             x:Class="TransitLab.Views.Tabs.EquipmentTargetView">
+
+    <Grid ColumnDefinitions="5*,Auto,3*">
+
+        <!-- ════════════════════════ LEFT PANEL ════════════════════════════ -->
+        <ScrollViewer Grid.Column="0"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="8,4,8,16" Spacing="2">
+
+                <!-- ── Read FITS Header ── -->
+                <StackPanel Orientation="Horizontal" Margin="4,10,4,6" Spacing="10">
+                    <Button Classes="primary" Content="  Read FITS Header  "
+                            Command="{Binding Observation.ReadFitsHeaderCommand}"/>
+                    <TextBlock Classes="hint" Text="{Binding Observation.FitsHeaderStatus}"
+                               Foreground="{Binding Observation.FitsHeaderStatus, Converter={StaticResource StatusBrushConverter}}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- ── Equipment ── -->
+                <TextBlock Classes="h2" Text="Equipment" Margin="4,6,0,2"/>
+                <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
+
+                <!-- Camera Type + Pixel Binning side by side -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="32"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Camera Type:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding EquipmentTarget.CameraTypes}"
+                              SelectedItem="{Binding EquipmentTarget.CameraType}" Width="120" HorizontalAlignment="Left"/>
+                    <TextBlock Grid.Column="3" Text="Pixel Binning:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <ComboBox Grid.Column="4" ItemsSource="{Binding EquipmentTarget.BinningOptions}"
+                              SelectedItem="{Binding EquipmentTarget.Binning}" Width="120" HorizontalAlignment="Left"/>
+                </Grid>
+
+                <!-- Filter -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Filter:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding EquipmentTarget.FilterCodes}"
+                              SelectedItem="{Binding EquipmentTarget.Filter}" Width="160" HorizontalAlignment="Left"/>
+                </Grid>
+
+                <!-- Filter Min + Max side by side -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="24"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Filter Min (nm):" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.FilterMin}" Width="110" HorizontalAlignment="Left"/>
+                    <TextBlock Grid.Column="3" Text="Filter Max (nm):" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBox Grid.Column="4" Text="{Binding EquipmentTarget.FilterMax}" Width="110" HorizontalAlignment="Left"/>
+                </Grid>
+                <TextBlock Classes="hint" Text="  Wavelengths auto-fill when a filter is selected above." Margin="4,0,0,4"/>
+
+                <!-- Pixel Scale -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Pixel Scale (arcsec/px):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding EquipmentTarget.PixelScales}"
+                              Text="{Binding EquipmentTarget.PixelScale}"
+                              IsEditable="True" HorizontalAlignment="Stretch" Margin="0,0,4,0"/>
+                    <Button Grid.Column="2" Classes="toolbar" Content="Save"
+                            Command="{Binding EquipmentTarget.SavePixelScaleCommand}" Margin="0,0,4,0"/>
+                    <Button Grid.Column="3" Classes="toolbar" Content="Remove"
+                            Command="{Binding EquipmentTarget.RemovePixelScaleCommand}"/>
+                </Grid>
+
+                <!-- Observing Notes -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Observing Notes:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding EquipmentTarget.NotesList}"
+                              Text="{Binding EquipmentTarget.Notes}"
+                              IsEditable="True" HorizontalAlignment="Stretch" Margin="0,0,4,0"/>
+                    <Button Grid.Column="2" Classes="toolbar" Content="Save"
+                            Command="{Binding EquipmentTarget.SaveNoteCommand}" Margin="0,0,4,0"/>
+                    <Button Grid.Column="3" Classes="toolbar" Content="Remove"
+                            Command="{Binding EquipmentTarget.RemoveNoteCommand}"/>
+                </Grid>
+
+                <!-- ── Observer Information ── -->
+                <TextBlock Classes="h2" Text="Observer Information" Margin="4,12,0,2"/>
+                <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
+
+                <!-- AAVSO Code -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="AAVSO Observer Code:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding Observation.AavsoCodes}"
+                              Text="{Binding Observation.AavsoCode}"
+                              IsEditable="True" HorizontalAlignment="Stretch" Margin="0,0,4,0"/>
+                    <Button Grid.Column="2" Classes="toolbar" Content="Save"
+                            Command="{Binding Observation.SaveAavsoCommand}" Margin="0,0,4,0"/>
+                    <Button Grid.Column="3" Classes="toolbar" Content="Remove"
+                            Command="{Binding Observation.RemoveAavsoCommand}"/>
+                </Grid>
+
+                <!-- Secondary Observer Codes -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Secondary Observer Codes:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding Observation.SecondaryCodes}"
+                              Text="{Binding Observation.SecondaryCode}"
+                              IsEditable="True" HorizontalAlignment="Stretch" Margin="0,0,4,0"/>
+                    <Button Grid.Column="2" Classes="toolbar" Content="Save"
+                            Command="{Binding Observation.SaveSecondaryCommand}" Margin="0,0,4,0"/>
+                    <Button Grid.Column="3" Classes="toolbar" Content="Remove"
+                            Command="{Binding Observation.RemoveSecondaryCommand}"/>
+                </Grid>
+
+                <!-- Observation Date -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Observation Date (DD-MON-YYYY):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding Observation.ObsDate}" Width="180" HorizontalAlignment="Left"/>
+                </Grid>
+                <TextBlock Classes="hint" Text="  e.g.  27-FEB-2026" Margin="4,0,0,4"/>
+
+                <!-- ── Observatory / Location ── -->
+                <TextBlock Classes="h2" Text="Observatory / Location" Margin="4,12,0,2"/>
+                <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
+
+                <!-- Select Observatory -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Select Observatory:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding Observation.ObservatoryNames}"
+                              SelectedItem="{Binding Observation.SelectedObservatory}"
+                              HorizontalAlignment="Stretch" Margin="0,0,4,0"/>
+                    <Button Grid.Column="2" Classes="toolbar" Content="Save current as"
+                            Command="{Binding Observation.SaveObservatoryCommand}" Margin="0,0,4,0"/>
+                    <Button Grid.Column="3" Classes="toolbar" Content="Remove"
+                            Command="{Binding Observation.RemoveObservatoryCommand}"/>
+                </Grid>
+                <TextBlock Classes="hint" Text="{Binding Observation.ObservatoryStatus}"
+                           Foreground="{Binding Observation.ObservatoryStatus, Converter={StaticResource StatusBrushConverter}}"
+                           Margin="4,0,0,2"/>
+
+                <!-- Lat + Lon side by side -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="24"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Latitude (+N / −S):" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding Observation.Latitude}" Width="150" HorizontalAlignment="Left"/>
+                    <TextBlock Grid.Column="3" Text="Longitude (+E / −W):" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBox Grid.Column="4" Text="{Binding Observation.Longitude}" Width="150" HorizontalAlignment="Left"/>
+                </Grid>
+
+                <!-- Elevation -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Elevation (meters):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding Observation.Elevation}" Width="140" HorizontalAlignment="Left"/>
+                </Grid>
+                <TextBlock Classes="hint"
+                           Text="  Selecting a saved observatory auto-fills the three fields above."
+                           Margin="4,0,0,4"/>
+
+                <!-- ── Plate Solve ── -->
+                <TextBlock Classes="h2" Text="Plate Solve" Margin="4,12,0,2"/>
+                <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
+                <StackPanel Orientation="Horizontal" Margin="4,2,4,2" Spacing="10">
+                    <Button Classes="toolbar" Content="Plate Solve"
+                            Command="{Binding Observation.StartPlateSolveCommand}"/>
+                    <TextBlock Classes="hint" Text="{Binding EquipmentTarget.PlateSolveStatus}"
+                               Foreground="{Binding EquipmentTarget.PlateSolveStatus, Converter={StaticResource StatusBrushConverter}}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Classes="hint" Text="{Binding EquipmentTarget.ActiveSolverLabel}"
+                               Foreground="{StaticResource BrushHint}"
+                               FontSize="14" VerticalAlignment="Center"
+                               IsVisible="{Binding EquipmentTarget.PlateSolveStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    <Button Classes="toolbar" Content="Cancel"
+                            Command="{Binding EquipmentTarget.CancelPlateSolveCommand}"
+                            IsVisible="{Binding EquipmentTarget.IsPsCancelVisible}"/>
+                    <Button Classes="toolbar" Content="Retry"
+                            Command="{Binding EquipmentTarget.RetryPlateSolveCommand}"
+                            IsVisible="{Binding EquipmentTarget.IsPsRetryEnabled}"/>
+                </StackPanel>
+
+                <!-- ── Star Selection ── -->
+                <TextBlock Classes="h2" Text="Star Selection" Margin="4,12,0,2"/>
+                <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
+
+                <!-- Import NINA Star List (no preview textbox) -->
+                <StackPanel Orientation="Horizontal" Margin="4,3" Spacing="10">
+                    <TextBlock Text="Import NINA Star List:" VerticalAlignment="Center"/>
+                    <Button Classes="toolbar" Content="Browse CSV..."
+                            Command="{Binding EquipmentTarget.BrowseCsvCommand}"/>
+                    <TextBlock Classes="hint" Text="{Binding EquipmentTarget.CsvFileName}" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- AAVSO comp fetch status -->
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="4,0">
+                    <TextBlock Classes="hint" Text="{Binding EquipmentTarget.AavsoCompStatus}"
+                               Foreground="{Binding EquipmentTarget.AavsoCompStatus, Converter={StaticResource StatusBrushConverter}}"
+                               FontWeight="Bold" VerticalAlignment="Center"/>
+                    <Button Classes="toolbar" Content="Retry Comps"
+                            Command="{Binding EquipmentTarget.RetryCompsCommand}"
+                            IsVisible="{Binding EquipmentTarget.IsCompsRetryEnabled}"/>
+                </StackPanel>
+
+                <!-- Target Star X,Y -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Target Star X,Y Pixel:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.TargetXY}" Width="220" HorizontalAlignment="Left"/>
+                </Grid>
+                <TextBlock Classes="hint" Text="  Format: [x, y]  (e.g. [1438, 884])" Margin="4,0,0,2"/>
+
+                <!-- Auto Select Target -->
+                <StackPanel Orientation="Horizontal" Margin="4,3" Spacing="10">
+                    <Button Classes="toolbar" Content="Auto Select Target"
+                            Command="{Binding EquipmentTarget.AutoSelectTargetCommand}"
+                            IsEnabled="{Binding EquipmentTarget.IsAutoTargetEnabled}"/>
+                    <TextBlock Classes="hint" Text="{Binding EquipmentTarget.AutoTargetStatus}"
+                               Foreground="{Binding EquipmentTarget.AutoTargetStatus, Converter={StaticResource StatusBrushConverter}}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Comparison Stars X,Y -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Comparison Stars X,Y Pixel:" VerticalAlignment="Top"
+                               Margin="0,6,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.CompXY}"
+                             AcceptsReturn="True" TextWrapping="Wrap"
+                             Height="90" FontSize="20"/>
+                </Grid>
+                <TextBlock Classes="hint" Text="  Format: [[x1,y1],[x2,y2], ...]  (up to 10 stars)" Margin="4,0,0,2"/>
+
+                <!-- Auto Select Comps -->
+                <StackPanel Orientation="Horizontal" Margin="4,3" Spacing="10">
+                    <Button Classes="toolbar" Content="Auto Select Comps"
+                            Command="{Binding EquipmentTarget.AutoSelectCompsCommand}"
+                            IsEnabled="{Binding EquipmentTarget.IsAutoCompsEnabled}"/>
+                    <TextBlock Classes="hint"
+                               Text="Finds stars with similar ADU to the target — fills remaining comp slots"
+                               VerticalAlignment="Center" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <TextBlock Classes="hint"
+                           Text="Still need more comps?  Go to Image Analysis tab, scan files, select an image, enable Pick Comp Stars, click stars, then Send to Comp Stars."
+                           Margin="4,0,0,6" TextWrapping="Wrap"/>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Vertical separator -->
+        <Rectangle Grid.Column="1" Width="1" Fill="{StaticResource BrushSep}" Margin="4,8"/>
+
+        <!-- ════════════════════════ RIGHT PANEL ═══════════════════════════ -->
+        <ScrollViewer Grid.Column="2"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="8,4,8,16" Spacing="2">
+
+                <!-- Planet name -->
+                <Grid Margin="4,10,4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Planet Name:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding EquipmentTarget.RecentPlanets}"
+                              Text="{Binding EquipmentTarget.PlanetName}"
+                              IsEditable="True" HorizontalAlignment="Stretch"/>
+                </Grid>
+
+                <!-- Fetch from NEA -->
+                <DockPanel Margin="4,2,4,0">
+                    <Button DockPanel.Dock="Left" Classes="toolbar" Content="Fetch from NEA"
+                            Command="{Binding EquipmentTarget.FetchFromNeaCommand}" Margin="0,0,10,0"/>
+                    <TextBlock Classes="hint" Text="{Binding EquipmentTarget.NeaStatus}"
+                               Foreground="{Binding EquipmentTarget.NeaStatus, Converter={StaticResource StatusBrushConverter}}"
+                               VerticalAlignment="Center" TextWrapping="Wrap"/>
+                </DockPanel>
+
+                <TextBlock Classes="hint"
+                           Text="Enter a planet name above and click Fetch from NEA to auto-fill — or enter values manually below."
+                           Margin="4,4,4,10" TextWrapping="Wrap"/>
+
+                <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,4"/>
+
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Target Star RA (decimal deg):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.TargetRa}"
+                             ToolTip.Tip="Right Ascension of the target star in decimal degrees (0–360). Auto-filled from NEA or plate solve."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Target Star Dec (decimal deg):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.TargetDec}"
+                             ToolTip.Tip="Declination of the target star in decimal degrees (−90 to +90). Auto-filled from NEA or plate solve."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Host Star Name:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.HostStarName}"
+                             ToolTip.Tip="Name of the host star (e.g. HAT-P-36). Used for AAVSO comp star lookup and VSP chart. Auto-filled from NEA."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Orbital Period (days):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.OrbitalPeriod}"
+                             ToolTip.Tip="Planet orbital period in days (e.g. 1.3274). Used by EXOTIC to predict transit timing."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="  Orbital Period Uncertainty:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.OrbitalPeriodUnc}"
+                             ToolTip.Tip="1σ uncertainty on the orbital period in days."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Mid-Transit Time (BJD-UTC):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.MidTransitTime}"
+                             ToolTip.Tip="Known mid-transit time as a Barycentric Julian Date (BJD-UTC), e.g. 2455728.34469. EXOTIC uses this as its reference epoch."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="  Mid-Transit Time Uncertainty:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.MidTransitTimeUnc}"
+                             ToolTip.Tip="1σ uncertainty on the mid-transit time in days."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Rp/Rs:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.RpRs}"
+                             ToolTip.Tip="Planet-to-star radius ratio. Its square equals the fractional transit depth (e.g. 0.12 means the planet is 12% of the star's radius). Typical range 0.01–0.35."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="  Rp/Rs Uncertainty:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.RpRsUnc}"
+                             ToolTip.Tip="1σ uncertainty on Rp/Rs."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="a/Rs:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.ARs}"
+                             ToolTip.Tip="Ratio of the orbital semi-major axis to the stellar radius. Controls transit duration. Typical hot-Jupiter values: 5–15."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="  a/Rs Uncertainty:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.ARsUnc}"
+                             ToolTip.Tip="1σ uncertainty on a/Rs."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Orbital Inclination (deg):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.Inclination}"
+                             ToolTip.Tip="Angle between the orbital plane and the plane of the sky, in degrees. 90° = edge-on (central transit). Typical range for transiting planets: 80°–90°."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="  Inclination Uncertainty:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.InclinationUnc}"
+                             ToolTip.Tip="1σ uncertainty on orbital inclination in degrees."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Orbital Eccentricity (0 if null):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.Eccentricity}"
+                             ToolTip.Tip="Orbital eccentricity (0 = circular). Most hot Jupiters have e ≈ 0. Enter 0 unless you have a published non-zero value."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Argument of Periastron (deg):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.ArgPeriastron}"
+                             ToolTip.Tip="Angle of closest orbital approach (periastron) measured from the ascending node, in degrees. Enter 0 if eccentricity is 0."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Star Eff. Temperature (K):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.Teff}"
+                             ToolTip.Tip="Host star effective temperature in Kelvin. Used for limb-darkening coefficients. Typical FGK stars: 4000–7000 K."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="  Teff (+) Uncertainty:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.TeffPlus}"
+                             ToolTip.Tip="Upper 1σ uncertainty on Teff in Kelvin."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="  Teff (-) Uncertainty:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.TeffMinus}"
+                             ToolTip.Tip="Lower 1σ uncertainty on Teff in Kelvin."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Star Metallicity ([FE/H]):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.Metallicity}"
+                             ToolTip.Tip="Host star iron abundance relative to solar, [Fe/H]. Solar = 0.0. Metal-rich stars typically +0.1 to +0.4; metal-poor −0.5 to 0.0."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="  Metallicity (+) Uncertainty:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.MetallicityPlus}"
+                             ToolTip.Tip="Upper 1σ uncertainty on [Fe/H]."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="  Metallicity (-) Uncertainty:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.MetallicityMinus}"
+                             ToolTip.Tip="Lower 1σ uncertainty on [Fe/H]."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Star Surface Gravity (log(g)):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.Logg}"
+                             ToolTip.Tip="Host star surface gravity as log₁₀(g) in cgs units (cm/s²). Main-sequence FGK stars: ~4.0–4.6. Giants: ~2.0–3.5."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="  log(g) (+) Uncertainty:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.LoggPlus}"
+                             ToolTip.Tip="Upper 1σ uncertainty on log(g)."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="  log(g) (-) Uncertainty:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.LoggMinus}"
+                             ToolTip.Tip="Lower 1σ uncertainty on log(g)."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Star Distance (pc):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.StarDistance}"
+                             ToolTip.Tip="Distance to the host star in parsecs. Used for informational purposes and AAVSO reporting."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Star Proper Motion RA (mas/yr):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.PmRa}"
+                             ToolTip.Tip="Host star proper motion in Right Ascension, in milliarcseconds per year."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock Text="Star Proper Motion DEC (mas/yr):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.PmDec}"
+                             ToolTip.Tip="Host star proper motion in Declination, in milliarcseconds per year."
+                             ToolTip.ShowDelay="2000"/>
+                </Grid>
+
+            </StackPanel>
+        </ScrollViewer>
+
+    </Grid>
+</UserControl>

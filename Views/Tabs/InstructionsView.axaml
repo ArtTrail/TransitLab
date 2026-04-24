@@ -1,0 +1,376 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="TransitLab.Views.Tabs.InstructionsView">
+
+    <UserControl.Styles>
+        <Style Selector="Button.link">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="{StaticResource BrushAccent}"/>
+            <Setter Property="FontFamily"      Value="Arial"/>
+            <Setter Property="FontSize"        Value="20"/>
+            <Setter Property="Padding"         Value="0,2"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor"          Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="Button.link:pointerover /template/ ContentPresenter">
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="Foreground"      Value="{StaticResource BrushBtnHov}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer x:Name="Scroller"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+
+        <StackPanel x:Name="ContentPanel" Spacing="6" Margin="32,20,32,24">
+
+            <!-- ── Search ────────────────────────────────────────────────────── -->
+            <Border Background="{StaticResource BrushBg2}"
+                    CornerRadius="4"
+                    Padding="10,8"
+                    Margin="0,0,0,4">
+                <DockPanel>
+                    <TextBlock x:Name="SearchStatus"
+                               DockPanel.Dock="Right"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource BrushHint}"
+                               FontSize="18"
+                               Margin="10,0,0,0"/>
+                    <Button DockPanel.Dock="Right" Content="Clear"
+                            Click="SearchClear_Click"
+                            Padding="12,4" Margin="6,0,0,0"/>
+                    <Button DockPanel.Dock="Right" Content="Find Next"
+                            Click="FindNext_Click"
+                            Padding="12,4" Margin="6,0,0,0"/>
+                    <TextBox x:Name="SearchBox"
+                             Watermark="Search guide…"
+                             KeyDown="SearchBox_KeyDown"/>
+                </DockPanel>
+            </Border>
+
+            <!-- ── Table of Contents ──────────────────────────────────────────── -->
+            <TextBlock Classes="h2" Text="Table of Contents" Margin="0,0,0,4"/>
+            <Border Background="{StaticResource BrushBg2}"
+                    CornerRadius="4"
+                    Padding="16,12"
+                    Margin="0,0,0,16">
+                <StackPanel Spacing="6">
+                    <Button Classes="link" Tag="Sec1"    Click="TocClick">1.  Data tab  (Directories + MicroObservatory)</Button>
+                    <Button Classes="link" Tag="Sec2"    Click="TocClick">2.  Parameters tab</Button>
+                    <Button Classes="link" Tag="Sec3"    Click="TocClick">3.  Parameters tab — Planet Parameters</Button>
+                    <Button Classes="link" Tag="Sec4"    Click="TocClick">4.  Image Analysis tab</Button>
+                    <Button Classes="link" Tag="SecVis"  Click="TocClick">4a. Visualizer tab</Button>
+                    <Button Classes="link" Tag="Sec5"    Click="TocClick">5.  Menu Bar</Button>
+                    <Button Classes="link" Tag="Sec6"    Click="TocClick">6.  Save &amp; Run EXOTIC</Button>
+                    <Button Classes="link" Tag="Sec7"    Click="TocClick">7.  Results tab</Button>
+                    <Button Classes="link" Tag="Sec8"    Click="TocClick">8.  History tab</Button>
+                    <Button Classes="link" Tag="Sec9"    Click="TocClick">9.  Python &amp; EXOTIC Setup  (Tools → Python &amp; EXOTIC Setup)</Button>
+                    <Button Classes="link" Tag="Sec10"   Click="TocClick">10.  Plate Solve Setup  (Tools → Plate Solve Setup)</Button>
+                    <Button Classes="link" Tag="Sec11"   Click="TocClick">11.  Settings  (Tools → Settings)</Button>
+                    <Button Classes="link" Tag="Sec11a"  Click="TocClick">11a. Notifications</Button>
+                    <Button Classes="link" Tag="Sec11b"  Click="TocClick">11b. Automation</Button>
+                    <Button Classes="link" Tag="Sec12"   Click="TocClick">12.  Diagnostics  (Tools → Diagnostics)</Button>
+                    <Button Classes="link" Tag="SecTips" Click="TocClick">Tips</Button>
+                </StackPanel>
+            </Border>
+
+            <!-- ── 1. Data tab ──────────────────────────────────────────────── -->
+            <TextBlock x:Name="Sec1" Classes="h2" Text="1.  Data tab  (Directories + MicroObservatory)" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• The Data tab has two sections: Directories at the top (where you set your Lights, Darks, Flats, Biases, and Save Plots directories), and MicroObservatory (MObs) below — for downloading FITS data directly from the MicroObservatory telescope network."/>
+            <TextBlock TextWrapping="Wrap" Text="• Set your Download Directory and check 'Set as default' to remember it. A target subdirectory is created automatically inside the download directory."/>
+            <TextBlock TextWrapping="Wrap" Text="• Select a Telescope from the dropdown (Cecilia, Donald, Ben, Ed — defaults to Cecilia) and set Lookback days, then click Fetch List to retrieve recent observations. Columns are sortable by clicking the header."/>
+            <TextBlock TextWrapping="Wrap" Text="• Select an observation and click Download Selected. Science frames go into the target subfolder; dark calibration frames go into a Darks subfolder."/>
+            <TextBlock TextWrapping="Wrap" Text="• Click Use This Data to automatically populate the Lights and Darks directories and switch to the Parameters tab. Then click Read FITS Header (at the top of the Parameters tab) to fill in date, filter, binning, and planet parameters."/>
+            <TextBlock TextWrapping="Wrap" Text="• Planet name is auto-formatted: 'HATP-36' → 'HAT-P-36 b',  'WASP-160B' → 'WASP-160 B b', etc." Margin="0,0,0,12"/>
+
+            <!-- ── 2. Parameters tab ────────────────────────────────────────── -->
+            <TextBlock x:Name="Sec2" Classes="h2" Text="2.  Parameters tab" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• Click Read FITS Header at the top of this tab — auto-fills date, filter, and binning (shown beside the button), plus pixel scale, observing notes, site coordinates, and planet name in the background, then fetches NEA parameters. Filter values 'C' and 'Clear' are automatically mapped to 'CV'."/>
+            <TextBlock TextWrapping="Wrap" Text="• Note: directories (FITS, Save Plots, Darks, Flats, Biases) are set on the Data tab. Read FITS Header is disabled when a new FITS directory has been browsed but the header has not yet been read — the Save &amp; Run button will also be disabled until you click Read FITS Header."/>
+            <TextBlock TextWrapping="Wrap" Text="• If the first FITS file is not already plate-solved, the launcher automatically submits it to astrometry.net in the background and writes the WCS solution back — no action required. Once WCS is available, AAVSO comparison stars are fetched automatically (see Equipment &amp; Target tab for status). If the plate solve does not start or fails, click the Retry button (visible in the Star Selection area) to try again without re-reading the FITS header."/>
+            <TextBlock TextWrapping="Wrap" Text="• When loading a previous inits.json, the Select Observatory dropdown is auto-matched from the saved lat/lon/elevation — or set to '— custom —' if the coordinates don't match any saved observatory."/>
+            <TextBlock TextWrapping="Wrap" Text="• Confirm or set your AAVSO Observer Code and observatory." Margin="0,0,0,12"/>
+
+            <!-- ── 3. Parameters tab — Planet Parameters ─────────────────────── -->
+            <TextBlock x:Name="Sec3" Classes="h2" Text="3.  Parameters tab — Planet Parameters" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• This panel (right side of Parameters tab) shows Planet Parameters: planet name and orbital/physical parameters. (Most fields are auto-filled by Read FITS Header at the top of the Parameters tab.)"/>
+            <TextBlock TextWrapping="Wrap" Text="• If your filter has no known wavelength range, you will be prompted to enter the minimum and maximum wavelengths before EXOTIC is launched."/>
+            <TextBlock TextWrapping="Wrap" Text="• Planet name and parameters are auto-fetched when Read FITS Header runs. Planet names are looked up case-insensitively — 'tres-3 b' resolves to the canonical 'TrES-3 b' automatically. Click Fetch from NEA manually if you change the planet name. Review all values before running — NEA data is not always current."/>
+            <TextBlock TextWrapping="Wrap" Text="• Hover any planetary parameter field for 2 seconds to see a tooltip describing the parameter, its units, and a typical value range."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="How the NEA query works: the launcher uses the same two-pass strategy as EXOTIC. The most recent publication from the per-publication table (ps, tran_flag=1) is used as the primary data source. Any fields that are null in that row are filled by scanning earlier publications in the same table. If a direct value is unavailable, Rp/Rs is computed from transit depth or planet/stellar radii, and a/Rs is computed via Kepler's third law. Missing inclination defaults to 90°, eccentricity to 0, and argument of periastron to 0 — matching EXOTIC's own fallbacks. This alignment minimises parameter differences between the launcher and EXOTIC, reducing or eliminating the mid-run review prompts."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,6,0,0" Text="Defaults for missing parameters: if the NEA does not report a value for one or more parameters, the launcher fills in a reasonable placeholder rather than leaving the field blank (which would block EXOTIC from running). The following defaults may be applied:"/>
+            <TextBlock TextWrapping="Wrap" Margin="40,2,0,0" Text="• Rp/Rs — if the value from NEA is outside the physically plausible range for a transiting exoplanet (0.01–0.35), it is recalculated from transit depth or from the published planet and stellar radii. A warning is shown in the NEA status line."/>
+            <TextBlock TextWrapping="Wrap" Margin="40,2,0,0" Text="• Rp/Rs Uncertainty — computed alongside the substituted Rp/Rs value (propagated from transit depth uncertainty or planet/stellar radius uncertainties). If no source uncertainty is available, it is estimated at 10% of the substituted value."/>
+            <TextBlock TextWrapping="Wrap" Margin="40,2,0,0" Text="• a/Rs Uncertainty — set to 0.1 when not reported."/>
+            <TextBlock TextWrapping="Wrap" Margin="40,2,0,0" Text="• Star Metallicity [Fe/H] and its uncertainties — set to 0.0 ± 0.1 (solar) when not reported."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" Text="Whenever any of these defaults are applied, a notification dialog appears immediately after the NEA fetch listing exactly which values were estimated. You can dismiss the dialog and then edit any field directly on the Equipment &amp; Target tab before clicking Save &amp; Run. Always replace estimated values with published data if it is available."/>
+            <TextBlock TextWrapping="Wrap" Text="• As soon as a plate-solved image is available, AAVSO comparison stars are fetched automatically in the background. Stars within 10% of the frame border or within 30 pixels of the target are excluded. A status line shows:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="⟳  Fetching AAVSO comparison stars…  (while running)"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Foreground="{StaticResource BrushOk}"  Text="✓  N AAVSO comparison stars loaded  (comp fields populated)"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Foreground="{StaticResource BrushErr}" Text="✗  No AAVSO comparison stars found  (use manual methods below)"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Foreground="{StaticResource BrushWarn}" Text="⚠  Skipped — fetch planet parameters first"/>
+            <TextBlock TextWrapping="Wrap" Margin="0,6,0,0" Text="• Retry buttons appear below the plate solve status line:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Retry Plate Solve  — visible when a plate solve has failed or been cancelled. Click to re-attempt without re-reading the FITS header."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Retry Comps  — visible once WCS is ready. Click to re-fetch AAVSO comparison stars at any time (e.g. after changing the planet name)."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,6,0,0" Text="• Additional star selection methods:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Auto Select Target"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Uses the target's RA/Dec (from Planet Parameters) and the WCS in the plate-solved FITS to compute the exact pixel position instantly."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Import NINA Star List — Browse CSV…"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Imports the star list CSV generated by the NINA Exoplanet Plugin. Fills both the target and comp positions in one step."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Auto Select Comps"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Scans the first FITS frame and selects comparison stars using the following criteria:"/>
+            <TextBlock TextWrapping="Wrap" Margin="36,2,0,0" Text="• Edge exclusion: stars within 10% of any frame border are excluded."/>
+            <TextBlock TextWrapping="Wrap" Margin="36,2,0,0" Text="• Target exclusion: stars within a 20-pixel radius of the target are excluded."/>
+            <TextBlock TextWrapping="Wrap" Margin="36,2,0,0" Text="• Brightness range: only stars between 10% and 100% of the target's peak ADU are considered. Stars brighter than the target or too faint are rejected."/>
+            <TextBlock TextWrapping="Wrap" Margin="36,2,0,0" Text="• Ranking: candidates are ranked by brightness similarity to the target (closest ADU match first). This naturally distributes comp stars across the frame rather than clustering them near the target."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="Fills remaining comp slots up to 10 — combine with AAVSO or CSV results. If 10 comps are already present a warning dialog appears."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Pick Target Star  (Image Analysis tab)"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="If plate solving fails (e.g. sparse star field or poor WCS coverage), Auto Select Target cannot compute the target position. Use Pick Target Star instead: open the Image Analysis tab, click Pick Target Star, click the target in the image, then click Send to Target Star. This unlocks Auto Select Comps without needing a plate solution."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Pick Comp Stars  (Image Analysis tab)"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Click stars directly in the image viewer — useful when other methods fail."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,6,0,12" Text="• All comp methods stack — duplicates removed, total capped at 10."/>
+
+            <!-- ── 4. Image Analysis tab ─────────────────────────────────────── -->
+            <TextBlock x:Name="Sec4" Classes="h2" Text="4.  Image Analysis tab" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• When the Lights Directory is set on the Data tab, Image Analysis automatically scans and flags files using the last-used σ threshold. Flagged frames are NOT automatically excluded — use 'Auto-exclude Flagged' to exclude them all, or check individual Excl boxes manually."/>
+            <TextBlock TextWrapping="Wrap" Text="• Click Scan Files at any time to re-scan (e.g. after changing the threshold). The status bar shows 'Scanning N / N…' while scanning is underway."/>
+            <TextBlock TextWrapping="Wrap" Text="• The Background column shows each frame's median pixel value (ADU), sampled across the image for speed. Frames whose background exceeds the set σ threshold above the session median are flagged in red."/>
+            <TextBlock TextWrapping="Wrap" Text="• Adjust the σ threshold to control flagging sensitivity (default 3 σ). The threshold value is remembered between sessions."/>
+<TextBlock TextWrapping="Wrap" Text="• Click any column header to sort the list; click again to reverse."/>
+            <TextBlock TextWrapping="Wrap" Text="• Click any filename to preview the image. The first image viewed auto-stretches to a 0.5–99.5 percentile range automatically."/>
+            <TextBlock TextWrapping="Wrap" Text="• The histogram below the image shows the pixel value distribution of the current frame. The red line marks the black point and the cyan line marks the white point."/>
+            <TextBlock TextWrapping="Wrap" Text="• Black/White sliders: use +/− buttons to step 1 ADU per click (hold for auto-repeat), or drag the slider. Once you manually adjust either level, those settings are locked and carry over when you click other frames — click Auto Stretch to reset to an automatic 0.5–99.5 percentile stretch (and re-enable auto-stretch for subsequent frames)."/>
+            <TextBlock TextWrapping="Wrap" Text="• Move the mouse over the image to see the X/Y pixel coordinates and ADU value displayed below the stretch sliders."/>
+            <TextBlock TextWrapping="Wrap" Text="• Zoom: use the Zoom + / Zoom − buttons or scroll the mouse wheel over the image. Click Reset to return to the fit-to-viewer zoom."/>
+            <TextBlock TextWrapping="Wrap" Text="• Pan: click and drag the image with the left mouse button to reframe."/>
+            <TextBlock TextWrapping="Wrap" Text="• Pick Target Star / Pick Comp Stars: click either button to enter pick mode, then click a star in the image. A red crosshair marks the target; each comp star gets a numbered cyan circle. All markers stay anchored to the correct pixel through any zoom or pan. Click Send to Target Star or Send to Comp Stars to transfer the coordinates to the Equipment &amp; Target tab. Picks must be made on the first non-excluded image (the one EXOTIC uses as its alignment reference) — if you click Pick on any other frame a dialog will remind you to navigate to the first image."/>
+            <TextBlock TextWrapping="Wrap" Text="• VSP Chart row (second control row) — downloads and displays an AAVSO Variable Star Plotter chart for the target. Set FOV′ (arcminutes) and Mag limit, then type the host star name in the Star field (e.g. HAT-P-36) and click VSP Chart. The Star field auto-fills when planet parameters are fetched from NEA, so no FITS header is needed to view the chart. The chart window is non-modal — you can continue using the app while it is open."/>
+            <TextBlock TextWrapping="Wrap" Text="• Dark-subtract before background estimate — when checked, the launcher loads all FITS files in the Darks directory, averages them into a master dark, and subtracts it from each science frame before computing the background value used for flagging."/>
+            <TextBlock TextWrapping="Wrap" Text="• The status row below the scan controls shows two counters: images excluded and images flagged. The flagged counter turns yellow when one or more frames are flagged."/>
+            <TextBlock TextWrapping="Wrap" Text="• Check the Excl column to mark images for exclusion. Scanning flags images automatically but does NOT check Excl — use Auto-exclude Flagged to check all flagged images at once, or tick boxes individually. Unchecking removes the mark immediately with no re-scan needed."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="How exclusion works: the Excl checkbox is an in-memory flag only — no files are moved when you check or uncheck it. When Save &amp; Run is clicked, any images still marked Excl are physically moved aside so EXOTIC cannot see them. After EXOTIC finishes they are moved back automatically."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="When Save &amp; Run is clicked with one or more images marked Excl, a confirmation dialog lists every excluded image by number and filename. Click Proceed to continue or Cancel to adjust. No dialog appears when nothing is excluded."/>
+            <TextBlock TextWrapping="Wrap" Text="• Click Restore Excluded to un-check all Excl boxes in the current list. This does not move any files — it simply clears all exclusion marks so every image will be included in the next run." Margin="0,0,0,12"/>
+
+            <!-- ── 4a. Visualizer tab ─────────────────────────────────────────── -->
+            <TextBlock x:Name="SecVis" Classes="h2" Text="4a.  Visualizer tab" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="The Visualizer tab shows a real-time animated transit simulation. It loads initial values from the planet parameters on the Parameters tab (Rp/Rs, a/Rs, Inclination, Orbital Period), but any changes made in the Visualizer are local to the Visualizer — they do not write back to the Parameters tab. Use the Visualizer to explore 'what-if' scenarios freely without disturbing your saved parameters."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,6,0,4" FontWeight="SemiBold" Text="Geometry panel (left)"/>
+            <TextBlock TextWrapping="Wrap" Text="• The target/planet name is shown at the top of the panel and updates automatically when you change the planet name or host star name on the Parameters tab."/>
+            <TextBlock TextWrapping="Wrap" Text="• The star color adapts to the host star's effective temperature (Teff). Hot A/F stars (Teff &gt; 7500 K) appear white-blue; solar-type G stars yellow; K-type orange; M-type red-orange. Enter Teff on the Parameters tab to see the correct color. Solar-yellow is used as the default when Teff is not entered."/>
+            <TextBlock TextWrapping="Wrap" Text="• The star is rendered with a limb-darkening radial gradient, faculae patches, and sunspots. Concentric glow rings around the star are labelled 'Limb darkening'."/>
+            <TextBlock TextWrapping="Wrap" Text="• The planet appearance adapts to its estimated size class (based on Rp/Rs). Gas giants (k ≥ 0.09) show atmospheric banding with a storm oval. Neptune-class (k 0.05–0.09) show teal-blue banding. Small/rocky planets (k &lt; 0.05) appear grey-blue."/>
+            <TextBlock TextWrapping="Wrap" Text="• The orbital chord (dashed line) shows the path the planet centre traces across or near the stellar disk. The planet moves left to right."/>
+            <TextBlock TextWrapping="Wrap" Text="• T₁ and T₄ tick marks (first and fourth contact) are placed at the planet's edge position at the moment of contact — the tick aligns with the star's limb rather than the planet's center. T₂ and T₃ (inner boundary of full overlap) are shown for non-grazing transits only."/>
+            <TextBlock TextWrapping="Wrap" Text="• The dashed orange line shows the impact parameter b — the projected perpendicular distance from the star's centre to the transit chord in stellar radii."/>
+            <TextBlock TextWrapping="Wrap" Text="• The planet is shown in full color during transit and fades to near-invisible when behind the star."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,6,0,4" FontWeight="SemiBold" Text="Light curve panel (right)"/>
+            <TextBlock TextWrapping="Wrap" Text="• Shows flux (normalised stellar brightness) vs. hours from mid-transit, computed using a quadratic limb-darkened transit model. Out of transit flux is 1.0; the transit appears as a downward dip."/>
+            <TextBlock TextWrapping="Wrap" Text="• The display window spans ±1.5×T₁₄ around mid-transit (total 3×T₁₄), keeping the transit event prominent."/>
+            <TextBlock TextWrapping="Wrap" Text="• The red cursor line tracks the current orbital phase. The time offset from mid-transit is shown to the left of the cursor and the current flux value to the right, both at the top of the cursor. The transit depth Δ = …% is displayed directly beneath the trough of the light curve (at mid-transit)."/>
+            <TextBlock TextWrapping="Wrap" Text="• Load Photometry… — click to import observed photometry data and overlay it on the model light curve. Supported formats: AAVSO EXOTIC output files (.txt with TYPE=EXOPLANET header) and generic two-column CSV files (phase, flux). AAVSO files use BJD_TDB dates; the launcher automatically converts them to phase using Tc and Period from the file header. Observed data points are shown as yellow dots; a legend appears in the upper-right corner. Import a new file or close and re-open the tab to clear the overlay."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,6,0,4" FontWeight="SemiBold" Text="Animation controls"/>
+            <TextBlock TextWrapping="Wrap" Text="• Play / Pause — starts or pauses the animation. The transit (T₁₄ duration) always takes approximately 8 seconds at Speed 1×."/>
+            <TextBlock TextWrapping="Wrap" Text="• Reset — stops playback and jumps back to just before ingress (T₁)."/>
+            <TextBlock TextWrapping="Wrap" Text="• Speed slider — scales animation speed from 0.2× to 5×."/>
+            <TextBlock TextWrapping="Wrap" Text="• Orbit slider — drag to manually scrub the planet to any orbital phase (0–1, where 0.5 = mid-transit). Works while the animation is playing or paused. The phase readout (φ = …) updates in real time."/>
+            <TextBlock TextWrapping="Wrap" Text="• Auto-loop: after egress the animation holds at T₄ for 1.5 seconds, then jumps back to pre-ingress and continues automatically."/>
+            <TextBlock TextWrapping="Wrap" Text="• Parameters ▶ button — opens the Visualizer Parameters sandbox window. Sliders here control what the animation displays; they do not affect the Parameters tab. Available controls:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="Rp/Rs — planet-to-star radius ratio (sets transit depth and planet size)."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="Inclination — orbital inclination in degrees. Changing inclination moves the transit chord vertically and automatically updates the Impact Parameter b display."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="Impact Param b — the projected distance of the transit chord from the star's centre in stellar radii. Coupled to Inclination: dragging b recalculates the inclination angle and vice versa. Dragging a/Rs keeps inclination fixed and adjusts b accordingly."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="a/Rs — orbital semi-major axis in stellar radii (affects transit duration and impact parameter)."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="u₁, u₂ — quadratic limb darkening coefficients. u₁ controls the linear darkening toward the limb; u₂ controls the quadratic curvature. Hover each slider for typical values by spectral type. These shape the rounded bottom of the transit light curve."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="Reset — restores all sandbox sliders to the current values from the Parameters tab."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,6,0,4" FontWeight="SemiBold" Text="Derived quantities bar (bottom)"/>
+            <TextBlock TextWrapping="Wrap" Text="• Impact Param b, Transit Depth, T₁₄ (full duration), T₂₃ (flat-bottom duration), Stellar Density, and Spectral Type are shown below the panels and update automatically. T₂₃ reads 'Grazing' for grazing transits. Stellar density is expressed in solar units (ρ★/ρ☉) and is derived from a/Rs and the orbital period. Spectral type is inferred from Teff (O through M/L-T) with a brief description." Margin="0,0,0,12"/>
+
+            <!-- ── 5. Menu Bar ────────────────────────────────────────────────── -->
+            <TextBlock x:Name="Sec5" Classes="h2" Text="5.  Menu Bar" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• The menu bar sits at the very top of the window and is always accessible regardless of which tab is active."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="File menu"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Load previous inits.json…  — loads a prior config to re-populate all fields."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Save inits.json Only  — saves without launching (useful for review before running)."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Recent Sessions  — hover to see the last 10 runs; click any entry to reload it instantly."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Tools menu"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Clear All Fields  — resets all fields to defaults for a fresh session."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Python &amp; EXOTIC Setup  — opens the Python and EXOTIC installation wizard (see section 9)."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Plate Solve Setup  — opens the plate solver configuration dialog (see section 10)."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Diagnostics  — opens the current session log in a live-updating scrollable viewer. The log captures startup, every EXOTIC output line, plate solve and AAVSO results, NEA queries, and any errors or warnings from any part of the app. Use this window to diagnose problems or to share a log with support. Click Save Log… to export the log as a .txt file, or click ⏸ Pause to freeze the view while new entries arrive."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Settings  — opens the Settings dialog. Completion Sound: choose from Tada, Chime, or Ding (built-in Windows sounds), None (silent), or Custom… (browse for a WAV, MP3, or AIFF file on your computer). Click Test to preview the selected sound before saving."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Help menu"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Quick Start  — a concise 7-step guide for new users. Start here."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="User Guide  — opens this window."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Revision History  — shows what changed in each version."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,12" Text="About TransitLab  — version, author, acknowledgements, and release-of-liability notice."/>
+
+            <!-- ── 6. Save & Run EXOTIC ─────────────────────────────────────── -->
+            <TextBlock x:Name="Sec6" Classes="h2" Text="6.  Save &amp; Run EXOTIC" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• Save &amp; Run EXOTIC and Cancel are in the top bar, always visible:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Save &amp; Run EXOTIC  — saves inits.json then launches EXOTIC. Clicking the button always switches to the Results tab. If a new FITS directory was browsed but Read FITS Header has not been clicked, an explanatory dialog appears and the run is blocked until the header is read."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="⏹ Cancel  — appears while EXOTIC is running; click to abort."/>
+            <TextBlock TextWrapping="Wrap" Text="• inits.json is saved to the Save Plots directory."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,12" Text="• EXOTIC runs inside the launcher — no separate console window opens. Output is streamed live to the Results tab. The launcher stays open and responsive while EXOTIC runs."/>
+
+            <!-- ── 7. Results tab ────────────────────────────────────────────── -->
+            <TextBlock x:Name="Sec7" Classes="h2" Text="7.  Results tab" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• The Results tab opens automatically when EXOTIC starts running."/>
+            <TextBlock TextWrapping="Wrap" Text="• ⏸ Pause Log button — toggles auto-scroll. When active, the log stops scrolling so you can read output while EXOTIC is still running. Click again to resume auto-scroll. The button is in the top-right corner of the log panel."/>
+            <TextBlock TextWrapping="Wrap" Text="• The Auto / Manual prompts toggle (next to the EXOTIC Log label) controls how EXOTIC's mid-run questions are handled:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Auto prompts (default)  — known prompts are answered automatically: secondary observer codes are sent from the launcher form, and 'Enter 1 or 2' (use your defined parameters vs. review NEA differences) always answers 1. All other unexpected prompts are still surfaced to you."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Manual prompts  — every question EXOTIC asks appears in the input box below the log window. Type your response and press Enter or click Send. Use this mode if you want to review NEA parameter differences individually during a run."/>
+            <TextBlock TextWrapping="Wrap" Text="• The top section streams EXOTIC's live log output with colour coding:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Foreground="{StaticResource BrushOk}"  Text="Green  — success messages and final parameters"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Foreground="{StaticResource BrushWarn}" Text="Amber  — warnings (e.g. missing calibration files)"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Foreground="{StaticResource BrushErr}" Text="Red    — errors"/>
+            <TextBlock TextWrapping="Wrap" Margin="0,6,0,0" Text="• When EXOTIC finishes, the light curve plot is displayed automatically in the centre panel."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="EXOTIC fits the light curve using nested sampling (Ultranest or Dynesty) — a Bayesian method that maps the full probability distribution of each parameter rather than finding a single best-fit value. The result is a range of plausible solutions; EXOTIC reports the median and 1σ credible interval. Tighter, cleaner data produces narrower intervals and more consistent results; noisier data produces wider intervals."/>
+            <TextBlock TextWrapping="Wrap" Text="• The lower panel provides direct upload to AAVSO:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Login"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Enter your AAVSO username and password and click Login. Tick 'Save password' to remember it between sessions."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="AAVSO Exoplanet  (exosite)"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="The report file and light curve image are detected automatically. Select Site and Equipment Package, tick 'I accept the GDPR terms', then click Upload to AAVSO Exoplanet. A confirmed upload is recorded automatically in the History tab."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="WebObs AID"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="The AID file is detected automatically. Click Open WebObs in Browser to go directly to the AAVSO WebObs upload page. WebObs requires manual review and approval of the data before final submission."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Transit Post Generator"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,12" Text="Click Open Transit Post Generator to open the Exoplanet Slacker website, where you can create a formatted Slack/Discord post from your results. (Douglas James &amp; Exoplanet Slacker)"/>
+
+            <!-- ── 8. History tab ────────────────────────────────────────────── -->
+            <TextBlock x:Name="Sec8" Classes="h2" Text="8.  History tab" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• The History tab keeps a permanent record of every accepted AAVSO Exoplanet submission, stored in submission_history.json next to config.json. This file is preserved across rebuilds."/>
+            <TextBlock TextWrapping="Wrap" Text="• A row is added automatically after each successful upload. Columns: Planet, Obs, Obs Date, Submitted, Tmid (BJD_TDB) ± uncertainty, (Rp/R*)² ± uncertainty, SNR, Depth %, Inc °, Duration, Scatter %."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Obs Date is derived automatically from the Tmid BJD_TDB value."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="SNR = (Rp/R*)² ÷ ±(Rp/R*)² — a quality indicator; &gt;8 is a well-detected transit."/>
+            <TextBlock TextWrapping="Wrap" Text="• Click any column header to sort; click again to reverse. Column widths can be resized by dragging — widths are saved automatically."/>
+            <TextBlock TextWrapping="Wrap" Text="• Editing records:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Double-click any row to open an edit dialog and correct any field."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Add Entry — opens a blank dialog for a manual entry."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Delete Selected — removes the highlighted row permanently."/>
+            <TextBlock TextWrapping="Wrap" Text="• Importing data:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Import FinalParams JSON… — browse to any FinalParams_*.json from a previous EXOTIC run. Numeric fields are pre-filled; Planet and Observatory are left blank."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Import CSV/XLSX… — restore history from a previously exported file. Duplicate rows (matched by planet + obs date + Tmid) are skipped."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,12" Text="• Download CSV / Download XLSX — export the full history table. XLSX includes a formatted navy header row and auto-sized columns."/>
+
+            <!-- ── 9. Python & EXOTIC Setup ──────────────────────────────────── -->
+            <TextBlock x:Name="Sec9" Classes="h2" Text="9.  Python &amp; EXOTIC Setup  (Tools → Python &amp; EXOTIC Setup)" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• The Python &amp; EXOTIC Setup wizard walks you through installing, updating, or repairing Python and EXOTIC. Open it from Tools → Python &amp; EXOTIC Setup in the menu bar."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Check System"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Scans for an existing Python installation (≥ 3.8) and checks whether EXOTIC is installed. Shows the detected version and path for each. Run this first — it enables the other buttons based on what is found."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Download &amp; Install Python"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Downloads the Python 3.10.11 installer to your Temp folder (progress bar shown) and runs a silent installation. Enabled only when Python is not found."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Install EXOTIC"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Upgrades pip, installs the required prerequisite packages (setuptools, wheel), then installs or upgrades EXOTIC via pip and streams the full output to the log box. Use this for first-time installs and routine upgrades. Enabled once Python is detected."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Uninstall EXOTIC"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Removes EXOTIC from your Python environment using  pip uninstall exotic -y. Python is left intact. Enabled after Check System confirms EXOTIC is present."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,6,0,4" Text="• When EXOTIC is successfully found or installed, its path is saved automatically and the launcher uses it immediately — no restart required."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,4" Text="• Setup activity is automatically recorded in the session log — use Tools → Diagnostics to view and save the full log."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,4,0,0" FontWeight="SemiBold" Text="Pre-release / Development Build"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="The EXOTIC developers occasionally publish test builds to a specific GitHub branch before they are included in an official release. If directed to test one, paste the GitHub URL in the format  https://github.com/rzellem/EXOTIC.git@branch-name  and click Install Pre-release. TransitLab checks whether Git is installed on your machine and installs it automatically (via winget) if it is not. A UAC elevation prompt may appear — click Yes to allow it. To revert to the official stable release, click Install EXOTIC above."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,12" Classes="hint" Text="Pre-release builds are not officially supported and may produce unexpected results. Use only when directed by the EXOTIC developers."/>
+
+            <!-- ── 10. Plate Solve Setup ─────────────────────────────────────── -->
+            <TextBlock x:Name="Sec10" Classes="h2" Text="10.  Plate Solve Setup  (Tools → Plate Solve Setup)" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• Open from Tools → Plate Solve Setup. This dialog configures how the launcher plate-solves your FITS images to obtain sky coordinates (WCS). Plate solving is required for automatic target and comparison star selection."/>
+            <TextBlock TextWrapping="Wrap" Text="• Two solvers are available. Select one using the radio buttons at the top of the dialog:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Astrometry.net  (default)"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Uses EXOTIC's built-in astrometry.net integration to submit the image to the online plate-solving service. Requires EXOTIC to be installed and an active internet connection. No additional configuration is needed — this is the default."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="ASTAP  (local, offline)"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="ASTAP (Astrometric STAcking Program) is a free local solver that runs entirely on your machine. It is much faster than astrometry.net and works without an internet connection or EXOTIC installation. It must be downloaded and configured separately."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,8,0,4" FontWeight="SemiBold" Text="Setting up ASTAP:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Step 1 — Download and install ASTAP"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Click the link button in the dialog to open the ASTAP download page (hnsky.org/astap.htm). Download the Windows installer and run it. The default install location is C:\Program Files\astap\."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Step 2 — Download a star catalog"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="ASTAP requires a star catalog to solve images. On the same download page, download one of the available catalogs — the H17 (280 MB) or D80 (500 MB) are recommended for most use cases and work well for typical exoplanet fields. Run the catalog installer; it installs the catalog files into the ASTAP program folder by default."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Step 3 — Configure the path in the launcher"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="In the Plate Solve Setup dialog, click Auto-detect — the launcher checks C:\Program Files\astap\ automatically for astap_cli.exe (preferred) or astap.exe. If ASTAP is installed elsewhere, click Browse… to navigate to the executable. The Catalog Folder field is optional — leave it blank if your catalog files are in the same folder as the executable."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Step 4 — Test"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Click Test. If ASTAP is found, the detected version appears and the catalog status lists which catalog files were located. A green status means ASTAP is ready."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,8,0,0" FontWeight="SemiBold" Text="ASTAP options:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" Text="• Search Radius (arcminutes, 10–600, default 60ʹ) — how wide an area ASTAP searches when solving. If your FITS header contains approximate coordinates from the telescope pointing model, 60ʹ (1°) is usually sufficient. If solving fails or your header coordinates are unreliable, try increasing this value."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="• Downsample (default 0 = auto) — reduces image size before solving. Leave at 0 unless solving is very slow on your machine; auto lets ASTAP choose the optimal setting for your image size."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="• Solve ALL images — when checked, clicking Plate Solve solves every FITS file in your FITS directory (not just the first one). Useful when WCS coordinates are needed on all frames. Default is off (solve first image only)."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,8,0,12" Text="• Note: 'Warning scale was inaccurate!' is a normal ASTAP success message, not an error. It means ASTAP detected that the actual field of view differs slightly from what the FITS header indicated — the solve succeeded and WCS was written to the file. The launcher displays 'ASTAP plate solve complete — WCS written to FITS.' for any successful ASTAP solve. The active solver is shown on the Equipment &amp; Target tab (e.g. 'Solver: ASTAP')."/>
+
+            <!-- ── 11. Settings ───────────────────────────────────────────────── -->
+            <TextBlock x:Name="Sec11" Classes="h2" Text="11.  Settings  (Tools → Settings)" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="The Settings menu (Tools → Settings) contains two subsections: Notifications and Automation. Each opens its own dedicated window." Margin="0,0,0,12"/>
+
+            <!-- ── 11a. Notifications ─────────────────────────────────────────── -->
+            <TextBlock x:Name="Sec11a" Classes="h2" Text="11a.  Notifications" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="Access via Tools → Settings → Notifications. Configure the sounds TransitLab plays when operations complete." Margin="0,0,0,6"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,4" FontWeight="SemiBold" Text="Completion sound"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,8" Text="Choose from three built-in Windows sounds (Tada, Chime, Ding), silence (None), or a custom audio file from your computer (WAV, MP3, or AIFF). Click Test to preview the selected sound before saving. The default is Tada."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,4" FontWeight="SemiBold" Text="Operation status alerts"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,12" Text="When enabled, TransitLab plays a short Windows Device Connect sound on success or a Device Disconnect sound on failure after each of these operations: NEA target fetch, plate solve, and AAVSO comparison star fetch. Enabled by default; toggle off if you find the sounds distracting."/>
+
+            <!-- ── 11b. Automation ────────────────────────────────────────────── -->
+            <TextBlock x:Name="Sec11b" Classes="h2" Text="11b.  Automation" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="The Automation feature lets TransitLab process a completed observation session automatically — without you needing to be at your computer. Once armed, it watches a folder for newly calibrated FITS files, waits until the files stop arriving, then runs the full preparation and reduction pipeline on its own."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,6,0,0" FontWeight="SemiBold" Text="What it does"/>
+            <TextBlock TextWrapping="Wrap" Text="Once the FITS file count in the monitored folder has been unchanged for 30 consecutive seconds, TransitLab runs this sequence automatically:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="1.  Sets the FITS Files Directory to the monitored folder."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="2.  Clears the Darks Directory and disables Dark Subtract — calibrated input images do not need an additional dark correction."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="3.  Scans all FITS files in the folder. If no non-excluded frames remain after the next step, the sequence aborts and reports a warning — check the Flag Sigma setting."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="4.  Auto-excludes any flagged frames (same as clicking Auto Exclude Flagged on the Image Analysis tab)."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="5.  Reads the FITS header from the first non-excluded file, then waits for the plate solve (WCS) and NASA Exoplanet Archive (NEA) parameter fetch to both complete — up to 5 minutes. When both finish, observation date, coordinates, equipment, and all planetary parameters are populated."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="6.  Auto-selects the target star pixel position using the WCS plate solution and the target RA/Dec from NEA."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="7.  Waits for the AAVSO comparison star fetch to complete, then auto-selects comparison stars (up to the 10-star EXOTIC maximum)."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="8.  Saves inits.json and launches EXOTIC — producing the light curve. Any confirmation dialogs (such as the excluded-frames notice) are automatically accepted."/>
+            <Border BorderThickness="1" BorderBrush="{StaticResource BrushWarn}" CornerRadius="4" Padding="10,8" Margin="0,8,0,0">
+                <TextBlock TextWrapping="Wrap" Text="Note: AAVSO upload is not part of the automated sequence. After automation completes, you should open the Results tab, review the light curve and residuals carefully, and — if the data quality meets the AAVSO submission standards — log in and submit manually. Automated upload is intentionally omitted because the quality of each dataset must be assessed by the observer before submission."/>
+            </Border>
+            <TextBlock TextWrapping="Wrap" Margin="0,6,0,0" FontWeight="SemiBold" Text="Configuring Automation"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Monitor folder"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Browse to the output folder where the calibrated files will be deposited."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Start time (HH:MM)"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="The 24-hour wall-clock time at which monitoring begins. Set this to shortly after your observation session is expected to end — for example, if imaging until 05:00 AM and calibration takes ~30 minutes, enter 05:30. Leave blank to begin monitoring immediately when you click Arm."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Monitor window"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="How many minutes to poll the folder after the start time. If no stability trigger is detected within this window, automation disarms and reports a warning. Default is 1 minute. For a real overnight run, set this to the expected end of acquisition time (e.g. 60–120 minutes)."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,6,0,0" FontWeight="SemiBold" Text="Before arming — verify these fields"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="• Flag Sigma  (Image Analysis tab)  — controls which frames are auto-excluded. The default of 3.0 excludes frames more than 3 standard deviations from the median background. Increase it to be more permissive, decrease to be stricter. If Flag Sigma is too strict, all frames may be excluded and the sequence will abort."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="• Observer Code  (Parameters tab)  — your AAVSO observer code. Required for valid inits.json output and AAVSO submission."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,6,0,0" FontWeight="SemiBold" Text="Arming and disarming"/>
+            <TextBlock TextWrapping="Wrap" Text="• Click Arm in Tools → Settings → Automation to start the countdown. The status line shows the current state in real time: waiting for start time, counting files with a MM:SS remaining display, running each sequence step, or reporting any errors."/>
+            <TextBlock TextWrapping="Wrap" Text="• The Automation window can be closed after arming — the monitoring loop continues running in the background. Reopen it at any time to check the current status or disarm."/>
+            <TextBlock TextWrapping="Wrap" Text="• Click Disarm at any time to cancel. The sequence will not run if disarmed before the trigger fires." Margin="0,0,0,12"/>
+
+            <!-- ── 12. Diagnostics ───────────────────────────────────────────── -->
+            <TextBlock x:Name="Sec12" Classes="h2" Text="12.  Diagnostics  (Tools → Diagnostics)" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• Every time TransitLab runs it creates a timestamped log file at %AppData%\TransitLab\logs\TransitLab_diagnostics_YYYYMMDD_HHmmss.log. The five most recent session logs are kept; older ones are deleted automatically."/>
+            <TextBlock TextWrapping="Wrap" Text="• Open Tools → Diagnostics to view the current session log in a scrollable window that updates in real time as new events occur — no Refresh button needed. Log entries include:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="[Startup]  — app version and launch time"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="[Config]  — whether config.json loaded successfully or fell back to defaults"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="[FITS]  — which file was read, errors if the file was unreadable, or 'no FITS files found'"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="[NEA]  — the planet name queried, whether it was found, any defaults applied"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="[PlateSolve]  — ✓ or ✗ per frame for both Astrometry.net and ASTAP; all-frames summary"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="[AavsoComp]  — number of comparison stars loaded, or the reason none were found"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="[AAVSO Login]  — the username, sites and equipment found on the account, and login result"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="[AAVSO Upload]  — upload success or failure message"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="[Run]  — the planet name, FITS directory, and inits.json path when Save &amp; Run is clicked; any validation failures"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="[EXOTIC]  — every line of EXOTIC's live output"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="[Setup]  — Python &amp; EXOTIC Setup wizard activity (install, reinstall, uninstall steps, version found)"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="[History]  — errors when loading, saving, importing, or exporting history records"/>
+            <TextBlock TextWrapping="Wrap" Text="• ⏸ Pause button — freezes the display so you can read entries while new ones continue to arrive in the background. Lines that arrive while paused are held in a buffer and flushed when you click Pause again to resume. (This is the same Pause pattern used in the EXOTIC Log on the Results tab.)"/>
+            <TextBlock TextWrapping="Wrap" Text="• Save Log… button — saves the entire log as a plain-text .txt file. Use this when sharing a problem report with support."/>
+            <TextBlock TextWrapping="Wrap" Text="• If another user reports a problem (e.g. missing sites in the AAVSO dropdown), ask them to open Tools → Diagnostics after reproducing the issue and use Save Log… to send the file. The [AAVSO Login] entries will list exactly which sites and equipment IDs the server returned, making remote diagnosis straightforward without needing to inspect network traffic." Margin="0,0,0,12"/>
+
+            <!-- ── Tips ──────────────────────────────────────────────────────── -->
+            <TextBlock x:Name="SecTips" Classes="h2" Text="Tips" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="→  MObs workflow: Fetch List → select → Download → Use This Data → Read FITS Header → proceed."/>
+            <TextBlock TextWrapping="Wrap" Text="→  Read FITS Header fills most fields automatically — always run it first."/>
+            <TextBlock TextWrapping="Wrap" Text="→  All directories and observer settings persist between sessions."/>
+            <TextBlock TextWrapping="Wrap" Text="→  Save Plots Directory is listed under the calibration directories on the Data tab and defaults to the Lights directory location."/>
+            <TextBlock TextWrapping="Wrap" Text="→  Plate solving and AAVSO comp fetching are both automatic once FITS is set."/>
+            <TextBlock TextWrapping="Wrap" Text="→  Planet names are auto-corrected: case, hyphens (HATP→HAT-P), spacing (WASP-160B→WASP-160 B), and planet letter appended if missing."/>
+            <TextBlock TextWrapping="Wrap" Text="→  File → Recent Sessions is the fastest way to reload a previous night's setup."/>
+            <TextBlock TextWrapping="Wrap" Text="→  In Image Analysis and History, sort any column by clicking its header."/>
+            <TextBlock TextWrapping="Wrap" Text="→  Remember to restore excluded files before starting a new EXOTIC session."/>
+            <TextBlock TextWrapping="Wrap" Text="→  SNR in the History tab = (Rp/R*)² divided by its uncertainty — values above ~8 indicate a well-detected transit."/>
+            <TextBlock TextWrapping="Wrap" Text="→  Use the Search box at the top of this guide to find any topic instantly. Press Enter or click Find Next to cycle through all matches."/>
+
+        </StackPanel>
+
+    </ScrollViewer>
+
+</UserControl>

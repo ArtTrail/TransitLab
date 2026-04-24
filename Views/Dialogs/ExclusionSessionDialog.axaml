@@ -1,0 +1,117 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TransitLab.ViewModels"
+        x:Class="TransitLab.Views.Dialogs.ExclusionSessionDialog"
+        x:DataType="vm:ExclusionSessionDialogViewModel"
+        x:CompileBindings="False"
+        Title="Restore Excluded Files"
+        Width="900" Height="540"
+        MinWidth="700" MinHeight="400"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="0">
+
+        <!-- ── Header ─────────────────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Top"
+                Padding="14,10,14,8"
+                Background="{StaticResource BrushBg2}"
+                BorderBrush="{StaticResource BrushSep}"
+                BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <TextBlock Classes="h2" Text="Restore Excluded Files" VerticalAlignment="Center"/>
+                <TextBlock Classes="hint"
+                           Text="Select sessions, then choose an action below."
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Button bar ─────────────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Bottom"
+                Padding="10,8,10,10"
+                Background="{StaticResource BrushBg2}"
+                BorderBrush="{StaticResource BrushSep}"
+                BorderThickness="0,1,0,0">
+            <Grid RowDefinitions="Auto,Auto">
+                <!-- Status text row -->
+                <TextBlock Grid.Row="0"
+                           Text="{Binding StatusText}"
+                           Classes="hint"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,6"
+                           IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                <!-- Button row -->
+                <WrapPanel Grid.Row="1" Orientation="Horizontal" ItemHeight="32">
+                    <Button Classes="toolbar" Content="Select All"  Command="{Binding SelectAllCommand}"  Margin="0,0,6,0"/>
+                    <Button Classes="toolbar" Content="Select None" Command="{Binding SelectNoneCommand}" Margin="0,0,12,0"/>
+                    <Rectangle Width="1" Height="24" Fill="{StaticResource BrushSep}" Margin="0,0,12,0"/>
+                    <Button Classes="primary"
+                            Content="Restore Selected"
+                            Command="{Binding RestoreSelectedCommand}"
+                            Margin="0,0,6,0"/>
+                    <Button Classes="toolbar"
+                            Content="{Binding DeleteLabel}"
+                            Command="{Binding DeleteSelectedFilesCommand}"
+                            Margin="0,0,12,0"/>
+                    <Rectangle Width="1" Height="24" Fill="{StaticResource BrushSep}" Margin="0,0,12,0"/>
+                    <Button Classes="toolbar"
+                            Content="{Binding ClearLabel}"
+                            Command="{Binding ClearListCommand}"
+                            Margin="0,0,12,0"/>
+                    <Button Classes="toolbar"
+                            Content="Close"
+                            Click="OnCloseClick"/>
+                </WrapPanel>
+            </Grid>
+        </Border>
+
+        <!-- ── Main area: DataGrid (top) + detail (bottom) ────────────────── -->
+        <Grid RowDefinitions="*,5,160">
+
+            <!-- Sessions DataGrid -->
+            <DataGrid Grid.Row="0"
+                      ItemsSource="{Binding Rows}"
+                      SelectedItem="{Binding SelectedRow}"
+                      AutoGenerateColumns="False"
+                      CanUserReorderColumns="False"
+                      CanUserResizeColumns="True"
+                      CanUserSortColumns="False"
+                      GridLinesVisibility="Horizontal"
+                      SelectionMode="Single"
+                      Margin="10,8,10,0">
+                <DataGrid.Columns>
+                    <DataGridCheckBoxColumn Header="Select"  Binding="{Binding IsSelected}" Width="60"/>
+                    <DataGridTextColumn     Header="Date"    Binding="{Binding DateStr}"    Width="140" IsReadOnly="True"/>
+                    <DataGridTextColumn     Header="Files"   Binding="{Binding FileCount}"  Width="55"  IsReadOnly="True"/>
+                    <DataGridTextColumn     Header="Exclusion Folder"  Binding="{Binding FolderName}" Width="*"   IsReadOnly="True"/>
+                    <DataGridTextColumn     Header="Restores To (FITS dir)" Binding="{Binding RestoresTo}" Width="220" IsReadOnly="True"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- GridSplitter -->
+            <GridSplitter Grid.Row="1"
+                          ResizeDirection="Rows"
+                          Background="{StaticResource BrushSep}"
+                          HorizontalAlignment="Stretch"/>
+
+            <!-- Detail panel -->
+            <Border Grid.Row="2"
+                    Margin="10,0,10,0"
+                    Background="{StaticResource BrushBg2}"
+                    CornerRadius="4"
+                    Padding="8">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto">
+                    <TextBlock Text="{Binding DetailText}"
+                               FontFamily="Courier New"
+                               FontSize="13"
+                               Classes="hint"
+                               TextWrapping="NoWrap"/>
+                </ScrollViewer>
+            </Border>
+
+        </Grid>
+
+    </DockPanel>
+
+</Window>

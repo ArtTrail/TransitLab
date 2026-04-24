@@ -1,0 +1,344 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TransitLab.ViewModels"
+             x:Class="TransitLab.Views.Tabs.FrameAnalysisView"
+             x:DataType="vm:FrameAnalysisViewModel">
+
+    <DockPanel Margin="10,8,10,8">
+
+        <!-- ── Row 1: Scan controls ─────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Top" Padding="0,0,0,4">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+
+                <Button Grid.Column="0"
+                        Classes="primary"
+                        Content="  Scan Files  "
+                        Command="{Binding ScanFilesCommand}"
+                        VerticalAlignment="Center"/>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal" Spacing="6"
+                            VerticalAlignment="Center" Margin="12,0,0,0">
+                    <TextBlock Text="Flag" VerticalAlignment="Center"/>
+                    <NumericUpDown Value="{Binding FlagSigma}"
+                                  Minimum="1" Maximum="10" Increment="0.5"
+                                  FormatString="0.0" Width="120"
+                                  VerticalAlignment="Center"/>
+                    <TextBlock Text="σ above median" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <TextBlock Grid.Column="2"
+                           Text="{Binding ScanStatus}"
+                           Classes="hint"
+                           Foreground="{Binding ScanStatus, Converter={StaticResource StatusBrushConverter}}"
+                           VerticalAlignment="Center" Margin="16,0,0,0"
+                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+
+                <Button Grid.Column="3"
+                        Classes="toolbar" Content="Auto-exclude Flagged"
+                        Command="{Binding AutoExcludeFlaggedCommand}"
+                        VerticalAlignment="Center" Margin="8,0,0,0"/>
+
+                <Button Grid.Column="4"
+                        Classes="toolbar" Content="Restore Excluded"
+                        Command="{Binding RestoreExcludedCommand}"
+                        VerticalAlignment="Center" Margin="8,0,0,0"/>
+
+            </Grid>
+        </Border>
+
+        <!-- ── Row 2: VSP controls ───────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Top" Padding="0,0,0,6">
+            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+
+                <TextBlock Text="FOV'" VerticalAlignment="Center"/>
+                <NumericUpDown Value="{Binding VspFov}"
+                               Minimum="10" Maximum="360" Increment="10"
+                               FormatString="0" Width="130"
+                               VerticalAlignment="Center"/>
+
+                <TextBlock Text="Mag" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                <NumericUpDown Value="{Binding VspMag}"
+                               Minimum="8" Maximum="20" Increment="0.5"
+                               FormatString="0.0" Width="145"
+                               VerticalAlignment="Center"/>
+
+                <TextBlock Text="Star:" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                <TextBox Text="{Binding VspStar}"
+                         Watermark="e.g. HAT-P-36"
+                         Width="220"
+                         VerticalAlignment="Center"
+                         ToolTip.Tip="Host star name for the AAVSO VSP chart lookup. Auto-fills from NEA."/>
+
+                <Button Classes="toolbar"
+                        Content="{Binding VspButtonLabel}"
+                        Command="{Binding ShowVspCommand}"
+                        IsEnabled="{Binding !IsVspLoading}"
+                        VerticalAlignment="Center"/>
+
+                <Button Classes="toolbar" Content="Cancel"
+                        Command="{Binding CancelVspCommand}"
+                        IsVisible="{Binding IsVspLoading}"
+                        VerticalAlignment="Center"/>
+
+            </StackPanel>
+        </Border>
+
+        <!-- ── Exclusion row ────────────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Top" Padding="0,0,0,6">
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <TextBlock Text="{Binding ExclusionStatus}"
+                           VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding FlaggedStatus}"
+                           Foreground="{Binding FlaggedStatus, Converter={StaticResource StatusBrushConverter}}"
+                           VerticalAlignment="Center"/>
+                <CheckBox Content="Dark-subtract before background estimate"
+                          IsChecked="{Binding IsDarkSubtract}"
+                          VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Separator ────────────────────────────────────────────────────── -->
+        <Rectangle DockPanel.Dock="Top"
+                   Height="1"
+                   Fill="{StaticResource BrushSep}"
+                   Margin="0,0,0,6"/>
+
+        <!-- ── Main paned area ──────────────────────────────────────────────── -->
+        <Grid ColumnDefinitions="*,Auto,*">
+
+            <!-- ── LEFT: frame list ─────────────────────────────────────────── -->
+            <DockPanel Grid.Column="0">
+
+                <DataGrid x:Name="FrameGrid"
+                          x:CompileBindings="False"
+                          ItemsSource="{Binding Frames}"
+                          AutoGenerateColumns="False"
+                          CanUserReorderColumns="False"
+                          CanUserResizeColumns="True"
+                          CanUserSortColumns="True"
+                          GridLinesVisibility="Horizontal"
+                          Background="Transparent"
+                          RowBackground="Transparent"
+                          SelectionMode="Extended">
+
+                    <DataGrid.Columns>
+                        <DataGridCheckBoxColumn Header="Excl"       Binding="{Binding IsExcluded}" Width="80"/>
+                        <DataGridTextColumn     Header="Filename"   Binding="{Binding Filename}"   Width="*" IsReadOnly="True"/>
+                        <DataGridTextColumn    Header="Background" Binding="{Binding Background}" Width="120" IsReadOnly="True"/>
+                        <DataGridTextColumn    Header="Status"     Binding="{Binding Status}"     Width="100" IsReadOnly="True"/>
+                    </DataGrid.Columns>
+
+                </DataGrid>
+            </DockPanel>
+
+            <!-- ── GridSplitter ─────────────────────────────────────────────── -->
+            <GridSplitter Grid.Column="1"
+                          Width="5"
+                          ResizeDirection="Columns"
+                          Background="{StaticResource BrushSep}"/>
+
+            <!-- ── RIGHT: image viewer + controls ──────────────────────────── -->
+            <DockPanel Grid.Column="2" Margin="6,0,0,0">
+
+                <!-- Pick controls (bottom) -->
+                <Border DockPanel.Dock="Bottom" Padding="0,4,0,0">
+                    <StackPanel Spacing="4">
+                        <!-- Target pick row -->
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="toolbar"
+                                    Content="{Binding PickTargetLabel}"
+                                    Command="{Binding PickTargetStarCommand}"/>
+                            <Button Classes="toolbar"
+                                    Content="Send to Target Star"
+                                    Command="{Binding SendTargetPickCommand}"/>
+                            <Button Classes="toolbar"
+                                    Content="Clear"
+                                    Command="{Binding ClearTargetPickCommand}"/>
+                            <TextBlock Classes="hint"
+                                       Text="{Binding TargetPickStatus}"
+                                       Foreground="{Binding TargetPickStatus, Converter={StaticResource StatusBrushConverter}}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <!-- Comp pick row -->
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="toolbar"
+                                    Content="{Binding PickCompLabel}"
+                                    Command="{Binding PickCompStarsCommand}"/>
+                            <TextBlock Classes="hint"
+                                       Text="{Binding CompPickCountText}"
+                                       VerticalAlignment="Center"/>
+                            <Button Classes="toolbar"
+                                    Content="Clear"
+                                    Command="{Binding ClearCompPicksCommand}"/>
+                            <Button Classes="toolbar"
+                                    Content="Send to Comp Stars"
+                                    Command="{Binding SendCompPicksCommand}"/>
+                            <TextBlock Classes="hint"
+                                       Text="{Binding CompPickStatus}"
+                                       Foreground="{Binding CompPickStatus, Converter={StaticResource StatusBrushConverter}}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Zoom controls (bottom) -->
+                <Border DockPanel.Dock="Bottom" Padding="0,6,0,0">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Classes="toolbar"
+                                Content="Zoom −"
+                                Command="{Binding ZoomOutCommand}"/>
+                        <Button Classes="toolbar"
+                                Content="Zoom +"
+                                Command="{Binding ZoomInCommand}"/>
+                        <Button Classes="toolbar"
+                                Content="Reset"
+                                Command="{Binding ZoomResetCommand}"/>
+                        <TextBlock Text="{Binding CursorText}"
+                                   Classes="hint"
+                                   VerticalAlignment="Center"
+                                   Margin="12,0,0,0"/>
+                        <TextBlock Text="{Binding FovText}"
+                                   Classes="hint"
+                                   VerticalAlignment="Center"
+                                   Margin="12,0,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Slider controls (bottom) -->
+                <Border DockPanel.Dock="Bottom" Padding="0,4,0,0">
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,12,Auto,Auto,*,Auto,Auto">
+
+                        <!-- Black -->
+                        <TextBlock Grid.Column="0" Text="Black" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <RepeatButton Grid.Column="1"
+                                      Classes="toolbar"
+                                      Content="−"
+                                      Width="32"
+                                      Command="{Binding StepBlackMinusCommand}"
+                                      Delay="400" Interval="80"/>
+                        <Grid Grid.Column="2" VerticalAlignment="Center" Margin="4,0">
+                            <Slider x:Name="BlackSlider"
+                                    Value="{Binding BlackValue, Mode=OneWay}"
+                                    Minimum="{Binding BlackMin}"
+                                    Maximum="{Binding BlackMax}"
+                                    IsHitTestVisible="False"/>
+                            <Border Background="Transparent"
+                                    PointerPressed="OnBlackTroughPressed"
+                                    PointerMoved="OnSliderTroughMoved"
+                                    PointerReleased="OnSliderTroughReleased"/>
+                        </Grid>
+                        <RepeatButton Grid.Column="3"
+                                      Classes="toolbar"
+                                      Content="+"
+                                      Width="32"
+                                      Command="{Binding StepBlackPlusCommand}"
+                                      Delay="400" Interval="80"/>
+                        <TextBlock Grid.Column="4"
+                                   Text="{Binding BlackLabel}"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,0,0"
+                                   Width="60"/>
+
+                        <!-- White -->
+                        <TextBlock Grid.Column="6" Text="White" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <RepeatButton Grid.Column="7"
+                                      Classes="toolbar"
+                                      Content="−"
+                                      Width="32"
+                                      Command="{Binding StepWhiteMinusCommand}"
+                                      Delay="400" Interval="80"/>
+                        <Grid Grid.Column="8" VerticalAlignment="Center" Margin="4,0">
+                            <Slider x:Name="WhiteSlider"
+                                    Value="{Binding WhiteValue, Mode=OneWay}"
+                                    Minimum="{Binding WhiteMin}"
+                                    Maximum="{Binding WhiteMax}"
+                                    IsHitTestVisible="False"/>
+                            <Border Background="Transparent"
+                                    PointerPressed="OnWhiteTroughPressed"
+                                    PointerMoved="OnSliderTroughMoved"
+                                    PointerReleased="OnSliderTroughReleased"/>
+                        </Grid>
+                        <RepeatButton Grid.Column="9"
+                                      Classes="toolbar"
+                                      Content="+"
+                                      Width="32"
+                                      Command="{Binding StepWhitePlusCommand}"
+                                      Delay="400" Interval="80"/>
+                        <TextBlock Grid.Column="10"
+                                   Text="{Binding WhiteLabel}"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,0,0"
+                                   Width="60"/>
+
+                    </Grid>
+                </Border>
+
+                <!-- Auto Stretch (bottom) -->
+                <Border DockPanel.Dock="Bottom" Padding="0,4,0,0">
+                    <Button Classes="toolbar"
+                            Content="Auto Stretch"
+                            Command="{Binding AutoStretchCommand}"
+                            HorizontalAlignment="Left"/>
+                </Border>
+
+                <!-- Histogram (bottom, shown only when image is loaded) -->
+                <Border DockPanel.Dock="Bottom"
+                        Height="120"
+                        Margin="0,6,0,0"
+                        IsVisible="{Binding HasImage}">
+                    <Image Source="{Binding HistogramBitmap}"
+                           Stretch="Fill"
+                           HorizontalAlignment="Stretch"
+                           VerticalAlignment="Stretch"/>
+                </Border>
+
+                <!-- Image viewer (fills remaining space) -->
+                <Grid>
+
+                    <!-- Placeholder shown when no image is loaded -->
+                    <Border Background="{StaticResource BrushBg2}"
+                            CornerRadius="4"
+                            IsVisible="{Binding !HasImage}">
+                        <TextBlock Classes="hint"
+                                   Text="Image preview — select a frame"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Image in scrollable pane -->
+                    <ScrollViewer x:Name="ImageScrollViewer"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Background="{StaticResource BrushBg2}"
+                                  IsVisible="{Binding HasImage}">
+                        <Grid x:Name="ImageContainer"
+                              Background="Transparent"
+                              HorizontalAlignment="Left" VerticalAlignment="Top">
+                            <Image x:Name="FrameImage"
+                                   Source="{Binding FrameBitmap}"
+                                   Width="{Binding ImageDisplayWidth}"
+                                   Height="{Binding ImageDisplayHeight}"
+                                   Stretch="Fill"
+                                   IsHitTestVisible="False"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Top"/>
+                            <!-- Pick marker overlay — same size as the image, non-interactive -->
+                            <Canvas x:Name="PickOverlay"
+                                    Width="{Binding ImageDisplayWidth}"
+                                    Height="{Binding ImageDisplayHeight}"
+                                    IsHitTestVisible="False"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"/>
+                        </Grid>
+                    </ScrollViewer>
+
+                </Grid>
+
+            </DockPanel>
+
+        </Grid>
+
+    </DockPanel>
+
+</UserControl>

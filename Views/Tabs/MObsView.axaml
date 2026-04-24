@@ -1,0 +1,193 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TransitLab.ViewModels"
+             x:DataType="vm:MainWindowViewModel"
+             x:CompileBindings="False"
+             x:Class="TransitLab.Views.Tabs.MObsView">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="8,4,8,16" Spacing="2">
+
+            <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• DIRECTORIES â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+            <TextBlock Classes="h2" Text="Directories" Margin="4,10,0,2"/>
+            <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
+
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Lights Directory:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding Observation.FitsDir}" Margin="0,0,4,0"
+                         ToolTip.Tip="{Binding Observation.FitsDir}"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Browse"
+                        Command="{Binding Observation.BrowseFitsDirCommand}"/>
+            </Grid>
+
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Darks Directory:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding Observation.DarksDir}" Margin="0,0,4,0"
+                         ToolTip.Tip="{Binding Observation.DarksDir}"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Browse"
+                        Command="{Binding Observation.BrowseDarksDirCommand}" Margin="0,0,4,0"/>
+                <Button Grid.Column="3" Classes="toolbar" Content="Clear"
+                        Command="{Binding Observation.ClearDarksDirCommand}"/>
+            </Grid>
+
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Flats Directory:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding Observation.FlatsDir}" Margin="0,0,4,0"
+                         ToolTip.Tip="{Binding Observation.FlatsDir}"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Browse"
+                        Command="{Binding Observation.BrowseFlatsDirCommand}" Margin="0,0,4,0"/>
+                <Button Grid.Column="3" Classes="toolbar" Content="Clear"
+                        Command="{Binding Observation.ClearFlatsDirCommand}"/>
+            </Grid>
+
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Biases Directory:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding Observation.BiasDir}" Margin="0,0,4,0"
+                         ToolTip.Tip="{Binding Observation.BiasDir}"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Browse"
+                        Command="{Binding Observation.BrowseBiasDirCommand}" Margin="0,0,4,0"/>
+                <Button Grid.Column="3" Classes="toolbar" Content="Clear"
+                        Command="{Binding Observation.ClearBiasDirCommand}"/>
+            </Grid>
+
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Save Plots Directory:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding Observation.SaveDir}" Margin="0,0,4,0"
+                         ToolTip.Tip="{Binding Observation.SaveDir}"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Browse"
+                        Command="{Binding Observation.BrowseSaveDirCommand}"/>
+            </Grid>
+
+            <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• MObs â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+            <TextBlock Classes="h2" Text="MicroObservatory (MObs)" Margin="4,14,0,2"/>
+            <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,2"/>
+            <TextBlock Classes="hint"
+                       Text="MObs section powered by Python code provided by Douglas James"
+                       Margin="4,0,4,6"/>
+
+            <!-- Fetch controls row -->
+            <StackPanel Orientation="Horizontal" Spacing="10" Margin="4,4,4,0" VerticalAlignment="Center">
+                <TextBlock Text="Telescope:" VerticalAlignment="Center"/>
+                <ComboBox ItemsSource="{Binding MObs.Telescopes}"
+                          SelectedItem="{Binding MObs.SelectedTelescope}"
+                          Width="130"/>
+                <TextBlock Text="Lookback days:" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                <NumericUpDown Value="{Binding MObs.LookbackDays}"
+                               Minimum="1" Maximum="30"
+                               FormatString="0"
+                               Width="130"/>
+                <Button Classes="toolbar"
+                        Content="Fetch List"
+                        Command="{Binding MObs.FetchListCommand}"
+                        Margin="8,0,0,0"/>
+                <TextBlock Foreground="{Binding MObs.StatusBrush}"
+                           Text="{Binding MObs.StatusText}"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Download directory + buttons -->
+            <StackPanel Spacing="4" Margin="4,8,4,0">
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Download Directory:" VerticalAlignment="Center"/>
+                    <TextBox Text="{Binding MObs.DownloadFolder}"
+                             Width="360"
+                             VerticalContentAlignment="Center"
+                             ToolTip.Tip="{Binding MObs.DownloadFolder}"
+                             IsEnabled="{Binding !MObs.IsDefaultFolder}"/>
+                    <Button Classes="toolbar"
+                            Content="Browse"
+                            Command="{Binding MObs.BrowseCommand}"
+                            IsEnabled="{Binding !MObs.IsDefaultFolder}"/>
+                    <Button Classes="toolbar"
+                            Content="Download Selected"
+                            Command="{Binding MObs.DownloadCommand}"
+                            IsEnabled="{Binding MObs.IsDownloadEnabled}"/>
+                    <Button Classes="toolbar"
+                            Content="Cancel"
+                            Command="{Binding MObs.CancelDownloadCommand}"
+                            IsVisible="{Binding MObs.IsDownloadRunning}"/>
+                    <Button Classes="toolbar"
+                            Content="Use This Data"
+                            Command="{Binding MObs.UseDataCommand}"
+                            IsEnabled="{Binding MObs.IsUseDataEnabled}"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ProgressBar Value="{Binding MObs.DownloadProgress}"
+                                 Maximum="{Binding MObs.DownloadProgressMax}"
+                                 Width="200"
+                                 VerticalAlignment="Center"/>
+                    <TextBlock Foreground="{Binding MObs.DownloadStatusBrush}"
+                               Text="{Binding MObs.DownloadStatusText}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal">
+                    <CheckBox Content="Set as default download directory"
+                              IsChecked="{Binding MObs.IsDefaultFolder}"/>
+                    <TextBlock Classes="hint"
+                               Text="  &#x2014;  Target subdirectory will be created"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+            </StackPanel>
+
+            <!-- Observations list (scrollable, fixed height) -->
+            <DataGrid x:Name="ObsGrid"
+                      ItemsSource="{Binding MObs.Observations}"
+                      SelectedItem="{Binding MObs.SelectedEntry}"
+                      AutoGenerateColumns="False"
+                      CanUserReorderColumns="False"
+                      CanUserResizeColumns="True"
+                      CanUserSortColumns="True"
+                      IsReadOnly="True"
+                      Background="Transparent"
+                      RowBackground="Transparent"
+                      GridLinesVisibility="None"
+                      SelectionMode="Single"
+                      MinHeight="180"
+                      Margin="4,6,4,0">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Object"         Binding="{Binding Object}"  Width="100"/>
+                    <DataGridTextColumn Header="Date"           Binding="{Binding Date}"    Width="60"/>
+                    <DataGridTextColumn Header="Science Frames" Binding="{Binding Science}" Width="150"/>
+                    <DataGridTextColumn Header="Cal Frames"     Binding="{Binding Cal}"     Width="110"/>
+                    <DataGridTextColumn Header="Weather"        Binding="{Binding Weather}" Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

@@ -1,0 +1,103 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TransitLab.ViewModels"
+             x:DataType="vm:AutomationViewModel"
+             x:Class="TransitLab.Views.AutomationSettingsView">
+
+    <StackPanel Margin="28,24,28,20" Spacing="16" MinWidth="560">
+
+        <!-- Description -->
+        <TextBlock Text="Watch a folder for calibrated FITS files and run the full reduction pipeline automatically — wake up to results."
+                   TextWrapping="Wrap"
+                   Foreground="{StaticResource BrushHint}"/>
+
+        <Rectangle Height="1" Fill="{StaticResource BrushSep}"/>
+
+        <!-- Monitor folder row -->
+        <Grid ColumnDefinitions="Auto,12,*,8,Auto">
+            <TextBlock Grid.Column="0"
+                       Text="Monitor folder"
+                       VerticalAlignment="Center"
+                       MinWidth="140"/>
+            <TextBox Grid.Column="2"
+                     Text="{Binding MonitorFolder}"
+                     Watermark="Folder containing calibrated FITS files…"
+                     IsReadOnly="True"/>
+            <Button Grid.Column="4"
+                    Content="Browse…"
+                    Command="{Binding BrowseFolderCommand}"
+                    MinWidth="80"/>
+        </Grid>
+
+        <!-- Start time row -->
+        <Grid ColumnDefinitions="Auto,12,*">
+            <TextBlock Grid.Column="0"
+                       Text="Start time (HH:MM)"
+                       VerticalAlignment="Center"
+                       MinWidth="140"/>
+            <TextBox Grid.Column="2"
+                     Text="{Binding StartTime}"
+                     Watermark="e.g. 06:30  (leave blank to start immediately when armed)"/>
+        </Grid>
+
+        <!-- Duration row -->
+        <Grid ColumnDefinitions="Auto,12,120,8,Auto">
+            <TextBlock Grid.Column="0"
+                       Text="Monitor window"
+                       VerticalAlignment="Center"
+                       MinWidth="140"/>
+            <NumericUpDown Grid.Column="2"
+                           Value="{Binding DurationMinutes}"
+                           Minimum="1"
+                           Maximum="720"
+                           FormatString="0"
+                           Increment="1"/>
+            <TextBlock Grid.Column="4"
+                       Text="minutes"
+                       VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- Before-arming checklist -->
+        <Border Background="{StaticResource BrushBg2}"
+                CornerRadius="4"
+                Padding="12,10">
+            <StackPanel Spacing="4">
+                <TextBlock FontWeight="SemiBold"
+                           Foreground="{StaticResource BrushWarn}"
+                           Text="⚠  Before arming, verify:"/>
+                <TextBlock Margin="16,0,0,0"
+                           Text="• Flag Sigma is set correctly on the Image Analysis tab"
+                           TextWrapping="Wrap"/>
+                <TextBlock Margin="16,0,0,0"
+                           Text="• Observer Code (AAVSO Code) is entered on the Data tab"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Arm / status row -->
+        <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+            <TextBlock Grid.Column="0"
+                       Text="{Binding AutomationStatus}"
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap"
+                       Foreground="{StaticResource BrushHint}"/>
+            <Button Grid.Column="2"
+                    Content="Arm"
+                    Command="{Binding ArmAutomationCommand}"
+                    MinWidth="72"/>
+            <Button Grid.Column="4"
+                    Content="Disarm"
+                    Command="{Binding DisarmAutomationCommand}"
+                    MinWidth="72"/>
+        </Grid>
+
+        <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="0,4,0,0"/>
+
+        <Button Content="Close"
+                Command="{Binding CloseSettingsCommand}"
+                HorizontalAlignment="Right"
+                MinWidth="80"/>
+
+    </StackPanel>
+
+</UserControl>

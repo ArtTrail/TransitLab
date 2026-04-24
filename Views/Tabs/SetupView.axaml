@@ -1,0 +1,150 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TransitLab.ViewModels"
+             x:DataType="vm:ExoticSetupViewModel"
+             x:Class="TransitLab.Views.Tabs.SetupView">
+
+    <DockPanel Margin="16,10,16,10">
+
+        <!-- ── Headline ─────────────────────────────────────────────────────── -->
+        <TextBlock DockPanel.Dock="Top"
+                   Text="{Binding HeadlineText}"
+                   Classes="hint"
+                   FontSize="13"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,10"/>
+
+        <!-- ── Status rows ──────────────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Top"
+                BorderThickness="1"
+                BorderBrush="{StaticResource BrushSep}"
+                CornerRadius="4"
+                Padding="10,8"
+                Margin="0,0,0,10">
+            <StackPanel Spacing="6">
+
+                <!-- Python row -->
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding PythonStatusIcon}"
+                               Foreground="{Binding PythonStatusIcon, Converter={StaticResource StatusBrushConverter}}"
+                               FontWeight="Bold"
+                               Width="16"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="Python:" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding PythonStatus}"
+                               Classes="hint"
+                               Foreground="{Binding PythonStatus, Converter={StaticResource StatusBrushConverter}}"
+                               VerticalAlignment="Center"
+                               TextWrapping="NoWrap"/>
+                </StackPanel>
+
+                <!-- EXOTIC row -->
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding ExoticStatusIcon}"
+                               Foreground="{Binding ExoticStatusIcon, Converter={StaticResource StatusBrushConverter}}"
+                               FontWeight="Bold"
+                               Width="16"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="EXOTIC:" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding ExoticStatus}"
+                               Classes="hint"
+                               Foreground="{Binding ExoticStatus, Converter={StaticResource StatusBrushConverter}}"
+                               VerticalAlignment="Center"
+                               TextWrapping="NoWrap"/>
+                </StackPanel>
+
+            </StackPanel>
+        </Border>
+
+        <!-- ── Button row ───────────────────────────────────────────────────── -->
+        <WrapPanel DockPanel.Dock="Top"
+                   Orientation="Horizontal"
+                   Margin="0,0,0,8">
+            <Button Classes="toolbar" Margin="0,0,8,4"
+                    Content="Check System"
+                    Command="{Binding CheckSystemCommand}"
+                    IsEnabled="{Binding CanCheck}"/>
+            <Button Classes="toolbar" Margin="0,0,8,4"
+                    Content="Download &amp; Install Python"
+                    Command="{Binding GetPythonCommand}"
+                    IsEnabled="{Binding CanGetPython}"/>
+            <Button Classes="toolbar" Margin="0,0,8,4"
+                    Content="Install EXOTIC"
+                    Command="{Binding InstallExoticCommand}"
+                    IsEnabled="{Binding CanInstallExotic}"/>
+            <Button Classes="toolbar" Margin="0,0,8,4"
+                    Content="Uninstall EXOTIC"
+                    Command="{Binding UninstallExoticCommand}"
+                    IsEnabled="{Binding CanUninstallExotic}"/>
+            <Button Classes="toolbar" Margin="0,0,0,4"
+                    Content="Cancel"
+                    Command="{Binding CancelCommand}"
+                    IsEnabled="{Binding CanCancel}"
+                    Foreground="{StaticResource BrushErr}"/>
+        </WrapPanel>
+
+        <!-- ── Pre-release / branch install ────────────────────────────────── -->
+        <Border DockPanel.Dock="Top"
+                BorderThickness="1"
+                BorderBrush="{StaticResource BrushWarn}"
+                CornerRadius="4"
+                Padding="10,8"
+                Margin="0,0,0,8">
+            <StackPanel Spacing="6">
+
+                <TextBlock Text="Pre-release / Development Build"
+                           FontWeight="SemiBold"/>
+                <TextBlock TextWrapping="Wrap"
+                           Classes="hint"
+                           Text="Install EXOTIC directly from a GitHub branch. Use this only when directed by the EXOTIC developers to test a specific branch. Pre-release builds are not officially supported and may produce unexpected results."/>
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox Grid.Column="0"
+                             Text="{Binding BranchUrl}"
+                             Watermark="https://github.com/rzellem/EXOTIC.git@branch-name"
+                             Margin="0,0,8,0"/>
+                    <Button Grid.Column="1"
+                            Classes="toolbar"
+                            Content="Install Pre-release"
+                            Command="{Binding InstallBranchCommand}"
+                            IsEnabled="{Binding CanInstallBranch}"/>
+                </Grid>
+                <TextBlock TextWrapping="Wrap"
+                           Classes="hint"
+                           Foreground="{StaticResource BrushWarn}"
+                           Text="⚠  This replaces your current EXOTIC installation.  Git will be installed automatically if needed.  To return to the stable release, click Install EXOTIC above."/>
+
+            </StackPanel>
+        </Border>
+
+        <!-- ── Progress bar ─────────────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Top"
+                IsVisible="{Binding IsProgressVisible}"
+                Margin="0,0,0,8">
+            <StackPanel Spacing="4">
+                <ProgressBar Value="{Binding ProgressValue}"
+                             Maximum="{Binding ProgressMax}"
+                             IsIndeterminate="{Binding IsProgressIndeterminate}"
+                             Height="10"/>
+                <TextBlock Classes="hint"
+                           Text="{Binding ProgressText}"
+                           HorizontalAlignment="Right"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Log output ────────────────────────────────────────────────────── -->
+        <TextBox x:Name="LogBox"
+                 Text="{Binding LogText}"
+                 IsReadOnly="True"
+                 AcceptsReturn="True"
+                 TextWrapping="NoWrap"
+                 FontFamily="Cascadia Code,Consolas,Courier New,monospace"
+                 FontSize="22"
+                 Background="{StaticResource BrushField}"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 MinHeight="100"
+                 VerticalAlignment="Stretch"/>
+
+    </DockPanel>
+
+</UserControl>

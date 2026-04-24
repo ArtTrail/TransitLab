@@ -1,0 +1,91 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="TransitLab.Views.QuickStartView">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+
+        <StackPanel Spacing="0" Margin="36,24,36,28">
+
+            <TextBlock Classes="title" Text="Quick Start" HorizontalAlignment="Left" Margin="0,0,0,6"/>
+            <TextBlock TextWrapping="Wrap" Classes="hint"
+                       Text="Follow these steps in order. Most fields are filled automatically — click the bold buttons to let TransitLab do the work."
+                       Margin="0,0,0,20"/>
+
+            <!-- Step 1 -->
+            <TextBlock Classes="h2" Text="Step 1 — Set your FITS directory  (Data tab)" Margin="0,0,0,6"/>
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
+                       Text="On the Data tab, click Browse next to FITS Files Directory and select the folder containing your science images."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,4,0,12" Classes="hint"
+                       Text="Save Plots, Darks, Flats, and Biases directories are detected automatically. You can override them by browsing manually."/>
+
+            <!-- Step 2 -->
+            <TextBlock Classes="h2" Text="Step 2 — Read the FITS header  (Parameters tab)" Margin="0,0,0,6"/>
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
+                       Text="Go to the Parameters tab and click Read FITS Header. This reads the first image in the directory and automatically fills in:"/>
+            <TextBlock TextWrapping="Wrap" Margin="32,4,0,2" Text="• Observation date, site latitude/longitude, and elevation"/>
+            <TextBlock TextWrapping="Wrap" Margin="32,0,0,2" Text="• Camera filter, pixel binning, and pixel scale"/>
+            <TextBlock TextWrapping="Wrap" Margin="32,0,0,2" Text="• Planet name (from the OBJECT header keyword)"/>
+            <TextBlock TextWrapping="Wrap" Margin="32,0,0,12" Text="• Plate solve (runs in the background — look for the ✓ status under Plate Solve)"/>
+
+            <!-- Step 3 -->
+            <TextBlock Classes="h2" Text="Step 3 — Fetch planet parameters  (Parameters tab)" Margin="0,0,0,6"/>
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
+                       Text="The planet name found in the FITS header triggers an automatic NASA Exoplanet Archive (NEA) fetch. Wait for the ✓ status to appear next to Fetch from NEA on the right side of the Parameters tab."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,4,0,0" Classes="hint"
+                       Text="If the planet name is wrong or the fetch fails, type the correct name (e.g. HAT-P-36 b) and click Fetch from NEA manually."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,4,0,12" Classes="hint"
+                       Text="Review the filled-in values — especially Rp/Rs, Teff, and Metallicity — before running."/>
+
+            <!-- Step 4 -->
+            <TextBlock Classes="h2" Text="Step 4 — Check frames  (Image Analysis tab)" Margin="0,0,0,6"/>
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
+                       Text="Go to the Image Analysis tab. Click Scan Files to measure background levels and flag any frames with unusually high background (clouds, moon, etc.)."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,4,0,0"
+                       Text="Flagged frames are shown with 'Flagged' in the Status column but are NOT automatically excluded. To exclude them, click Auto-exclude Flagged — or check individual Excl boxes manually."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,4,0,12" Classes="hint"
+                       Text="Tip: adjust the σ threshold (default 3.0) to control how aggressively frames are flagged."/>
+
+            <!-- Step 5 -->
+            <TextBlock Classes="h2" Text="Step 5 — Set target and comparison stars  (Parameters tab)" Margin="0,0,0,6"/>
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
+                       Text="Return to the Parameters tab. Under Star Selection, AAVSO comparison stars are fetched automatically once a plate solution is available."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,4,0,2"
+                       Text="To set the target position, click Auto Select Target (requires a plate solution and planet RA/Dec to be filled in)."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,2"
+                       Text="If that is unavailable, go to Image Analysis, click Pick Target Star, click the star in the image, then click Send to Target Star."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,12" Classes="hint"
+                       Text="You can also import a star list from the NINA Exoplanet Plugin (Import NINA Star List) to fill both target and comp positions in one step."/>
+
+            <!-- Step 6 -->
+            <TextBlock Classes="h2" Text="Step 6 — Confirm observer details  (Parameters tab)" Margin="0,0,0,6"/>
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
+                       Text="Under Observer Information, confirm your AAVSO Observer Code is entered. Under Observatory / Location, confirm latitude, longitude, and elevation."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,4,0,12" Classes="hint"
+                       Text="Use Select Observatory to save your location so it auto-fills in future sessions."/>
+
+            <!-- Step 7 -->
+            <TextBlock Classes="h2" Text="Step 7 — Run EXOTIC" Margin="0,0,0,6"/>
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
+                       Text="Click Save &amp; Run EXOTIC at the top of the window. TransitLab saves an inits.json file, moves any excluded frames aside, launches EXOTIC, and switches to the Results tab where you can watch the live log."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,4,0,12" Classes="hint"
+                       Text="When EXOTIC finishes, the light curve plot appears in the Results tab. Use Export CSV or Export XLSX in the History tab to save your results."/>
+
+            <!-- Separator -->
+            <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="0,8,0,12"/>
+
+            <!-- Tips -->
+            <TextBlock Classes="h2" Text="Tips" Margin="0,0,0,8"/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"
+                       Text="• If the plate solve fails, try Retry under Plate Solve on the Parameters tab, or switch to ASTAP in Tools → Plate Solve Setup for faster local solving."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"
+                       Text="• EXOTIC Setup (Tools menu) lets you locate or install the EXOTIC Python package if it is not found automatically."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"
+                       Text="• Use File → Recent Sessions to reload the inits.json from a previous run and re-run with the same settings."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"
+                       Text="• MicroObservatory users: use the MObs section in the Data tab to fetch and download telescope data directly — then click Use This Data to populate the directories automatically."/>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

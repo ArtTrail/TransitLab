@@ -1,0 +1,250 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TransitLab.ViewModels"
+             x:DataType="vm:ObservationViewModel"
+             x:Class="TransitLab.Views.Tabs.ObservationView">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+
+        <StackPanel Grid.IsSharedSizeScope="True"
+                    Margin="8,4,8,16"
+                    Spacing="2">
+
+            <!--  Directories  -->
+            <TextBlock Classes="h2" Text="Directories" Margin="4,10,0,2"/>
+            <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
+
+            <!-- Lights Directory -->
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition SharedSizeGroup="LBL" Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Lights Directory:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding FitsDir}" Margin="0,0,4,0"
+                         ToolTip.Tip="{Binding FitsDir}"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Browse"
+                        Command="{Binding BrowseFitsDirCommand}"/>
+            </Grid>
+
+            <!-- Read FITS Header -->
+            <StackPanel Orientation="Horizontal" Margin="4,2,4,2" Spacing="10">
+                <Button Classes="toolbar" Content="Read FITS Header"
+                        Command="{Binding ReadFitsHeaderCommand}"/>
+                <TextBlock Classes="hint" Text="{Binding FitsHeaderStatus}"
+                           Foreground="{Binding FitsHeaderStatus, Converter={StaticResource StatusBrushConverter}}"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Plate Solve -->
+            <TextBlock Classes="h2" Text="Plate Solve" Margin="4,10,0,2"/>
+            <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
+            <StackPanel Orientation="Horizontal" Margin="4,2,4,2" Spacing="10">
+                <Button Classes="toolbar" Content="Plate Solve"
+                        Command="{Binding StartPlateSolveCommand}"/>
+                <StackPanel x:CompileBindings="False"
+                            DataContext="{Binding EquipmentTarget}"
+                            Orientation="Horizontal" Spacing="10">
+                    <TextBlock Classes="hint" Text="{Binding PlateSolveStatus}"
+                               Foreground="{Binding PlateSolveStatus, Converter={StaticResource StatusBrushConverter}}"
+                               VerticalAlignment="Center"/>
+                    <Button Classes="toolbar" Content="Cancel"
+                            Command="{Binding CancelPlateSolveCommand}"
+                            IsVisible="{Binding IsPsCancelVisible}"/>
+                    <Button Classes="toolbar" Content="Retry"
+                            Command="{Binding RetryPlateSolveCommand}"
+                            IsVisible="{Binding IsPsRetryEnabled}"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Darks Directory -->
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition SharedSizeGroup="LBL" Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Darks Directory:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding DarksDir}" Margin="0,0,4,0"
+                         ToolTip.Tip="{Binding DarksDir}"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Browse"
+                        Command="{Binding BrowseDarksDirCommand}" Margin="0,0,4,0"/>
+                <Button Grid.Column="3" Classes="toolbar" Content="Clear"
+                        Command="{Binding ClearDarksDirCommand}"/>
+            </Grid>
+
+            <!-- Flats Directory -->
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition SharedSizeGroup="LBL" Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Flats Directory:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding FlatsDir}" Margin="0,0,4,0"
+                         ToolTip.Tip="{Binding FlatsDir}"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Browse"
+                        Command="{Binding BrowseFlatsDirCommand}" Margin="0,0,4,0"/>
+                <Button Grid.Column="3" Classes="toolbar" Content="Clear"
+                        Command="{Binding ClearFlatsDirCommand}"/>
+            </Grid>
+
+            <!-- Biases Directory -->
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition SharedSizeGroup="LBL" Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Biases Directory:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding BiasDir}" Margin="0,0,4,0"
+                         ToolTip.Tip="{Binding BiasDir}"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Browse"
+                        Command="{Binding BrowseBiasDirCommand}" Margin="0,0,4,0"/>
+                <Button Grid.Column="3" Classes="toolbar" Content="Clear"
+                        Command="{Binding ClearBiasDirCommand}"/>
+            </Grid>
+
+            <!-- Save Plots Directory -->
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition SharedSizeGroup="LBL" Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Save Plots Directory:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding SaveDir}" Margin="0,0,4,0"
+                         ToolTip.Tip="{Binding SaveDir}"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Browse"
+                        Command="{Binding BrowseSaveDirCommand}"/>
+            </Grid>
+
+            <!--  Observer Information  -->
+            <TextBlock Classes="h2" Text="Observer Information" Margin="4,14,0,2"/>
+            <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
+
+            <!-- AAVSO Observer Code -->
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition SharedSizeGroup="LBL" Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="AAVSO Observer Code:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding AavsoCodes}"
+                          Text="{Binding AavsoCode}"
+                          IsEditable="True"
+                          HorizontalAlignment="Stretch"
+                          Margin="0,0,4,0"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Save"
+                        Command="{Binding SaveAavsoCommand}" Margin="0,0,4,0"/>
+                <Button Grid.Column="3" Classes="toolbar" Content="Remove"
+                        Command="{Binding RemoveAavsoCommand}"/>
+            </Grid>
+
+            <!-- Secondary Observer Codes -->
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition SharedSizeGroup="LBL" Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Secondary Observer Codes:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding SecondaryCodes}"
+                          Text="{Binding SecondaryCode}"
+                          IsEditable="True"
+                          HorizontalAlignment="Stretch"
+                          Margin="0,0,4,0"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Save"
+                        Command="{Binding SaveSecondaryCommand}" Margin="0,0,4,0"/>
+                <Button Grid.Column="3" Classes="toolbar" Content="Remove"
+                        Command="{Binding RemoveSecondaryCommand}"/>
+            </Grid>
+
+            <!-- Observation Date -->
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition SharedSizeGroup="LBL" Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Observation Date (DD-MON-YYYY):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding ObsDate}" Width="180" HorizontalAlignment="Left"/>
+            </Grid>
+
+            <!-- Date hint -->
+            <TextBlock Classes="hint" Text="  e.g.  27-FEB-2026" Margin="4,0,0,4"/>
+
+            <!--  Observatory / Location  -->
+            <TextBlock Classes="h2" Text="Observatory / Location" Margin="4,14,0,2"/>
+            <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
+
+            <!-- Select Observatory -->
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition SharedSizeGroup="LBL" Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Select Observatory:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding ObservatoryNames}"
+                          SelectedItem="{Binding SelectedObservatory}"
+                          HorizontalAlignment="Stretch"
+                          Margin="0,0,4,0"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Save current as"
+                        Command="{Binding SaveObservatoryCommand}" Margin="0,0,4,0"/>
+                <Button Grid.Column="3" Classes="toolbar" Content="Remove"
+                        Command="{Binding RemoveObservatoryCommand}"/>
+            </Grid>
+
+            <!-- Observatory save status -->
+            <TextBlock Classes="hint" Text="{Binding ObservatoryStatus}"
+                       Foreground="{Binding ObservatoryStatus, Converter={StaticResource StatusBrushConverter}}"
+                       Margin="4,0,0,2"/>
+
+            <!-- Latitude -->
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition SharedSizeGroup="LBL" Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Obs. Latitude  (+N / S):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding Latitude}" Width="180" HorizontalAlignment="Left"/>
+            </Grid>
+
+            <!-- Longitude -->
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition SharedSizeGroup="LBL" Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Obs. Longitude  (+E / W):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding Longitude}" Width="180" HorizontalAlignment="Left"/>
+            </Grid>
+
+            <!-- Elevation -->
+            <Grid Margin="4,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition SharedSizeGroup="LBL" Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Obs. Elevation (meters):" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding Elevation}" Width="140" HorizontalAlignment="Left"/>
+            </Grid>
+
+            <!-- Observatory hint -->
+            <TextBlock Classes="hint"
+                       Text="  Selecting a saved observatory auto-fills the three fields above."
+                       Margin="4,0,0,4"/>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

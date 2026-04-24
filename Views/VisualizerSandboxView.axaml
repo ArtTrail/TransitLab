@@ -1,0 +1,102 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TransitLab.ViewModels"
+        x:Class="TransitLab.Views.VisualizerSandboxView"
+        x:DataType="vm:TransitViewModel"
+        x:CompileBindings="False"
+        Title="Visualizer Parameters"
+        Width="420" Height="660"
+        MinWidth="380" MinHeight="620"
+        CanResize="True"
+        WindowStartupLocation="Manual">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16,12,16,16" Spacing="6">
+
+            <!-- Header -->
+            <TextBlock Classes="h2" Text="Visualizer Parameters" Margin="0,0,0,2"/>
+            <TextBlock Classes="hint" TextWrapping="Wrap"
+                       Text="These sliders control the transit animation only. The Parameters tab is not affected."
+                       Margin="0,0,0,8"/>
+
+            <!-- Rp/Rs -->
+            <TextBlock Text="Rp/Rs  (planet/star radii)" FontWeight="SemiBold"
+                       Foreground="{StaticResource BrushAccent}"/>
+            <Grid ColumnDefinitions="*,60">
+                <Slider Value="{Binding VisRpRs, Mode=TwoWay}"
+                        Minimum="0.01" Maximum="0.30" TickFrequency="0.01"
+                        ToolTip.Tip="Planet-to-star radius ratio (0.01–0.30)"/>
+                <TextBlock Grid.Column="1" Text="{Binding VisRpRs, StringFormat={}{0:F3}}"
+                           VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </Grid>
+
+            <!-- Inclination -->
+            <TextBlock Text="Inclination  (degrees)" FontWeight="SemiBold"
+                       Foreground="{StaticResource BrushAccent}" Margin="0,4,0,0"/>
+            <Grid ColumnDefinitions="*,60">
+                <Slider Value="{Binding VisIncDeg, Mode=TwoWay}"
+                        Minimum="60.0" Maximum="120.0" TickFrequency="0.1"
+                        ToolTip.Tip="Orbital inclination in degrees. 90° = edge-on (central transit). Values below 90° put the chord above center; above 90° below center. Updates impact parameter b automatically."/>
+                <TextBlock Grid.Column="1" Text="{Binding VisIncDeg, StringFormat={}{0:F2}°}"
+                           VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </Grid>
+
+            <!-- Impact parameter b -->
+            <TextBlock Text="Impact Parameter  b" FontWeight="SemiBold"
+                       Foreground="{StaticResource BrushAccent}" Margin="0,4,0,0"/>
+            <TextBlock Classes="hint" Text="  Linked to inclination — moving either updates the other."
+                       Margin="0,0,0,2" FontStyle="Italic"/>
+            <Grid ColumnDefinitions="*,60">
+                <Slider Value="{Binding VisB, Mode=TwoWay}"
+                        Minimum="-1.2" Maximum="1.2" TickFrequency="0.01"
+                        ToolTip.Tip="Impact parameter b = a/Rs · cos(i). 0 = central transit. Positive = chord above stellar equator (i &lt; 90°). Negative = chord below (i &gt; 90°). |b| is clamped to the just-grazing limit 1+k. Linked to inclination slider."/>
+                <TextBlock Grid.Column="1" Text="{Binding VisB, StringFormat={}{0:F3}}"
+                           VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </Grid>
+
+            <!-- a/Rs -->
+            <TextBlock Text="a/Rs  (semi-major axis / star radius)" FontWeight="SemiBold"
+                       Foreground="{StaticResource BrushAccent}" Margin="0,8,0,0"/>
+            <Grid ColumnDefinitions="*,60">
+                <Slider Value="{Binding VisARs, Mode=TwoWay}"
+                        Minimum="1.5" Maximum="60.0" TickFrequency="0.5"
+                        ToolTip.Tip="Orbital semi-major axis in units of stellar radii (1.5–60). Inclination is held fixed; impact parameter b updates accordingly."/>
+                <TextBlock Grid.Column="1" Text="{Binding VisARs, StringFormat={}{0:F1}}"
+                           VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </Grid>
+
+            <!-- Separator -->
+            <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="0,6,0,2"/>
+            <TextBlock Text="Limb Darkening  (quadratic model)" FontWeight="SemiBold"
+                       Foreground="{StaticResource BrushAccent}"/>
+
+            <!-- u1 -->
+            <TextBlock Text="u₁  (linear term)" Margin="0,4,0,0"/>
+            <Grid ColumnDefinitions="*,60">
+                <Slider Value="{Binding VisU1, Mode=TwoWay}"
+                        Minimum="0.0" Maximum="1.0" TickFrequency="0.01"
+                        ToolTip.Tip="Linear limb darkening coefficient u₁ (range 0–1).&#x0A;&#x0A;Controls how steeply the star's brightness falls off from disk center to limb. Higher values make the star noticeably darker at its edge.&#x0A;&#x0A;During transit, stronger limb darkening changes the shape of the light curve: ingress/egress slopes steepen and the flat bottom narrows, because the planet crosses brighter and darker regions of the disk at different depths.&#x0A;&#x0A;Typical values by spectral type:&#x0A;  F star (Teff ~7000 K): u₁ ≈ 0.30&#x0A;  G star / solar (5778 K): u₁ ≈ 0.40&#x0A;  K star (~4500 K): u₁ ≈ 0.55&#x0A;  M star (~3500 K): u₁ ≈ 0.65"/>
+                <TextBlock Grid.Column="1" Text="{Binding VisU1, StringFormat={}{0:F2}}"
+                           VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </Grid>
+
+            <!-- u2 -->
+            <TextBlock Text="u₂  (quadratic term)" Margin="0,4,0,0"/>
+            <Grid ColumnDefinitions="*,60">
+                <Slider Value="{Binding VisU2, Mode=TwoWay}"
+                        Minimum="0.0" Maximum="1.0" TickFrequency="0.01"
+                        ToolTip.Tip="Quadratic limb darkening coefficient u₂ (range 0–1).&#x0A;&#x0A;Shapes the curvature of the darkening profile. While u₁ sets the overall strength of limb darkening, u₂ controls whether the drop-off accelerates near the very edge of the disk.&#x0A;&#x0A;Positive values (most visible-band cases) steepen the darkening near the limb. A value of 0 reduces the model to purely linear darkening.&#x0A;&#x0A;Typical values by spectral type:&#x0A;  F star (Teff ~7000 K): u₂ ≈ 0.22&#x0A;  G star / solar (5778 K): u₂ ≈ 0.30&#x0A;  K star (~4500 K): u₂ ≈ 0.20&#x0A;  M star (~3500 K): u₂ ≈ 0.10"/>
+                <TextBlock Grid.Column="1" Text="{Binding VisU2, StringFormat={}{0:F2}}"
+                           VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </Grid>
+
+            <!-- Reset button -->
+            <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="0,10,0,4"/>
+            <Button Classes="toolbar" Content="↺  Reset to Parameters Tab Values"
+                    Click="OnResetClick" HorizontalAlignment="Stretch"/>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</Window>

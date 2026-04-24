@@ -1,0 +1,152 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TransitLab.ViewModels"
+             x:DataType="vm:PlateSolveSetupViewModel"
+             x:Class="TransitLab.Views.PlateSolveSetupView">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+
+        <StackPanel Spacing="18" Margin="32,24,32,28">
+
+            <!-- ── Solver choice ──────────────────────────────────────────── -->
+            <TextBlock Text="Active solver" FontWeight="SemiBold" FontSize="18"/>
+
+            <StackPanel Spacing="10" Margin="8,0,0,0">
+                <RadioButton Content="Astrometry.net  (via EXOTIC, requires internet)"
+                             IsChecked="{Binding UseAstrometryNet}"
+                             FontSize="18"/>
+                <RadioButton Content="ASTAP  (local, fast, no internet required)"
+                             IsChecked="{Binding UseAstap}"
+                             FontSize="18"/>
+            </StackPanel>
+
+            <!-- ── ASTAP settings (visible when ASTAP selected) ───────────── -->
+            <Border IsVisible="{Binding UseAstap}"
+                    BorderBrush="{StaticResource BrushSep}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="16,14,16,16">
+
+                <StackPanel Spacing="12">
+
+                    <TextBlock Classes="h2" Text="ASTAP Settings" FontSize="17"/>
+
+                    <!-- ASTAP exe row -->
+                    <TextBlock Text="ASTAP executable" FontWeight="SemiBold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBox Text="{Binding AstapExePath}"
+                                 Width="400"
+                                 FontFamily="Courier New"
+                                 FontSize="16"
+                                 Background="{StaticResource BrushField}"
+                                 Watermark="Path to astap_cli.exe or astap.exe…"/>
+                        <Button Classes="toolbar" Content="Browse…"
+                                Command="{Binding BrowseAstapCommand}"/>
+                    </StackPanel>
+
+                    <!-- Action buttons -->
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Classes="toolbar" Content="Auto-detect"
+                                Command="{Binding AutoDetectCommand}"/>
+                        <Button Classes="toolbar" Content="Test"
+                                Command="{Binding TestAstapCommand}"
+                                IsEnabled="{Binding !IsTestRunning}"/>
+                    </StackPanel>
+
+                    <!-- Catalog dir row -->
+                    <TextBlock Text="Catalog folder  (leave blank if catalogs are in the same folder as the exe)"
+                               FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBox Text="{Binding AstapCatalogDir}"
+                                 Width="400"
+                                 FontFamily="Courier New"
+                                 FontSize="16"
+                                 Background="{StaticResource BrushField}"
+                                 Watermark="Optional — folder containing catalog files…"/>
+                        <Button Classes="toolbar" Content="Browse…"
+                                Command="{Binding BrowseCatalogDirCommand}"/>
+                    </StackPanel>
+
+                    <!-- Test status -->
+                    <TextBlock Text="{Binding TestStatus}"
+                               Classes="hint"
+                               Foreground="{Binding TestStatus, Converter={StaticResource StatusBrushConverter}}"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding TestStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+                    <!-- Catalog status -->
+                    <TextBlock Text="{Binding CatalogStatus}"
+                               Classes="hint"
+                               Foreground="{Binding CatalogStatus, Converter={StaticResource StatusBrushConverter}}"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding CatalogStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+                    <!-- ASTAP website link -->
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Classes="hint" FontSize="14"
+                                   Text="Download ASTAP and catalogs:"/>
+                        <Button Classes="toolbar"
+                                FontSize="14"
+                                Padding="4,1"
+                                Content="hnsky.org/astap.htm"
+                                Command="{Binding OpenAstapWebsiteCommand}"/>
+                    </StackPanel>
+
+                    <!-- Separator -->
+                    <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="0,4"/>
+
+                    <!-- Parameters -->
+                    <TextBlock Text="Solve parameters" FontWeight="SemiBold"/>
+                    <Grid ColumnDefinitions="220,130" RowDefinitions="Auto,12,Auto">
+
+                        <!-- Search radius -->
+                        <TextBlock Grid.Row="0" Grid.Column="0"
+                                   Text="Search radius (arcminutes)"
+                                   VerticalAlignment="Center"/>
+                        <NumericUpDown Grid.Row="0" Grid.Column="1"
+                                       Value="{Binding SearchRadius}"
+                                       Minimum="10" Maximum="600" Increment="10"
+                                       FormatString="0"
+                                       FontSize="18"/>
+
+                        <!-- Downsample -->
+                        <TextBlock Grid.Row="2" Grid.Column="0"
+                                   Text="Downsample (0 = auto)"
+                                   VerticalAlignment="Center"/>
+                        <NumericUpDown Grid.Row="2" Grid.Column="1"
+                                       Value="{Binding Downsample}"
+                                       Minimum="0" Maximum="8" Increment="1"
+                                       FormatString="0"
+                                       FontSize="18"/>
+                    </Grid>
+
+                    <!-- Parameter hints -->
+                    <TextBlock Classes="hint" FontSize="14" TextWrapping="Wrap"
+                               Text="Search radius: arcminutes of sky to search around the image center (10ʹ–600ʹ). Typical values: 30–60ʹ for known fields, 120–300ʹ for blind solves. Downsample: reduce image resolution before solving — use 0 (auto) for most cameras, 2–4 for very wide-field or high-resolution images."/>
+
+                    <!-- Separator -->
+                    <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="0,4"/>
+
+                    <!-- Solve scope -->
+                    <TextBlock Text="Solve scope" FontWeight="SemiBold"/>
+                    <CheckBox Content="Solve ALL images in the FITS folder (not just the first one)"
+                              IsChecked="{Binding SolveAllFrames}"/>
+                    <TextBlock Classes="hint" FontSize="14" TextWrapping="Wrap"
+                               Text="When checked, clicking Plate Solve runs ASTAP on every FITS file in your FITS directory. Useful when WCS coordinates are needed on all frames. When unchecked (default), only the first non-excluded image is solved."/>
+
+                </StackPanel>
+            </Border>
+
+            <!-- ── Save / Close ──────────────────────────────────────────── -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,4,0,0">
+                <Button Classes="primary" Content="Save"
+                        Command="{Binding SaveCommand}"/>
+                <Button Classes="toolbar" Content="Close"
+                        Command="{Binding CloseCommand}"/>
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>

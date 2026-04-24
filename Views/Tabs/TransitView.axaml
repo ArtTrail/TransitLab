@@ -1,0 +1,175 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TransitLab.ViewModels"
+             xmlns:ctrl="using:TransitLab.Views.Controls"
+             xmlns:converters="using:TransitLab.Converters"
+             x:DataType="vm:MainWindowViewModel"
+             x:CompileBindings="False"
+             x:Class="TransitLab.Views.Tabs.TransitView">
+
+    <DockPanel Margin="10,8,10,8">
+
+        <!-- ── Control bar ───────────────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Top" Padding="0,0,0,8">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+
+                <!-- Play / Pause -->
+                <Button Grid.Column="0"
+                        Classes="primary"
+                        Content="{Binding Transit.IsPlaying, Converter={x:Static converters:BoolToPlayPauseConverter.Instance}}"
+                        Command="{Binding Transit.PlayPauseCommand}"
+                        Width="110" VerticalAlignment="Center"/>
+
+                <!-- Reset -->
+                <Button Grid.Column="1"
+                        Classes="toolbar" Content="⏮ Reset"
+                        Command="{Binding Transit.ResetCommand}"
+                        Margin="8,0,0,0" VerticalAlignment="Center"/>
+
+                <!-- Speed label + slider -->
+                <TextBlock Grid.Column="2"
+                           Text="Speed:" VerticalAlignment="Center"
+                           Margin="16,0,6,0"/>
+                <Slider Grid.Column="3"
+                        Value="{Binding Transit.AnimSpeed}"
+                        Minimum="0.2" Maximum="5.0" TickFrequency="0.2"
+                        Width="140" VerticalAlignment="Center"
+                        ToolTip.Tip="At 1×, the transit (T14) takes ~8 seconds to animate."/>
+                <TextBlock Grid.Column="4"
+                           Text="{Binding Transit.AnimSpeed, StringFormat={}{0:F1}×}"
+                           VerticalAlignment="Center" Margin="6,0,0,0" Width="36"/>
+
+                <!-- Mini separator -->
+                <Rectangle Grid.Column="5" Width="1" Height="24"
+                           Fill="{StaticResource BrushSep}" Margin="12,0"/>
+
+                <!-- Orbit label + slider -->
+                <TextBlock Grid.Column="6"
+                           Text="Orbit:" VerticalAlignment="Center"
+                           Margin="0,0,6,0"/>
+                <Slider Grid.Column="7"
+                        Value="{Binding Transit.Phase, Mode=TwoWay}"
+                        Minimum="{Binding Transit.PhaseSliderMin}"
+                        Maximum="{Binding Transit.PhaseSliderMax}"
+                        Width="130" VerticalAlignment="Center"
+                        ToolTip.Tip="Drag to scrub the planet through the transit window. 0.5 = mid-transit."/>
+                <TextBlock Grid.Column="8"
+                           Text="{Binding Transit.Phase, StringFormat='φ {0:F3}'}"
+                           VerticalAlignment="Center" Margin="6,0,0,0" Width="58"/>
+
+                <!-- Separator -->
+                <Rectangle Grid.Column="9" Width="1" Height="24"
+                           Fill="{StaticResource BrushSep}" Margin="12,0"/>
+
+                <!-- Status text -->
+                <TextBlock Grid.Column="10"
+                           Text="{Binding Transit.StatusText}"
+                           Classes="hint"
+                           Foreground="{Binding Transit.StatusText, Converter={StaticResource StatusBrushConverter}}"
+                           VerticalAlignment="Center" TextWrapping="NoWrap"
+                           TextTrimming="CharacterEllipsis"/>
+
+                <!-- Spacer -->
+                <Rectangle Grid.Column="11" Width="1" Margin="16,0"/>
+
+                <!-- Parameters popup button -->
+                <Button Grid.Column="12"
+                        Classes="toolbar" Content="Parameters ▶"
+                        Click="OnParametersClick"
+                        VerticalAlignment="Center"/>
+
+            </Grid>
+        </Border>
+
+        <!-- ── Derived quantities bar ─────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Bottom" Padding="0,8,0,0">
+            <DockPanel>
+
+                <!-- Load Photometry button -->
+                <Button DockPanel.Dock="Right"
+                        Classes="toolbar" Content="Load Photometry…"
+                        Click="OnLoadPhotometryClick"
+                        VerticalAlignment="Center" Margin="0,0,0,4"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="28">
+
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="hint" Text="Impact Param  b"/>
+                        <TextBlock Text="{Binding Transit.ImpactParamText}" FontSize="18"
+                                   Foreground="{StaticResource BrushAccent}"/>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Fill="{StaticResource BrushSep}" Margin="0,4"/>
+
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="hint" Text="Transit Depth"/>
+                        <TextBlock Text="{Binding Transit.DepthText}" FontSize="18"
+                                   Foreground="{StaticResource BrushAccent}"/>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Fill="{StaticResource BrushSep}" Margin="0,4"/>
+
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="hint" Text="T₁₄  (full duration)"/>
+                        <TextBlock Text="{Binding Transit.T14Text}" FontSize="18"
+                                   Foreground="{StaticResource BrushAccent}"/>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Fill="{StaticResource BrushSep}" Margin="0,4"/>
+
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="hint" Text="T₂₃  (flat bottom)"/>
+                        <TextBlock Text="{Binding Transit.T23Text}" FontSize="18"
+                                   Foreground="{StaticResource BrushAccent}"/>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Fill="{StaticResource BrushSep}" Margin="0,4"/>
+
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="hint" Text="Stellar Density"/>
+                        <TextBlock Text="{Binding Transit.StellarDensityText}" FontSize="18"
+                                   Foreground="{StaticResource BrushAccent}"/>
+                    </StackPanel>
+
+                    <Rectangle Width="1" Fill="{StaticResource BrushSep}" Margin="0,4"/>
+
+                    <StackPanel Spacing="2">
+                        <TextBlock Classes="hint" Text="Spectral Type"/>
+                        <TextBlock Text="{Binding Transit.SpectralTypeText}" FontSize="18"
+                                   Foreground="{StaticResource BrushAccent}"/>
+                    </StackPanel>
+
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ── Separator ─────────────────────────────────────────────────────── -->
+        <Rectangle DockPanel.Dock="Bottom" Height="1"
+                   Fill="{StaticResource BrushSep}" Margin="0,6,0,0"/>
+
+        <!-- ── Main display area ─────────────────────────────────────────────── -->
+        <Grid ColumnDefinitions="1*,5,1*">
+
+            <!-- Transit geometry -->
+            <ctrl:TransitGeometryControl
+                Grid.Column="0"
+                x:Name="GeometryControl"
+                ViewModel="{Binding Transit}"/>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1"
+                          ResizeDirection="Columns"
+                          Background="{StaticResource BrushSep}"/>
+
+            <!-- Light curve -->
+            <ctrl:LightCurveControl
+                Grid.Column="2"
+                ClipToBounds="True"
+                x:Name="CurveControl"
+                ViewModel="{Binding Transit}"/>
+
+        </Grid>
+
+    </DockPanel>
+
+</UserControl>

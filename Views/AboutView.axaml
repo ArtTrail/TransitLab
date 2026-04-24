@@ -1,0 +1,126 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="TransitLab.Views.AboutView">
+
+    <Border Padding="36,28,36,28">
+        <StackPanel Spacing="0">
+
+            <!-- App name + version -->
+            <TextBlock Classes="title"
+                       Text="TransitLab"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Classes="hint"
+                       Text="Version 2.6.1"
+                       HorizontalAlignment="Center"
+                       Margin="0,4,0,0"/>
+
+            <!-- Copyright + license -->
+            <TextBlock Classes="hint"
+                       Text="© Art Trail 2026"
+                       HorizontalAlignment="Center"
+                       Margin="0,4,0,0"/>
+            <TextBlock Classes="hint"
+                       Text="Free to use for personal and non-commercial use"
+                       HorizontalAlignment="Center"
+                       Margin="0,2,0,0"/>
+
+            <!-- Separator -->
+            <Rectangle Height="1"
+                       Fill="{StaticResource BrushSep}"
+                       Margin="0,18,0,18"/>
+
+            <!-- Author -->
+            <TextBlock Text="Author"
+                       FontWeight="SemiBold"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="Art Trail"
+                       HorizontalAlignment="Center"
+                       Margin="0,4,0,2"/>
+            <TextBlock Text="art.trail@icloud.com"
+                       Classes="hint"
+                       HorizontalAlignment="Center"/>
+
+            <!-- Development note -->
+            <TextBlock TextWrapping="Wrap"
+                       Classes="hint"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       FontStyle="Italic"
+                       Margin="0,10,0,0"
+                       Text="Developed entirely with Claude Code (Anthropic), with the exception of Python code contributions listed below."/>
+
+            <!-- Separator -->
+            <Rectangle Height="1"
+                       Fill="{StaticResource BrushSep}"
+                       Margin="0,18,0,18"/>
+
+            <!-- Acknowledgements -->
+            <TextBlock Text="Acknowledgements"
+                       FontWeight="SemiBold"
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,12"/>
+
+            <!-- EXOTIC -->
+            <TextBlock TextWrapping="Wrap"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Text="EXOTIC reduction pipeline"/>
+            <TextBlock TextWrapping="Wrap"
+                       Classes="hint"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Margin="0,2,0,10"
+                       Text="Zellem, Pearson, Blaser et al. (2020, PASP 132)&#x0a;github.com/rzellem/EXOTIC"/>
+
+            <!-- AAVSO -->
+            <TextBlock TextWrapping="Wrap"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Text="AAVSO — American Association of Variable Star Observers"/>
+            <TextBlock TextWrapping="Wrap"
+                       Classes="hint"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Margin="0,2,0,10"
+                       Text="Exoplanet submission format and observing resources&#x0a;aavso.org"/>
+
+            <!-- Douglas James -->
+            <TextBlock TextWrapping="Wrap"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Text="Douglas James"/>
+            <TextBlock TextWrapping="Wrap"
+                       Classes="hint"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Margin="0,2,0,10"
+                       Text="MObs tab Python code and testing assistance"/>
+
+            <!-- MicroObservatory -->
+            <TextBlock TextWrapping="Wrap"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Text="MicroObservatory Robotic Telescope Network"/>
+            <TextBlock TextWrapping="Wrap"
+                       Classes="hint"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Margin="0,2,0,10"
+                       Text="Telescope data provided via the MicroObservatory network&#x0a;microobservatory.org"/>
+
+            <!-- ASTAP -->
+            <TextBlock TextWrapping="Wrap"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Text="ASTAP — Astrometric STAcking Program"/>
+            <TextBlock TextWrapping="Wrap"
+                       Classes="hint"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Margin="0,2,0,0"
+                       Text="Han Kleijn&#x0a;hnsky.org/astap.htm"/>
+
+        </StackPanel>
+    </Border>
+
+</UserControl>

@@ -1,0 +1,167 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TransitLab.ViewModels"
+        x:Class="TransitLab.Views.PlanetParamsPopup"
+        x:DataType="vm:EquipmentTargetViewModel"
+        x:CompileBindings="False"
+        Title="Planet Parameters"
+        Width="420" Height="700"
+        MinWidth="360" MinHeight="480"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16,12,16,16" Spacing="2">
+
+            <!-- ── Header ── -->
+            <TextBlock Classes="h2" Text="Planet Parameters" Margin="0,0,0,4"/>
+
+            <!-- ── VISUALIZER PARAMETERS ── -->
+            <Border Background="{StaticResource BrushBg2}"
+                    CornerRadius="4" Padding="10,8" Margin="0,6,0,0">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="▶  Visualizer Parameters"
+                               Foreground="{StaticResource BrushAccent}"
+                               FontWeight="SemiBold" FontSize="16" Margin="0,0,0,6"/>
+                    <TextBlock Classes="hint" TextWrapping="Wrap"
+                               Text="Edit these values to see the transit animation update in real time."
+                               Margin="0,0,0,8"/>
+
+                    <!-- Rp/Rs -->
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Rp/Rs  (planet/star radii):"
+                                   Foreground="{StaticResource BrushAccent}"
+                                   FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding RpRs}"/>
+                    </Grid>
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="  Rp/Rs Uncertainty:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding RpRsUnc}"/>
+                    </Grid>
+
+                    <!-- a/Rs -->
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="a/Rs  (orbit/star radii):"
+                                   Foreground="{StaticResource BrushAccent}"
+                                   FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding ARs}"/>
+                    </Grid>
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="  a/Rs Uncertainty:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding ARsUnc}"/>
+                    </Grid>
+
+                    <!-- Inclination -->
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Inclination (deg):"
+                                   Foreground="{StaticResource BrushAccent}"
+                                   FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding Inclination}"/>
+                    </Grid>
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="  Inclination Uncertainty:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding InclinationUnc}"/>
+                    </Grid>
+
+                    <!-- Period (affects duration display) -->
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Orbital Period (days):"
+                                   Foreground="{StaticResource BrushAccent}"
+                                   FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding OrbitalPeriod}"/>
+                    </Grid>
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="  Period Uncertainty:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding OrbitalPeriodUnc}"/>
+                    </Grid>
+
+                </StackPanel>
+            </Border>
+
+            <!-- ── REFERENCE PARAMETERS (read-only in visualizer) ── -->
+            <Border Margin="0,12,0,0" Opacity="0.55">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="Reference Parameters  (not used by Visualizer)"
+                               Classes="hint" FontWeight="SemiBold" FontSize="15" Margin="0,0,0,6"/>
+                    <TextBlock Classes="hint" TextWrapping="Wrap" FontStyle="Italic"
+                               Text="These fields are used by EXOTIC but do not affect the transit animation. Edit them on the Parameters tab."
+                               Margin="0,0,0,8"/>
+
+                    <!-- Planet name -->
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Planet Name:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding PlanetName}" IsEnabled="False"/>
+                    </Grid>
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Host Star Name:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding HostStarName}" IsEnabled="False"/>
+                    </Grid>
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Target RA (deg):" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding TargetRa}" IsEnabled="False"/>
+                    </Grid>
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Target Dec (deg):" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding TargetDec}" IsEnabled="False"/>
+                    </Grid>
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Mid-Transit Time:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding MidTransitTime}" IsEnabled="False"/>
+                    </Grid>
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Eccentricity:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding Eccentricity}" IsEnabled="False"/>
+                    </Grid>
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Arg. of Periastron:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding ArgPeriastron}" IsEnabled="False"/>
+                    </Grid>
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Teff (K):" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding Teff}" IsEnabled="False"/>
+                    </Grid>
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="Metallicity [Fe/H]:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding Metallicity}" IsEnabled="False"/>
+                    </Grid>
+                    <Grid Margin="0,3">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="log(g):" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBox Grid.Column="1" Text="{Binding Logg}" IsEnabled="False"/>
+                    </Grid>
+
+                </StackPanel>
+            </Border>
+
+            <!-- Fetch from NEA -->
+            <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="0,10,0,6"/>
+            <DockPanel>
+                <Button DockPanel.Dock="Left" Classes="toolbar" Content="Fetch from NEA"
+                        Command="{Binding FetchFromNeaCommand}" Margin="0,0,10,0"/>
+                <TextBlock Classes="hint" Text="{Binding NeaStatus}"
+                           Foreground="{Binding NeaStatus, Converter={StaticResource StatusBrushConverter}}"
+                           VerticalAlignment="Center" TextWrapping="Wrap"/>
+            </DockPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</Window>

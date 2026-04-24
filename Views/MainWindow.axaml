@@ -1,0 +1,131 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:TransitLab.ViewModels"
+        xmlns:tabs="using:TransitLab.Views.Tabs"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1400" d:DesignHeight="960"
+        x:Class="TransitLab.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="{Binding Title}"
+        Width="1400" Height="960"
+        MinWidth="1280" MinHeight="760">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <DockPanel>
+
+        <!-- ── Menu bar ─────────────────────────────────────────────────── -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="Load previous inits.json…"
+                          Command="{Binding LoadInitsCommand}"/>
+                <MenuItem Header="Save inits.json Only"
+                          Command="{Binding SaveInitsOnlyCommand}"/>
+                <Separator/>
+                <MenuItem Header="Recent Sessions"
+                          x:Name="MenuRecentSessions"
+                          Click="OnRecentSessionsMenuClick"/>
+            </MenuItem>
+            <MenuItem Header="_Tools">
+                <MenuItem Header="Clear All Fields"
+                          Command="{Binding ClearAllFieldsCommand}"/>
+                <Separator/>
+                <MenuItem Header="Python &amp; EXOTIC Setup"
+                          Click="OnExoticSetupClick"/>
+                <MenuItem Header="Plate Solve Setup"
+                          Click="OnPlateSolveSetupClick"/>
+                <Separator/>
+                <MenuItem Header="Settings">
+                    <MenuItem Header="Notifications"
+                              Click="OnNotificationsSettingsClick"/>
+                    <MenuItem Header="Automation"
+                              Click="OnAutomationSettingsClick"/>
+                </MenuItem>
+                <Separator/>
+                <MenuItem Header="Diagnostics"
+                          Click="OnDiagnosticsClick"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="Quick Start"
+                          Click="OnQuickStartClick"/>
+                <MenuItem Header="User Guide"
+                          Click="OnUserGuideClick"/>
+                <MenuItem Header="Revision History"
+                          Click="OnRevisionHistoryClick"/>
+                <Separator/>
+                <MenuItem Header="About TransitLab"
+                          Click="OnAboutClick"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- ── Top bar ──────────────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Top" Padding="14,6,14,4">
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Spacing="6"
+                        VerticalAlignment="Center">
+                <Button Classes="primary"
+                        Content="  Save &amp; Run EXOTIC  "
+                        Command="{Binding SaveAndRunCommand}"/>
+                <Button Classes="toolbar"
+                        Content="⏹  Cancel"
+                        Command="{Binding CancelExoticCommand}"
+                        IsVisible="{Binding IsExoticRunning}"
+                        Foreground="{StaticResource BrushErr}"/>
+                <TextBlock Text="{Binding ExoticStatusText}"
+                           Classes="hint"
+                           VerticalAlignment="Center"
+                           IsVisible="{Binding IsExoticRunning}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ── Separator ────────────────────────────────────────────────── -->
+        <Rectangle DockPanel.Dock="Top"
+                   Height="1"
+                   Fill="{StaticResource BrushSep}"
+                   Margin="10,8,10,0"/>
+
+        <!-- ── Bottom attribution bar ───────────────────────────────────── -->
+        <Border DockPanel.Dock="Bottom" Padding="0,2,10,4">
+            <TextBlock Classes="hint"
+                       Text="© Art Trail 2026  ·  TransitLab v2.6.1  ·  Powered by EXOTIC (Zellem, Pearson, Blaser et al. 2020, PASP 132)"
+                       HorizontalAlignment="Right"/>
+        </Border>
+
+        <!-- ── Tab control ──────────────────────────────────────────────── -->
+        <!-- Tab index: Data=0, Image Analysis=1, Parameters=2, Results=3, Visualizer=4, History=5 -->
+        <TabControl x:Name="MainTabs">
+
+            <TabItem Header="   Data   ">
+                <tabs:MObsView/>
+            </TabItem>
+
+            <TabItem Header="   Image Analysis   ">
+                <tabs:FrameAnalysisView DataContext="{Binding FrameAnalysis}"/>
+            </TabItem>
+
+            <TabItem Header="   Parameters   ">
+                <tabs:EquipmentTargetView/>
+            </TabItem>
+
+            <TabItem Header="  Results  ">
+                <tabs:ResultsView DataContext="{Binding Results}"/>
+            </TabItem>
+
+            <TabItem Header="   Visualizer   ">
+                <tabs:TransitView/>
+            </TabItem>
+
+            <TabItem Header="  History  ">
+                <tabs:HistoryView DataContext="{Binding History}"/>
+            </TabItem>
+
+        </TabControl>
+
+    </DockPanel>
+
+</Window>
