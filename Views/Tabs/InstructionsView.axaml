@@ -257,8 +257,8 @@
             <TextBlock TextWrapping="Wrap" Text="• The Python &amp; EXOTIC Setup wizard walks you through installing, updating, or repairing Python and EXOTIC. Open it from Tools → Python &amp; EXOTIC Setup in the menu bar."/>
             <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Check System"/>
             <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Scans for an existing Python installation (≥ 3.8) and checks whether EXOTIC is installed. Shows the detected version and path for each. Run this first — it enables the other buttons based on what is found."/>
-            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Download &amp; Install Python"/>
-            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Downloads the Python 3.10.11 installer to your Temp folder (progress bar shown) and runs a silent installation. Enabled only when Python is not found."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Download &amp; Install Python  /  Reinstall Python"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Downloads the Python 3.10.11 installer to your Temp folder (progress bar shown) and runs a silent installation. This button is always enabled after Check System runs. Its label changes to 'Reinstall Python' when Python is already detected — use it to repair a corrupt or broken Python installation without affecting EXOTIC or other packages."/>
             <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Install EXOTIC"/>
             <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Upgrades pip, installs the required prerequisite packages (setuptools, wheel), then installs or upgrades EXOTIC via pip and streams the full output to the log box. Use this for first-time installs and routine upgrades. Enabled once Python is detected."/>
             <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Uninstall EXOTIC"/>

@@ -19,8 +19,8 @@ namespace TransitLab.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    public string Version { get; } = "2.6.1";
-    public string Title   { get; } = "TransitLab  v2.6.1";
+    public string Version { get; } = "2.6.2";
+    public string Title   { get; } = "TransitLab  v2.6.2";
 
     public ExoticSetupViewModel     ExoticSetup     { get; } = new();
     public MObsViewModel            MObs            { get; } = new();

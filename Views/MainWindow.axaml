@@ -92,7 +92,7 @@
         <!-- ── Bottom attribution bar ───────────────────────────────────── -->
         <Border DockPanel.Dock="Bottom" Padding="0,2,10,4">
             <TextBlock Classes="hint"
-                       Text="© Art Trail 2026  ·  TransitLab v2.6.1  ·  Powered by EXOTIC (Zellem, Pearson, Blaser et al. 2020, PASP 132)"
+                       Text="© Art Trail 2026  ·  TransitLab v2.6.2  ·  Powered by EXOTIC (Zellem, Pearson, Blaser et al. 2020, PASP 132)"
                        HorizontalAlignment="Right"/>
         </Border>
 

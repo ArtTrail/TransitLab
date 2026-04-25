@@ -7,6 +7,11 @@
 
         <StackPanel Spacing="6" Margin="32,20,32,24">
 
+            <!-- ── v2.6.2 ─────────────────────────────────────────────────────── -->
+            <TextBlock Classes="h2" Text="v2.6.2  —  2026-04-24" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• Change: macOS initial release. No functional changes to the Windows version." Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• Improvement: The 'Download &amp; Install Python' button in Python &amp; EXOTIC Setup now relabels itself to 'Reinstall Python' when Python is already detected, making it clear the button can be used to repair a corrupt Python installation. The button is always enabled after Check System runs." Margin="0,0,0,12"/>
+
             <!-- ── v2.6.1 ─────────────────────────────────────────────────────── -->
             <TextBlock Classes="h2" Text="v2.6.1  —  2026-04-23" Margin="0,0,0,4"/>
             <TextBlock TextWrapping="Wrap" Text="• Internal: project renamed from ExoticLauncher to TransitLab throughout — namespaces, assembly name, and all source file references. No functional changes." Margin="0,0,0,4"/>

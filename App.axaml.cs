@@ -21,7 +21,7 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            SessionLogService.Initialize("v2.6.1");
+            SessionLogService.Initialize("v2.6.2");
 
             // Avoid duplicate validations from both Avalonia and the CommunityToolkit.
             // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins

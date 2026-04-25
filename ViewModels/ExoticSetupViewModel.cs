@@ -27,6 +27,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
     // ── Button enable flags ────────────────────────────────────────────────────
     [ObservableProperty] private bool   _canCheck             = true;
     [ObservableProperty] private bool   _canGetPython         = false;
+    [ObservableProperty] private string _getPythonLabel       = "Download & Install Python";
     [ObservableProperty] private bool   _canInstallExotic     = false;
     [ObservableProperty] private bool   _canUninstallExotic   = false;
     [ObservableProperty] private bool   _canInstallBranch     = false;
@@ -72,6 +73,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
                 ExoticStatusIcon = "✗";
                 ExoticStatus     = "Cannot check — Python required";
                 HeadlineText     = "Python is not installed.  Download and install it below, then install EXOTIC.";
+                GetPythonLabel   = "Download & Install Python";
                 CanGetPython     = true;
             }
             else
@@ -87,7 +89,8 @@ public partial class ExoticSetupViewModel : ViewModelBase
                     Log("  Click  Get Python  to download and install a fresh copy.");
                     ExoticStatusIcon = "✗";
                     ExoticStatus     = "Cannot check — Python is broken";
-                    HeadlineText     = "Python installation is corrupt.  Click  Get Python  to reinstall.";
+                    HeadlineText     = "Python installation is corrupt.  Click  Reinstall Python  to reinstall.";
+                    GetPythonLabel   = "Reinstall Python";
                     CanGetPython     = true;
                     return;
                 }
@@ -135,6 +138,8 @@ public partial class ExoticSetupViewModel : ViewModelBase
                     HeadlineText     = "Python is ready.  Click  Install EXOTIC  to continue.";
                     CanInstallExotic = true;
                 }
+                GetPythonLabel = "Reinstall Python";
+                CanGetPython   = true;
             }
         }
         catch (OperationCanceledException) { HeadlineText = "Cancelled."; }
