@@ -7,6 +7,12 @@
 
         <StackPanel Spacing="6" Margin="32,20,32,24">
 
+            <!-- ── v2.6.3 ─────────────────────────────────────────────────────── -->
+            <TextBlock Classes="h2" Text="v2.6.3  —  2026-04-25" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• New: Linux initial release." Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• New: Python version warning dialog. If Check System detects a Python version outside the supported range (3.8–3.10), a warning dialog is shown advising that EXOTIC officially supports Python 3.8–3.10 and that Python 3.10.11 is recommended." Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• Change: On Linux, the Download &amp; Install Python button is hidden. Python must be installed manually on Linux before using the Setup wizard. All other setup functions (Install EXOTIC, Uninstall EXOTIC) work normally once Python is detected." Margin="0,0,0,12"/>
+
             <!-- ── v2.6.2 ─────────────────────────────────────────────────────── -->
             <TextBlock Classes="h2" Text="v2.6.2  —  2026-04-24" Margin="0,0,0,4"/>
             <TextBlock TextWrapping="Wrap" Text="• Change: macOS initial release. No functional changes to the Windows version." Margin="0,0,0,4"/>

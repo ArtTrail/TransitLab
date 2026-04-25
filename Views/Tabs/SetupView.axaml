@@ -67,11 +67,8 @@
             <Button Classes="toolbar" Margin="0,0,8,4"
                     Content="{Binding GetPythonLabel}"
                     Command="{Binding GetPythonCommand}"
-                    IsEnabled="{Binding CanGetPython}"/>
-            <Button Classes="toolbar" Margin="0,0,8,4"
-                    Content="Open Terminal"
-                    Command="{Binding OpenTerminalCommand}"
-                    IsVisible="{Binding IsLinux}"/>
+                    IsEnabled="{Binding CanGetPython}"
+                    IsVisible="{Binding IsNotLinux}"/>
             <Button Classes="toolbar" Margin="0,0,8,4"
                     Content="Install EXOTIC"
                     Command="{Binding InstallExoticCommand}"

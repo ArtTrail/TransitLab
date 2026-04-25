@@ -10,7 +10,7 @@
                        Text="TransitLab"
                        HorizontalAlignment="Center"/>
             <TextBlock Classes="hint"
-                       Text="Version 2.6.2"
+                       Text="Version 2.6.3"
                        HorizontalAlignment="Center"
                        Margin="0,4,0,0"/>
 

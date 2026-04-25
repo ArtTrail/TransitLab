@@ -21,6 +21,14 @@ public record PythonInfo(string Version, string ExePath)
                int.TryParse(parts[1], out var min) &&
                maj == 3 && min >= 8;
     }
+
+    public static bool IsOutOfSupportedRange(string version)
+    {
+        var parts = version.Split('.');
+        if (parts.Length < 2) return false;
+        if (!int.TryParse(parts[0], out var maj) || !int.TryParse(parts[1], out var min)) return false;
+        return maj != 3 || min < 8 || min > 10;
+    }
 }
 
 public static class ExoticInstallService

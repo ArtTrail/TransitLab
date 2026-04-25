@@ -46,10 +46,12 @@ public partial class ExoticSetupViewModel : ViewModelBase
     private CancellationTokenSource? _cts;
 
     // ── Platform ───────────────────────────────────────────────────────────────
-    public bool IsLinux { get; } = OperatingSystem.IsLinux();
+    public bool IsLinux    { get; } = OperatingSystem.IsLinux();
+    public bool IsNotLinux { get; } = !OperatingSystem.IsLinux();
 
     // ── Callbacks ──────────────────────────────────────────────────────────────
     public Action<string>?        ExoticExeFoundCallback { get; set; }
+    public Func<string, Task>?    ShowWarningAsync       { get; set; }
 
     // ── Commands ───────────────────────────────────────────────────────────────
 
@@ -77,7 +79,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
                 ExoticStatus     = "Cannot check — Python required";
                 HeadlineText     = OperatingSystem.IsWindows()
                     ? "Python is not installed.  Download and install it below, then install EXOTIC."
-                    : "Python 3.10 is not installed.  Click  Python Setup Help  for install instructions.";
+                    : "Python 3.10 is not installed.  Install it manually, then click Check System.";
                 GetPythonLabel   = OperatingSystem.IsWindows() ? "Download & Install Python" : "Python Setup Help";
                 CanGetPython     = true;
             }
@@ -96,7 +98,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
                     ExoticStatus     = "Cannot check — Python is broken";
                     HeadlineText     = OperatingSystem.IsWindows()
                         ? "Python installation is corrupt.  Click  Reinstall Python  to reinstall."
-                        : "Python installation is corrupt.  Click  Python Setup Help  for instructions.";
+                        : "Python installation is corrupt.  Reinstall Python manually, then click Check System.";
                     GetPythonLabel   = OperatingSystem.IsWindows() ? "Reinstall Python" : "Python Setup Help";
                     CanGetPython     = true;
                     return;
@@ -106,6 +108,12 @@ public partial class ExoticSetupViewModel : ViewModelBase
                 UpdateCanInstallBranch();
                 PythonStatusIcon = "✓";
                 PythonStatus     = $"Python {py.Version}   {py.ExePath}";
+
+                if (PythonInfo.IsOutOfSupportedRange(py.Version) && ShowWarningAsync is not null)
+                    await ShowWarningAsync(
+                        "EXOTIC officially supports Python 3.8–3.10. " +
+                        "Python 3.11 and above are not officially supported and may not work correctly. " +
+                        "Python 3.10.11 is recommended.");
 
                 Log("Checking for EXOTIC…");
                 var ver = await ExoticInstallService.GetExoticVersionAsync(py.ExePath, cts.Token);
