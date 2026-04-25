@@ -45,6 +45,9 @@ public partial class ExoticSetupViewModel : ViewModelBase
     private string? _pythonExe;
     private CancellationTokenSource? _cts;
 
+    // ── Platform ───────────────────────────────────────────────────────────────
+    public bool IsLinux { get; } = OperatingSystem.IsLinux();
+
     // ── Callbacks ──────────────────────────────────────────────────────────────
     public Action<string>?        ExoticExeFoundCallback { get; set; }
 
@@ -72,8 +75,10 @@ public partial class ExoticSetupViewModel : ViewModelBase
                 Log("  Python not found.");
                 ExoticStatusIcon = "✗";
                 ExoticStatus     = "Cannot check — Python required";
-                HeadlineText     = "Python is not installed.  Download and install it below, then install EXOTIC.";
-                GetPythonLabel   = "Download & Install Python";
+                HeadlineText     = OperatingSystem.IsWindows()
+                    ? "Python is not installed.  Download and install it below, then install EXOTIC."
+                    : "Python 3.10 is not installed.  Click  Python Setup Help  for install instructions.";
+                GetPythonLabel   = OperatingSystem.IsWindows() ? "Download & Install Python" : "Python Setup Help";
                 CanGetPython     = true;
             }
             else
@@ -89,8 +94,10 @@ public partial class ExoticSetupViewModel : ViewModelBase
                     Log("  Click  Get Python  to download and install a fresh copy.");
                     ExoticStatusIcon = "✗";
                     ExoticStatus     = "Cannot check — Python is broken";
-                    HeadlineText     = "Python installation is corrupt.  Click  Reinstall Python  to reinstall.";
-                    GetPythonLabel   = "Reinstall Python";
+                    HeadlineText     = OperatingSystem.IsWindows()
+                        ? "Python installation is corrupt.  Click  Reinstall Python  to reinstall."
+                        : "Python installation is corrupt.  Click  Python Setup Help  for instructions.";
+                    GetPythonLabel   = OperatingSystem.IsWindows() ? "Reinstall Python" : "Python Setup Help";
                     CanGetPython     = true;
                     return;
                 }
@@ -138,7 +145,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
                     HeadlineText     = "Python is ready.  Click  Install EXOTIC  to continue.";
                     CanInstallExotic = true;
                 }
-                GetPythonLabel = "Reinstall Python";
+                GetPythonLabel = OperatingSystem.IsWindows() ? "Reinstall Python" : "Python Setup Help";
                 CanGetPython   = true;
             }
         }
@@ -150,6 +157,19 @@ public partial class ExoticSetupViewModel : ViewModelBase
     [RelayCommand]
     private async Task GetPython()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            HeadlineText = "Python must be installed manually on Linux.";
+            Log("Python 3.10 is required. Open a terminal and run:");
+            Log("");
+            Log("  sudo add-apt-repository ppa:deadsnakes/ppa");
+            Log("  sudo apt-get update");
+            Log("  sudo apt-get install python3.10 python3.10-venv python3.10-distutils");
+            Log("");
+            Log("After installing, click Check System to verify.");
+            return;
+        }
+
         SetBusy();
         HeadlineText      = "Downloading Python installer…";
         IsProgressVisible = true;
@@ -210,6 +230,22 @@ public partial class ExoticSetupViewModel : ViewModelBase
         catch (OperationCanceledException) { HeadlineText = "Cancelled."; CanCheck = true; }
         catch (Exception ex)              { HeadlineText = $"Error: {ex.Message}"; Log($"ERROR: {ex.Message}"); CanCheck = true; }
         finally { ClearBusy(); _cts = null; }
+    }
+
+    [RelayCommand]
+    private void OpenTerminal()
+    {
+        foreach (var term in new[] { "x-terminal-emulator", "gnome-terminal", "xterm" })
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(term)
+                    { UseShellExecute = true });
+                return;
+            }
+            catch { }
+        }
+        Log("Could not open a terminal automatically. Please open one manually.");
     }
 
     [RelayCommand]

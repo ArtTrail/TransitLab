@@ -48,8 +48,8 @@ public static class ExoticInstallService
         var fromLauncher = await FindViaPyLauncherAsync(ct);
         if (fromLauncher != null) return fromLauncher;
 
-        // 2. python / python3 on PATH
-        foreach (var cmd in new[] { "python", "python3" })
+        // 2. python3.10 / python3 / python on PATH (try versioned name first)
+        foreach (var cmd in new[] { "python3.10", "python3.9", "python3", "python" })
         {
             var p = await ProbeExeAsync(cmd, ct);
             if (p != null) return p;
@@ -84,6 +84,7 @@ public static class ExoticInstallService
 
     private static async Task<PythonInfo?> FindViaPyLauncherAsync(CancellationToken ct)
     {
+        if (!OperatingSystem.IsWindows()) return null;
         try
         {
             var output = await RunCaptureAsync("py", "-0p", ct);
@@ -358,6 +359,12 @@ public static class ExoticInstallService
             return;
         }
 
+        if (!OperatingSystem.IsWindows())
+        {
+            Report(log,"Git not found. Install it with:  sudo apt install git  then try again.");
+            throw new InvalidOperationException("Git is required. Install it with: sudo apt install git");
+        }
+
         Report(log,"Git not found — installing Git for Windows automatically…");
         Report(log,"  (A UAC prompt may appear — click Yes to allow)\n");
 
@@ -463,12 +470,14 @@ public static class ExoticInstallService
 
     public static async Task<string?> FindExoticExeAsync(string pythonExe, CancellationToken ct = default)
     {
+        var isWin      = OperatingSystem.IsWindows();
+        var exoticName = isWin ? "exotic.exe" : "exotic";
+        var scriptsDir = isWin ? "Scripts" : "bin";
+
         // 1. Derive from exotic package location — works for user AND system installs.
-        //    exotic.__file__ = {base}\site-packages\exotic\__init__.py
-        //    User install:   {Python3xx}\site-packages\exotic\ → {Python3xx}\Scripts\exotic.exe
-        //    System install: {Python3xx}\Lib\site-packages\exotic\ → {Python3xx}\Scripts\exotic.exe
-        //    NOTE: take the last non-empty line of stdout to skip any import-time messages
-        //    that some packages print to stdout and would otherwise corrupt the path.
+        //    Windows user:  …\AppData\Roaming\Python\Python310\site-packages\exotic\ → …\Scripts\exotic.exe
+        //    Linux user:    ~/.local/lib/python3.10/site-packages/exotic\            → ~/.local/bin/exotic
+        //    NOTE: take the last non-empty line of stdout to skip any import-time messages.
         try
         {
             var raw = (await RunCaptureAsync(pythonExe,
@@ -482,12 +491,12 @@ public static class ExoticInstallService
                 if (sitePackages is not null)
                 {
                     foreach (var dir in new[] {
-                        Path.GetDirectoryName(sitePackages),                           // user install
-                        Path.GetDirectoryName(Path.GetDirectoryName(sitePackages))    // system install (under Lib)
+                        Path.GetDirectoryName(sitePackages),
+                        Path.GetDirectoryName(Path.GetDirectoryName(sitePackages))
                     })
                     {
                         if (dir is null) continue;
-                        var candidate = Path.Combine(dir, "Scripts", "exotic.exe");
+                        var candidate = Path.Combine(dir, scriptsDir, exoticName);
                         if (File.Exists(candidate)) return candidate;
                     }
                 }
@@ -500,16 +509,16 @@ public static class ExoticInstallService
         {
             var script = "import sysconfig,os; print(sysconfig.get_path('scripts',f'{os.name}_user'))";
             var dir = (await RunCaptureAsync(pythonExe, $"-c \"{script}\"", ct)).Trim();
-            var candidate = Path.Combine(dir, "exotic.exe");
+            var candidate = Path.Combine(dir, exoticName);
             if (File.Exists(candidate)) return candidate;
         }
         catch { }
 
-        // 3. Scripts folder alongside python.exe (conda / system install)
-        var sibling = Path.Combine(Path.GetDirectoryName(pythonExe)!, "Scripts", "exotic.exe");
+        // 3. Scripts/bin folder alongside python executable (conda / system install)
+        var sibling = Path.Combine(Path.GetDirectoryName(pythonExe)!, scriptsDir, exoticName);
         if (File.Exists(sibling)) return sibling;
 
-        // 4. ExoticFinder (conda envs, pip --user Roaming dirs, PATH)
+        // 4. ExoticFinder (conda envs, pip --user dirs, PATH)
         return ExoticFinder.Find("");
     }
 
