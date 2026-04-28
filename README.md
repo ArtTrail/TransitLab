@@ -1,6 +1,6 @@
 # TransitLab
 
-**TransitLab** is a Windows desktop launcher and workflow assistant for the [EXOTIC](https://github.com/rzellem/EXOTIC) exoplanet transit reduction pipeline. It guides you through every step of a reduction run — from loading raw FITS frames to submitting results to AAVSO — all from a single tabbed interface.
+**TransitLab** is a cross-platform desktop launcher and workflow assistant for the [EXOTIC](https://github.com/rzellem/EXOTIC) exoplanet transit reduction pipeline. It guides you through every step of a reduction run — from loading raw FITS frames to submitting results to AAVSO — all from a single tabbed interface. Runs on Windows, macOS (Apple Silicon), and Linux.
 
 > Powered by EXOTIC (Zellem, Pearson, Blaser et al. 2020, PASP 132)
 
@@ -36,6 +36,7 @@
 - **Automation mode** — unattended reduction; monitors a folder and runs the full pipeline automatically when frames stop arriving
 - **Python & EXOTIC setup wizard** — install, upgrade, or uninstall EXOTIC without touching the command line
 - **AAVSO submission** — log in and upload results to AAVSO Exoplanet Watch directly from the app
+- **Submit Feedback** — send bug reports and feature requests directly from the app (Help → Submit Feedback)
 
 ---
 
@@ -43,7 +44,9 @@
 
 | | |
 |---|---|
-| **OS** | Windows 10 (version 1607) or later, 64-bit |
+| **Windows** | Windows 10 (64-bit) or later |
+| **macOS** | macOS 11 Big Sur or later, Apple Silicon (ARM64) |
+| **Linux** | Ubuntu 20.04 or later (x64) |
 | **Python** | 3.8 or later (3.10.x recommended) |
 | **EXOTIC** | Installed via the built-in setup wizard |
 | **.NET** | Not required — runtime is bundled in the download |
@@ -52,10 +55,11 @@
 
 ## Installation
 
-1. Download the latest release: **[TransitLab-v2.6.1-win-x64.zip](https://github.com/ArtTrail/TransitLab/releases/latest)**
-2. Extract the zip to any folder
-3. Run `TransitLab.exe`
-4. Open **Tools → Python & EXOTIC Setup** and click **Check System** to verify or install Python and EXOTIC
+1. Download the latest release for your platform from **[Releases](https://github.com/ArtTrail/TransitLab/releases/latest)**
+   - **Windows:** `TransitLab-v2.6.3-win-x64.zip` — extract and run `TransitLab.exe`
+   - **macOS:** `TransitLab-v2.6.3-osx-arm64.dmg` — drag to Applications, right-click → Open the first time
+   - **Linux:** `TransitLab-v2.6.3-linux-x64.zip` — extract and run `./TransitLab`
+2. Open **Tools → Python & EXOTIC Setup** and click **Check System** to verify or install Python and EXOTIC
 
 No installer required. No .NET installation required.
 
