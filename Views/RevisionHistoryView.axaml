@@ -11,7 +11,9 @@
             <TextBlock Classes="h2" Text="v2.6.3  —  2026-04-25" Margin="0,0,0,4"/>
             <TextBlock TextWrapping="Wrap" Text="• New: Linux initial release." Margin="0,0,0,4"/>
             <TextBlock TextWrapping="Wrap" Text="• New: Python version warning dialog. If Check System detects a Python version outside the supported range (3.8–3.10), a warning dialog is shown advising that EXOTIC officially supports Python 3.8–3.10 and that Python 3.10.11 is recommended." Margin="0,0,0,4"/>
-            <TextBlock TextWrapping="Wrap" Text="• Change: On Linux, the Download &amp; Install Python button is hidden. Python must be installed manually on Linux before using the Setup wizard. All other setup functions (Install EXOTIC, Uninstall EXOTIC) work normally once Python is detected." Margin="0,0,0,12"/>
+            <TextBlock TextWrapping="Wrap" Text="• Change: On Linux, the Download &amp; Install Python button is hidden. Python must be installed manually on Linux before using the Setup wizard. All other setup functions (Install EXOTIC, Uninstall EXOTIC) work normally once Python is detected." Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• New: Automatic update checker. TransitLab checks for a new release on GitHub each time it starts. If an update is available, a banner appears at the top of the window showing the new version number with Download and Skip options. Download prompts for a save folder (defaulting to Downloads) and shows progress. Help → Check for Updates allows a manual check at any time." Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• New: Submit Feedback. Help → Submit Feedback opens a form to submit a bug report or feature request directly to the TransitLab GitHub repository. The type, summary, description, optional contact email, and auto-detected version and OS are included. Reports are publicly visible on GitHub." Margin="0,0,0,12"/>
 
             <!-- ── v2.6.2 ─────────────────────────────────────────────────────── -->
             <TextBlock Classes="h2" Text="v2.6.2  —  2026-04-24" Margin="0,0,0,4"/>

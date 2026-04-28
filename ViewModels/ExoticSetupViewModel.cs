@@ -165,7 +165,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
     [RelayCommand]
     private async Task GetPython()
     {
-        if (!OperatingSystem.IsWindows())
+        if (OperatingSystem.IsLinux())
         {
             HeadlineText = "Python must be installed manually on Linux.";
             Log("Python 3.10 is required. Open a terminal and run:");
@@ -175,6 +175,18 @@ public partial class ExoticSetupViewModel : ViewModelBase
             Log("  sudo apt-get install python3.10 python3.10-venv python3.10-distutils");
             Log("");
             Log("After installing, click Check System to verify.");
+            return;
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            HeadlineText = "Download and install Python 3.10 for macOS.";
+            Log("Python 3.10 is required. Download the latest 3.10.x installer from:");
+            Log("");
+            Log("  https://www.python.org/downloads/macos/");
+            Log("");
+            Log("Look for the latest Python 3.10.x release and download the");
+            Log("'macOS 64-bit universal2 installer'. Run it, then click Check System.");
             return;
         }
 

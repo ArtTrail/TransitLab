@@ -71,6 +71,7 @@
                     <Button Classes="link" Tag="Sec11a"  Click="TocClick">11a. Notifications</Button>
                     <Button Classes="link" Tag="Sec11b"  Click="TocClick">11b. Automation</Button>
                     <Button Classes="link" Tag="Sec12"   Click="TocClick">12.  Diagnostics  (Tools → Diagnostics)</Button>
+                    <Button Classes="link" Tag="Sec13"   Click="TocClick">13.  Submit Feedback  (Help → Submit Feedback)</Button>
                     <Button Classes="link" Tag="SecTips" Click="TocClick">Tips</Button>
                 </StackPanel>
             </Border>
@@ -203,6 +204,8 @@
             <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Quick Start  — a concise 7-step guide for new users. Start here."/>
             <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="User Guide  — opens this window."/>
             <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Revision History  — shows what changed in each version."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Check for Updates  — manually checks for a newer version of TransitLab. If an update is available, a banner appears at the top of the window with Download and Skip options. TransitLab also checks automatically each time it starts."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="Submit Feedback  — opens the feedback form to submit a bug report or feature request (see section 13)."/>
             <TextBlock TextWrapping="Wrap" Margin="20,0,0,12" Text="About TransitLab  — version, author, acknowledgements, and release-of-liability notice."/>
 
             <!-- ── 6. Save & Run EXOTIC ─────────────────────────────────────── -->
@@ -356,6 +359,19 @@
             <TextBlock TextWrapping="Wrap" Text="• ⏸ Pause button — freezes the display so you can read entries while new ones continue to arrive in the background. Lines that arrive while paused are held in a buffer and flushed when you click Pause again to resume. (This is the same Pause pattern used in the EXOTIC Log on the Results tab.)"/>
             <TextBlock TextWrapping="Wrap" Text="• Save Log… button — saves the entire log as a plain-text .txt file. Use this when sharing a problem report with support."/>
             <TextBlock TextWrapping="Wrap" Text="• If another user reports a problem (e.g. missing sites in the AAVSO dropdown), ask them to open Tools → Diagnostics after reproducing the issue and use Save Log… to send the file. The [AAVSO Login] entries will list exactly which sites and equipment IDs the server returned, making remote diagnosis straightforward without needing to inspect network traffic." Margin="0,0,0,12"/>
+
+            <!-- ── 13. Bug Reports ───────────────────────────────────────────── -->
+            <TextBlock x:Name="Sec13" Classes="h2" Text="13.  Submit Feedback  (Help → Submit Feedback)" Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="• Use Help → Submit Bug Report / Feature Request to send feedback directly to the TransitLab GitHub repository."/>
+            <TextBlock TextWrapping="Wrap" Text="• Fill in the form fields:"/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="Type  — choose Bug Report or Feature Request."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="Summary  — a short one-line description (optional but recommended)."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="Description  — describe the issue or request in detail. Required before submitting."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="Contact email  — required. You will be contacted here if follow-up is needed."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="Version and OS are filled in automatically."/>
+            <TextBlock TextWrapping="Wrap" Text="• Click Submit Report. A confirmation message appears when the report is received."/>
+            <TextBlock TextWrapping="Wrap" Text="• After submitting, please email your diagnostics log to art.trail@icloud.com so the issue can be investigated. To save the log: Tools → Diagnostics → Save Log."/>
+            <TextBlock TextWrapping="Wrap" Text="• Reports are submitted to a public GitHub repository and are visible to anyone. Do not include passwords or sensitive personal information." Margin="0,0,0,12"/>
 
             <!-- ── Tips ──────────────────────────────────────────────────────── -->
             <TextBlock x:Name="SecTips" Classes="h2" Text="Tips" Margin="0,0,0,4"/>

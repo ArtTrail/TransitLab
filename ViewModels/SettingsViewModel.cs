@@ -8,9 +8,15 @@ namespace TransitLab.ViewModels;
 
 public partial class SettingsViewModel : ViewModelBase
 {
-    public static IReadOnlyList<string> SoundPresets { get; } = ["Tada", "Chime", "Ding", "None", "Custom…"];
+    public IReadOnlyList<string> SoundPresets { get; } =
+        System.OperatingSystem.IsMacOS()
+            ? new List<string> { "Glass", "Ping", "Tink", "Funk", "Hero", "Sosumi", "None", "Custom…" }
+            : System.OperatingSystem.IsWindows()
+                ? new List<string> { "Tada", "Chime", "Ding", "None", "Custom…" }
+                : new List<string> { "None", "Custom…" };
 
-    [ObservableProperty] private string _selectedSound        = "Tada";
+    [ObservableProperty] private string _selectedSound =
+        System.OperatingSystem.IsMacOS() ? "Glass" : "Tada";
     [ObservableProperty] private string _customSoundPath      = "";
     [ObservableProperty] private bool   _isCustom;
     [ObservableProperty] private bool   _statusAlertsEnabled  = true;

@@ -56,14 +56,40 @@ public static class ExoticInstallService
         var fromLauncher = await FindViaPyLauncherAsync(ct);
         if (fromLauncher != null) return fromLauncher;
 
-        // 2. python3.10 / python3 / python on PATH (try versioned name first)
+        // 2. macOS absolute paths first — app bundles don't inherit shell PATH,
+        //    so Xcode's python3 (3.9) would otherwise win over a newer Python.org install
+        if (OperatingSystem.IsMacOS())
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var macosPaths = new[]
+            {
+                "/Library/Frameworks/Python.framework/Versions/3.10/bin/python3.10",
+                "/usr/local/bin/python3.10",
+                "/opt/homebrew/bin/python3.10",
+                "/Library/Frameworks/Python.framework/Versions/3.9/bin/python3.9",
+                "/usr/local/bin/python3.9",
+                "/opt/homebrew/bin/python3.9",
+                "/Library/Frameworks/Python.framework/Versions/3.8/bin/python3.8",
+                "/usr/local/bin/python3.8",
+                Path.Combine(home, ".pyenv", "shims", "python3.10"),
+                Path.Combine(home, ".pyenv", "shims", "python3"),
+            };
+            foreach (var absPath in macosPaths)
+            {
+                if (!File.Exists(absPath)) continue;
+                var p = await ProbeExeAsync(absPath, ct);
+                if (p != null) return p;
+            }
+        }
+
+        // 3. python3.10 / python3 / python on PATH
         foreach (var cmd in new[] { "python3.10", "python3.9", "python3", "python" })
         {
             var p = await ProbeExeAsync(cmd, ct);
             if (p != null) return p;
         }
 
-        // 3. Common install paths
+        // 4. Common install paths (Windows)
         var fromScan = ScanCommonPaths();
         if (fromScan != null) return fromScan;
 

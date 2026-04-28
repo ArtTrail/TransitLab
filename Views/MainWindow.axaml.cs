@@ -25,6 +25,8 @@ public partial class MainWindow : Window
                 vm.SelectTabFunc                   = idx => MainTabs.SelectedIndex = idx;
                 vm.ShowErrorFunc                   = ShowErrorAsync;
                 vm.ShowConfirmFunc                 = ShowConfirmAsync;
+                vm.BrowseUpdateFolderFunc          = BrowseUpdateFolderAsync;
+                vm.ShowInfoFunc                    = ShowInfoAsync;
                 vm.EquipmentTarget.ShowErrorFunc   = ShowErrorAsync;
                 vm.EquipmentTarget.ShowInfoFunc    = ShowErrorAsync;
                 vm.PlaySoundAction         = PlayCompletionSound;
@@ -35,6 +37,12 @@ public partial class MainWindow : Window
                 vm.History.OpenJsonFunc    = () => OpenHistoryFileAsync("json");
                 vm.History.OpenCsvXlsxFunc = () => OpenHistoryFileAsync("csvxlsx");
             }
+        };
+
+        Opened += async (_, _) =>
+        {
+            if (DataContext is MainWindowViewModel vm)
+                await vm.RunStartupUpdateCheckAsync();
         };
 
         Closing += (_, _) =>
@@ -88,6 +96,24 @@ public partial class MainWindow : Window
         win.Show(this);
     }
 
+    private void OnBugReportClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        Window? win = null;
+        var vm = new BugReportViewModel();
+        vm.CloseCallback = () => win?.Close();
+
+        win = new Window
+        {
+            Title                 = "Submit Feedback",
+            Width                 = 480,
+            SizeToContent         = Avalonia.Controls.SizeToContent.Height,
+            CanResize             = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content               = new BugReportView { DataContext = vm },
+        };
+        win.Show(this);
+    }
+
     private void OnAboutClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         var win = new Window
@@ -109,7 +135,7 @@ public partial class MainWindow : Window
         Window? win = null;
         var settingsVm = new SettingsViewModel
         {
-            SelectedSound        = vm.CompletionSound,
+            SelectedSound        = NormalizeSoundPreset(vm.CompletionSound),
             CustomSoundPath      = vm.CompletionSoundPath,
             StatusAlertsEnabled  = vm.StatusAlertsEnabled,
             SaveCallback         = (sound, path, alerts) =>
@@ -171,6 +197,21 @@ public partial class MainWindow : Window
             }
         });
         return results.Count > 0 ? results[0].Path.LocalPath : null;
+    }
+
+    private async Task<string?> BrowseUpdateFolderAsync()
+    {
+        var defaultPath = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
+        var downloadsPath = System.IO.Path.Combine(defaultPath, "Downloads");
+        var startPath = System.IO.Directory.Exists(downloadsPath) ? downloadsPath : defaultPath;
+
+        var folder = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title                  = "Choose download folder",
+            AllowMultiple          = false,
+            SuggestedStartLocation = await StorageProvider.TryGetFolderFromPathAsync(startPath),
+        });
+        return folder.Count > 0 ? folder[0].Path.LocalPath : null;
     }
 
     private async Task<string?> BrowseAutomationFolderAsync()
@@ -265,6 +306,48 @@ public partial class MainWindow : Window
             item.Click += (_, _) => vm.LoadRecentSessionCommand.Execute(captured);
             parent.Items.Add(item);
         }
+    }
+
+    // ── Info dialog (centered text + centered OK button) ──────────────────────
+
+    private async Task ShowInfoAsync(string title, string message)
+    {
+        var btn = new Avalonia.Controls.Button
+        {
+            Content                    = "OK",
+            HorizontalAlignment        = Avalonia.Layout.HorizontalAlignment.Center,
+            HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            MinWidth                   = 80,
+            Classes                    = { "primary" },
+        };
+
+        var dialog = new Window
+        {
+            Title                 = title,
+            Width                 = 320,
+            SizeToContent         = Avalonia.Controls.SizeToContent.Height,
+            CanResize             = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = new Avalonia.Controls.StackPanel
+            {
+                Margin   = new Avalonia.Thickness(28, 24, 28, 20),
+                Spacing  = 18,
+                Children =
+                {
+                    new Avalonia.Controls.TextBlock
+                    {
+                        Text              = message,
+                        TextWrapping      = Avalonia.Media.TextWrapping.Wrap,
+                        TextAlignment     = Avalonia.Media.TextAlignment.Center,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                    },
+                    btn,
+                }
+            },
+        };
+
+        btn.Click += (_, _) => dialog.Close();
+        await dialog.ShowDialog(this);
     }
 
     // ── Error dialog ──────────────────────────────────────────────────────────
@@ -496,19 +579,69 @@ public partial class MainWindow : Window
 
     // ── Sound ─────────────────────────────────────────────────────────────────
 
+    private static string NormalizeSoundPreset(string preset)
+    {
+        if (System.OperatingSystem.IsMacOS() && !MacPresetFiles.ContainsKey(preset)
+            && preset != "None" && preset != "Custom…")
+            return "Glass";
+        if (System.OperatingSystem.IsWindows() && !WindowsPresetFiles.ContainsKey(preset)
+            && preset != "None" && preset != "Custom…")
+            return "Tada";
+        return preset;
+    }
+
     [DllImport("winmm.dll", CharSet = CharSet.Unicode, SetLastError = false)]
     private static extern bool PlaySound(string pszSound, nint hmod, uint fdwSound);
 
-    private static readonly Dictionary<string, string> PresetFiles = new()
+    private static readonly Dictionary<string, string> WindowsPresetFiles = new()
     {
         ["Tada"]  = "tada.wav",
         ["Chime"] = "Windows Notify.wav",
         ["Ding"]  = "Windows Ding.wav",
     };
 
+    private static readonly Dictionary<string, string> MacPresetFiles = new()
+    {
+        ["Glass"]  = "Glass.aiff",
+        ["Ping"]   = "Ping.aiff",
+        ["Tink"]   = "Tink.aiff",
+        ["Funk"]   = "Funk.aiff",
+        ["Hero"]   = "Hero.aiff",
+        ["Sosumi"] = "Sosumi.aiff",
+    };
+
+    private static void AfPlay(string path)
+    {
+        System.Threading.Tasks.Task.Run(() =>
+        {
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo("afplay", $"\"{path}\"")
+                    { UseShellExecute = false };
+                System.Diagnostics.Process.Start(psi)?.WaitForExit();
+            }
+            catch { }
+        });
+    }
+
     private static void PlayCompletionSound(string preset, string customPath)
     {
         if (preset == "None") return;
+
+        if (System.OperatingSystem.IsMacOS())
+        {
+            if (preset == "Custom…")
+            {
+                if (!string.IsNullOrWhiteSpace(customPath) && File.Exists(customPath))
+                    AfPlay(customPath);
+                return;
+            }
+            // Unknown preset (e.g. Windows name saved on Mac) → fall back to Glass
+            var macFileName = MacPresetFiles.TryGetValue(preset, out var mf) ? mf : "Glass.aiff";
+            var macPath = $"/System/Library/Sounds/{macFileName}";
+            if (File.Exists(macPath)) AfPlay(macPath);
+            return;
+        }
 
         if (preset == "Custom…")
         {
@@ -530,7 +663,7 @@ public partial class MainWindow : Window
         }
 
         if (!System.OperatingSystem.IsWindows()) return;
-        if (!PresetFiles.TryGetValue(preset, out var fileName)) return;
+        if (!WindowsPresetFiles.TryGetValue(preset, out var fileName)) return;
         var path = Path.Combine(
             System.Environment.GetFolderPath(System.Environment.SpecialFolder.Windows),
             "Media", fileName);
@@ -540,6 +673,14 @@ public partial class MainWindow : Window
 
     private static void PlayStatusSound(bool success)
     {
+        if (System.OperatingSystem.IsMacOS())
+        {
+            var soundFile = success
+                ? "/System/Library/Sounds/Glass.aiff"
+                : "/System/Library/Sounds/Sosumi.aiff";
+            if (File.Exists(soundFile)) AfPlay(soundFile);
+            return;
+        }
         if (!System.OperatingSystem.IsWindows()) return;
         var alias = success ? "DeviceConnect" : "DeviceDisconnect";
         PlaySound(alias, nint.Zero, 0x00010001u); // SND_ALIAS | SND_ASYNC

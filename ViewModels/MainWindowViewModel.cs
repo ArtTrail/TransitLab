@@ -59,12 +59,91 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     // Injected by MainWindow code-behind
-    public Func<string, string, Task<string?>>?  SaveFilePickerFunc  { get; set; }
-    public Func<string, Task<string?>>?           OpenFilePickerFunc  { get; set; }
-    public Func<string, Task<string?>>?           BrowseExoticFunc    { get; set; }
-    public Action<int>?                           SelectTabFunc       { get; set; }  // switch tab by index
-    public Func<string, string, Task>?            ShowErrorFunc       { get; set; }  // title, message
-    public Func<string, string, Task<bool>>?      ShowConfirmFunc     { get; set; }  // title, message → true=OK
+    public Func<string, string, Task<string?>>?  SaveFilePickerFunc      { get; set; }
+    public Func<string, Task<string?>>?           OpenFilePickerFunc      { get; set; }
+    public Func<string, Task<string?>>?           BrowseExoticFunc        { get; set; }
+    public Action<int>?                           SelectTabFunc           { get; set; }
+    public Func<string, string, Task>?            ShowErrorFunc           { get; set; }
+    public Func<string, string, Task<bool>>?      ShowConfirmFunc         { get; set; }
+    public Func<Task<string?>>?                   BrowseUpdateFolderFunc  { get; set; }
+    public Func<string, string, Task>?            ShowInfoFunc            { get; set; }
+
+    // ── Update checker ────────────────────────────────────────────────────────
+    [ObservableProperty] private bool   _isUpdateAvailable   = false;
+    [ObservableProperty] private bool   _isUpdateDownloading = false;
+    [ObservableProperty] private bool   _isUpdateDone        = false;
+    [ObservableProperty] private string _updateVersionText   = "";
+    [ObservableProperty] private string _updateStatusText    = "";
+    [ObservableProperty] private double _updateProgress      = 0;
+
+    private UpdateInfo? _pendingUpdate;
+
+    public async Task RunStartupUpdateCheckAsync()
+    {
+        var info = await UpdateService.CheckAsync(Version);
+        if (info is null) return;
+        _pendingUpdate      = info;
+        UpdateVersionText   = $"TransitLab v{info.Version} is available";
+        IsUpdateAvailable   = true;
+    }
+
+    [RelayCommand]
+    private void SkipUpdate() => IsUpdateAvailable = false;
+
+    [RelayCommand]
+    private async Task DownloadUpdate()
+    {
+        if (_pendingUpdate is null || BrowseUpdateFolderFunc is null) return;
+
+        var folder = await BrowseUpdateFolderFunc();
+        if (folder is null) return;
+
+        var destPath = System.IO.Path.Combine(folder, _pendingUpdate.AssetName);
+        IsUpdateAvailable   = false;
+        IsUpdateDownloading = true;
+        UpdateStatusText    = "Downloading…";
+
+        try
+        {
+            var progress = new Progress<(long done, long total)>(t =>
+            {
+                if (t.total > 0)
+                {
+                    UpdateProgress   = (double)t.done / t.total * 100;
+                    UpdateStatusText = $"Downloading… {t.done / 1_048_576.0:F1} MB / {t.total / 1_048_576.0:F1} MB";
+                }
+            });
+            await ExoticInstallService.DownloadFileAsync(_pendingUpdate.DownloadUrl, destPath, progress, default);
+            UpdateStatusText    = $"Downloaded to {destPath} — extract to update.";
+            IsUpdateDownloading = false;
+            IsUpdateDone        = true;
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText    = $"Download failed: {ex.Message}";
+            IsUpdateDownloading = false;
+            IsUpdateDone        = true;
+        }
+    }
+
+    [RelayCommand]
+    private void DismissUpdateDone() => IsUpdateDone = false;
+
+    [RelayCommand]
+    private async Task CheckForUpdates()
+    {
+        var info = await UpdateService.CheckAsync(Version);
+        if (info is null)
+        {
+            if (ShowInfoFunc is not null)
+                await ShowInfoFunc("Check for Updates", "TransitLab is up to date.");
+            return;
+        }
+        _pendingUpdate    = info;
+        UpdateVersionText = $"TransitLab v{info.Version} is available";
+        IsUpdateDone      = false;
+        IsUpdateAvailable = true;
+    }
 
     // Set true while RunAutomationSequenceAsync is running — suppresses all confirm dialogs
     private bool _isAutomationRunning = false;
@@ -903,6 +982,7 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 FileName               = exePath,
                 ArgumentList           = { "-red", initsPath },
+                WorkingDirectory       = System.IO.Path.GetDirectoryName(initsPath) ?? System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
                 RedirectStandardOutput = true,
                 RedirectStandardError  = true,
                 RedirectStandardInput  = true,
