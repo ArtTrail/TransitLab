@@ -81,5 +81,5 @@ See the built-in User Guide (**Help → User Guide**) for full documentation.
 ## About
 
 © Art Trail 2026  
-Built on [EXOTIC](https://github.com/rzellem/EXOTIC) — Zellem, Pearson, Blaser et al. 2020, PASP 132, 1017  
+Built for [EXOTIC](https://github.com/rzellem/EXOTIC) — Zellem, Pearson, Blaser et al. 2020, PASP 132, 1017  
 Developed with [Avalonia UI](https://avaloniaui.net) and .NET 8
