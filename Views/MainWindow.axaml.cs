@@ -494,8 +494,8 @@ public partial class MainWindow : Window
             AllowMultiple  = false,
             FileTypeFilter = new List<FilePickerFileType>
             {
-                new("EXOTIC executable") { Patterns = ["exotic.exe", "exotic"] },
-                new("All files")         { Patterns = ["*"] },
+                new("Python / EXOTIC executable") { Patterns = ["python.exe", "python3.exe", "python", "python3", "exotic.exe", "exotic"] },
+                new("All files")                  { Patterns = ["*"] },
             }
         });
         return results.Count > 0 ? results[0].Path.LocalPath : null;

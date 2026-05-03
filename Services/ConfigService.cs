@@ -90,6 +90,7 @@ public class AppConfig
     public string                EwSite          { get; set; } = "";
     public string                EwEquipment     { get; set; } = "";
     public double                FlagSigma       { get; set; } = 3.0;
+    public string                PythonExePath      { get; set; } = "";
     public string                ExoticExePath      { get; set; } = "";
     public bool                  AutoAnswerPrompts  { get; set; } = true;
     public string                CompletionSound     { get; set; } = "Tada";

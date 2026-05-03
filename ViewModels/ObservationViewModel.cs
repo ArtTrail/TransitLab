@@ -18,6 +18,7 @@ public partial class ObservationViewModel : ViewModelBase
     public EquipmentTargetViewModel? EquipmentTarget { get; set; }
 
     // Set by MainWindowViewModel from config
+    public string PythonExePath { get; set; } = "";
     public string ExoticExePath { get; set; } = "";
 
     // ── Directories ───────────────────────────────────────────────────────────
@@ -340,8 +341,6 @@ public partial class ObservationViewModel : ViewModelBase
         {
             if (hasCtype1)
             {
-                if (string.IsNullOrEmpty(ExoticExePath))
-                    ExoticExePath = ExoticFinder.Find("") ?? "";
                 EquipmentTarget.PlateSolveStatus = "✓  WCS already present — no plate solve needed";
                 EquipmentTarget.IsPsRetryEnabled = false;
                 EquipmentTarget.NotifyWcsReady(fitsPath, SaveDir, ExoticExePath);
@@ -353,10 +352,7 @@ public partial class ObservationViewModel : ViewModelBase
                 // ASTAP doesn't need EXOTIC; astrometry.net does
                 if (!isAstap)
                 {
-                    if (string.IsNullOrEmpty(ExoticExePath))
-                        ExoticExePath = ExoticFinder.Find("") ?? "";
-
-                    if (string.IsNullOrEmpty(ExoticExePath))
+                    if (!await ResolveExoticRuntimeForPlateSolveAsync())
                     {
                         EquipmentTarget.PlateSolveStatus = "⚠  EXOTIC not found — install EXOTIC and retry";
                         EquipmentTarget.IsPsRetryEnabled = true;
@@ -366,7 +362,7 @@ public partial class ObservationViewModel : ViewModelBase
 
                 FitsHeaderStatus += "  |  Starting plate solve…";
                 var solveFile = Path.GetFileName(fitsPath);
-                _ = EquipmentTarget.StartPlateSolveAsync(fitsPath, SaveDir, ExoticExePath)
+                _ = EquipmentTarget.StartPlateSolveAsync(fitsPath, SaveDir, ExoticExePath, PythonExePath)
                     .ContinueWith(_ => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                         FitsHeaderStatus = $"✓  {solveFile}  |  {EquipmentTarget.PlateSolveStatus}"));
             }
@@ -397,17 +393,25 @@ public partial class ObservationViewModel : ViewModelBase
         var isAstap = EquipmentTarget.PlateSolverConfig?.Solver == "ASTAP";
         if (!isAstap)
         {
-            if (string.IsNullOrEmpty(ExoticExePath))
-                ExoticExePath = ExoticFinder.Find("") ?? "";
-
-            if (string.IsNullOrEmpty(ExoticExePath))
+            if (!await ResolveExoticRuntimeForPlateSolveAsync())
             {
                 EquipmentTarget.PlateSolveStatus = "⚠  EXOTIC not found — install EXOTIC and retry";
                 return;
             }
         }
 
-        await EquipmentTarget.StartPlateSolveAsync(path, SaveDir, ExoticExePath);
+        await EquipmentTarget.StartPlateSolveAsync(path, SaveDir, ExoticExePath, PythonExePath);
+    }
+
+    private async Task<bool> ResolveExoticRuntimeForPlateSolveAsync()
+    {
+        var runtime = await ExoticRuntimeService.ResolveAsync(PythonExePath, ExoticExePath);
+        if (runtime is null) return false;
+
+        PythonExePath = runtime.PythonExePath;
+        if (!string.IsNullOrWhiteSpace(runtime.ExoticExePath))
+            ExoticExePath = runtime.ExoticExePath;
+        return true;
     }
 
     // ── Commands — Observer Info ──────────────────────────────────────────────

@@ -306,12 +306,14 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     private string _psFitsPath    = "";
     private string _psSaveDir     = "";
     private string _psExoticExe   = "";
+    private string _psPythonExe   = "";
 
-    public async Task StartPlateSolveAsync(string fitsPath, string saveDir, string exoticExePath)
+    public async Task StartPlateSolveAsync(string fitsPath, string saveDir, string exoticExePath, string pythonExePath = "")
     {
         _psFitsPath  = fitsPath;
         _psSaveDir   = saveDir;
         _psExoticExe = exoticExePath;
+        _psPythonExe = pythonExePath;
 
         _psCts?.Cancel();
         _psCts = new CancellationTokenSource();
@@ -324,7 +326,7 @@ public partial class EquipmentTargetViewModel : ViewModelBase
         PlateSolveService.Result result;
         try
         {
-            result = await PlateSolveService.SolveAsync(fitsPath, saveDir, exoticExePath, PlateSolverConfig, progress, ct);
+            result = await PlateSolveService.SolveAsync(fitsPath, saveDir, exoticExePath, PlateSolverConfig, progress, ct, pythonExePath);
         }
         catch (OperationCanceledException)
         {
@@ -681,14 +683,16 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     [RelayCommand] private async Task RetryPlateSolve()
     {
         if (string.IsNullOrEmpty(_psFitsPath)) return;
-        if (string.IsNullOrEmpty(_psExoticExe))
-            _psExoticExe = ExoticFinder.Find("") ?? "";
-        if (string.IsNullOrEmpty(_psExoticExe))
+        var runtime = await ExoticRuntimeService.ResolveAsync(_psPythonExe, _psExoticExe);
+        if (runtime is null)
         {
             PlateSolveStatus = "⚠  EXOTIC not found — install EXOTIC and retry";
             return;
         }
-        await StartPlateSolveAsync(_psFitsPath, _psSaveDir, _psExoticExe);
+        _psPythonExe = runtime.PythonExePath;
+        if (!string.IsNullOrWhiteSpace(runtime.ExoticExePath))
+            _psExoticExe = runtime.ExoticExePath;
+        await StartPlateSolveAsync(_psFitsPath, _psSaveDir, _psExoticExe, _psPythonExe);
     }
 
     [RelayCommand] private async Task FetchFromNea() => await FetchFromNeaAsync();

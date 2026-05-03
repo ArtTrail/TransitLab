@@ -72,7 +72,8 @@ else:
         string exoticExePath,
         SolverConfig? solverConfig = null,
         IProgress<string>? progress = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string pythonExePath = "")
     {
         // Route to ASTAP if selected
         if (solverConfig?.Solver == "ASTAP")
@@ -86,7 +87,8 @@ else:
         //    Works for conda: <env>\Scripts\exotic.exe → <env>\python.exe
         //    Falls back to FindPythonAsync for --user pip installs where
         //    exotic.exe and python.exe are in different directory trees.
-        var pythonExe = DerivePythonExe(exoticExePath)
+        var pythonExe = NormalizePythonExe(pythonExePath)
+                     ?? DerivePythonExe(exoticExePath)
                      ?? (await ExoticInstallService.FindPythonAsync(ct))?.ExePath;
         if (pythonExe is null)
             return new Result(false, "Python not found — install Python and EXOTIC using the EXOTIC Setup tab first.");
@@ -390,6 +392,9 @@ else:
     {
         if (string.IsNullOrEmpty(exoticExePath)) return null;
 
+        var directPython = NormalizePythonExe(exoticExePath);
+        if (directPython is not null) return directPython;
+
         // exotic.exe is in <env>\Scripts\  →  python.exe is in <env>\
         var scriptsDir = Path.GetDirectoryName(exoticExePath);
         if (scriptsDir is null) return null;
@@ -398,6 +403,14 @@ else:
 
         var python = Path.Combine(envDir, "python.exe");
         return File.Exists(python) ? python : null;
+    }
+
+    private static string? NormalizePythonExe(string pythonExePath)
+    {
+        if (string.IsNullOrWhiteSpace(pythonExePath)) return null;
+        return File.Exists(pythonExePath) && ExoticRuntimeService.LooksLikePython(pythonExePath)
+            ? pythonExePath
+            : null;
     }
 
     private static async Task ConsumeStderrAsync(

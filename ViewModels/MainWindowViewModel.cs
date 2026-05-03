@@ -257,7 +257,13 @@ public partial class MainWindowViewModel : ViewModelBase
         foreach (var h in HistoryService.Load()) History.Entries.Add(h);
         History.SaveHistoryFunc = entries => HistoryService.Save(entries);
 
-        // Wire Setup wizard — when EXOTIC is found/installed, store the path
+        // Wire Setup wizard — when EXOTIC is found/installed, store the runtime paths
+        ExoticSetup.PythonFoundCallback = pythonExe =>
+        {
+            _cfg.PythonExePath        = pythonExe;
+            Observation.PythonExePath = pythonExe;
+            ConfigService.Save(_cfg);
+        };
         ExoticSetup.ExoticExeFoundCallback = exe =>
         {
             _cfg.ExoticExePath        = exe;
@@ -460,7 +466,8 @@ public partial class MainWindowViewModel : ViewModelBase
         // Observer code collections
         Observation.LoadFromConfig(cfg.AavsoCode, cfg.SecondaryCodes, cfg.Observatories);
 
-        // EXOTIC path (used by plate solve)
+        // EXOTIC runtime paths (used by reduction launch and plate solve)
+        Observation.PythonExePath = cfg.PythonExePath;
         Observation.ExoticExePath = cfg.ExoticExePath;
 
         // Plate solver config
@@ -938,22 +945,52 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async Task LaunchExoticAsync(string initsPath)
     {
-        // Find exotic.exe
-        var exePath = ExoticFinder.Find(_cfg.ExoticExePath);
+        _exoticCts = new CancellationTokenSource();
+        var runtime = await ExoticRuntimeService.ResolveAsync(
+            _cfg.PythonExePath,
+            _cfg.ExoticExePath,
+            _exoticCts.Token);
 
-        if (exePath is null)
+        if (runtime is null)
         {
-            // Prompt user to browse to exotic.exe
             if (BrowseExoticFunc is not null)
             {
-                exePath = await BrowseExoticFunc("Locate exotic.exe in your conda env Scripts folder");
-                if (exePath is null) return;
-                _cfg.ExoticExePath        = exePath;
-                Observation.ExoticExePath = exePath;
+                var selectedPath = await BrowseExoticFunc("Locate python.exe or exotic.exe for the EXOTIC environment");
+                if (selectedPath is null)
+                {
+                    _exoticCts = null;
+                    return;
+                }
+                if (ExoticRuntimeService.LooksLikePython(selectedPath))
+                    _cfg.PythonExePath = selectedPath;
+                else
+                    _cfg.ExoticExePath = selectedPath;
                 ConfigService.Save(_cfg);
+
+                runtime = await ExoticRuntimeService.ResolveAsync(
+                    _cfg.PythonExePath,
+                    _cfg.ExoticExePath,
+                    _exoticCts.Token);
             }
-            else return;
+            if (runtime is null)
+            {
+                if (ShowErrorFunc is not null)
+                    await ShowErrorFunc(
+                        "EXOTIC not found",
+                        "TransitLab could not find a Python environment that can import EXOTIC. Open Tools → Python & EXOTIC Setup and run Check System.");
+                _exoticCts = null;
+                return;
+            }
         }
+
+        _cfg.PythonExePath        = runtime.PythonExePath;
+        Observation.PythonExePath = runtime.PythonExePath;
+        if (!string.IsNullOrWhiteSpace(runtime.ExoticExePath))
+        {
+            _cfg.ExoticExePath        = runtime.ExoticExePath;
+            Observation.ExoticExePath = runtime.ExoticExePath;
+        }
+        ConfigService.Save(_cfg);
 
         // Switch to Results tab (index 3: Data=0, ImageAnalysis=1, Parameters=2, Results=3, Visualizer=4, History=5)
         SelectTabFunc?.Invoke(3);
@@ -966,22 +1003,22 @@ public partial class MainWindowViewModel : ViewModelBase
         var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["PYTHONIOENCODING"] = "utf-8",
+            ["PYTHONUNBUFFERED"]  = "1",
         };
         foreach (System.Collections.DictionaryEntry e in Environment.GetEnvironmentVariables())
             env[e.Key!.ToString()!] = e.Value?.ToString() ?? "";
         env["PYTHONIOENCODING"] = "utf-8";
-
-        _exoticCts = new CancellationTokenSource();
+        env["PYTHONUNBUFFERED"]  = "1";
         var log = new StringBuilder();
 
-        AppendLog($"▶  {exePath} -red \"{initsPath}\"\n\n");
+        AppendLog($"▶  {runtime.PythonExePath} -u -m exotic.exotic -red \"{initsPath}\"\n\n");
 
         try
         {
             var psi = new ProcessStartInfo
             {
-                FileName               = exePath,
-                ArgumentList           = { "-red", initsPath },
+                FileName               = runtime.PythonExePath,
+                ArgumentList           = { "-u", "-m", "exotic.exotic", "-red", initsPath },
                 WorkingDirectory       = System.IO.Path.GetDirectoryName(initsPath) ?? System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
                 RedirectStandardOutput = true,
                 RedirectStandardError  = true,

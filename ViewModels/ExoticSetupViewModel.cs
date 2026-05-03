@@ -50,6 +50,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
     public bool IsNotLinux { get; } = !OperatingSystem.IsLinux();
 
     // ── Callbacks ──────────────────────────────────────────────────────────────
+    public Action<string>?        PythonFoundCallback    { get; set; }
     public Action<string>?        ExoticExeFoundCallback { get; set; }
     public Func<string, Task>?    ShowWarningAsync       { get; set; }
 
@@ -105,6 +106,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
                 }
 
                 _pythonExe       = py.ExePath;
+                PythonFoundCallback?.Invoke(py.ExePath);
                 UpdateCanInstallBranch();
                 PythonStatusIcon = "✓";
                 PythonStatus     = $"Python {py.Version}   {py.ExePath}";
@@ -119,28 +121,16 @@ public partial class ExoticSetupViewModel : ViewModelBase
                 var ver = await ExoticInstallService.GetExoticVersionAsync(py.ExePath, cts.Token);
                 var exe = await ExoticInstallService.FindExoticExeAsync(py.ExePath, cts.Token);
 
-                if (ver is not null && exe is null)
-                {
-                    Log($"  Found EXOTIC {ver} but exotic.exe not located — repairing script entry…");
-                    IsProgressIndeterminate = true;
-                    var repairLog = new Progress<string>(msg => Log(msg));
-                    await ExoticInstallService.RepairExoticScriptsAsync(py.ExePath, repairLog, cts.Token);
-                    Log("  Re-scanning for exotic.exe…");
-                    exe = await ExoticInstallService.FindExoticExeAsync(py.ExePath, cts.Token);
-                }
-
                 if (ver is not null)
                 {
                     ExoticStatusIcon = "✓";
                     ExoticStatus     = exe is not null
                         ? $"EXOTIC {ver}   {exe}"
-                        : $"EXOTIC {ver}   (executable path unknown — see log)";
-                    Log($"  Found EXOTIC {ver}" + (exe is not null ? $" at {exe}" : ""));
+                        : $"EXOTIC {ver}   via {py.ExePath}";
+                    Log($"  Found EXOTIC {ver}" + (exe is not null ? $" at {exe}" : $" via {py.ExePath}"));
                     if (exe is null)
-                        Log("  ERROR: exotic.exe still not found after repair.  Try clicking Install EXOTIC.");
-                    HeadlineText = exe is not null
-                        ? "Everything is up to date.  You can reinstall or uninstall EXOTIC below."
-                        : "EXOTIC installed but exotic.exe could not be found.  Try Install EXOTIC.";
+                        Log("  exotic.exe was not found; TransitLab will run EXOTIC with python -m exotic.exotic.");
+                    HeadlineText = "Everything is up to date.  You can reinstall or uninstall EXOTIC below.";
                     CanInstallExotic   = true;
                     CanUninstallExotic = true;
                     if (exe is not null) ExoticExeFoundCallback?.Invoke(exe);
@@ -236,6 +226,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
             else
             {
                 _pythonExe       = pythonExe;
+                PythonFoundCallback?.Invoke(pythonExe);
                 UpdateCanInstallBranch();
                 PythonStatusIcon = "✓";
                 PythonStatus     = $"Python {ExoticInstallService.PyVersion}   {pythonExe}";
@@ -289,29 +280,19 @@ public partial class ExoticSetupViewModel : ViewModelBase
         {
             var log = new Progress<string>(msg => Log(msg));
             await ExoticInstallService.InstallExoticAsync(_pythonExe, log, cts.Token);
+            PythonFoundCallback?.Invoke(_pythonExe);
 
-            Log("Locating exotic.exe…");
+            Log("Locating optional exotic.exe script…");
             var exe = await ExoticInstallService.FindExoticExeAsync(_pythonExe, cts.Token);
-
-            if (exe is null)
-            {
-                Log("exotic.exe not found — repairing script entry…");
-                var repairLog = new Progress<string>(msg => Log(msg));
-                await ExoticInstallService.RepairExoticScriptsAsync(_pythonExe, repairLog, cts.Token);
-                Log("Re-scanning for exotic.exe…");
-                exe = await ExoticInstallService.FindExoticExeAsync(_pythonExe, cts.Token);
-            }
 
             var ver = await ExoticInstallService.GetExoticVersionAsync(_pythonExe, cts.Token);
 
             ExoticStatusIcon = "✓";
             ExoticStatus     = ver is not null
-                ? (exe is not null ? $"EXOTIC {ver}   {exe}" : $"EXOTIC {ver}   (path still unknown — see log)")
-                : (exe is not null ? $"Installed   {exe}" : "Installed (path unknown — see log)");
+                ? (exe is not null ? $"EXOTIC {ver}   {exe}" : $"EXOTIC {ver}   via {_pythonExe}")
+                : (exe is not null ? $"Installed   {exe}" : $"Installed via {_pythonExe}");
 
-            HeadlineText = exe is not null
-                ? "EXOTIC installation complete!"
-                : "EXOTIC installed but exotic.exe could not be located — see log for details.";
+            HeadlineText = "EXOTIC installation complete!";
 
             if (exe is not null)
             {
@@ -320,8 +301,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
             }
             else
             {
-                Log("ERROR: exotic.exe could not be found even after repair.");
-                Log($"Please check that Python is working correctly: {_pythonExe}");
+                Log($"exotic.exe not found; TransitLab will run: {_pythonExe} -m exotic.exotic");
             }
         }
         catch (OperationCanceledException) { HeadlineText = "Cancelled."; CanCheck = true; }
@@ -355,26 +335,19 @@ public partial class ExoticSetupViewModel : ViewModelBase
         {
             var log = new Progress<string>(msg => Log(msg));
             await ExoticInstallService.InstallExoticFromBranchAsync(_pythonExe, BranchUrl, log, cts.Token);
+            PythonFoundCallback?.Invoke(_pythonExe);
 
-            Log("Locating exotic.exe…");
+            Log("Locating optional exotic.exe script…");
             var exe = await ExoticInstallService.FindExoticExeAsync(_pythonExe, cts.Token);
-            if (exe is null)
-            {
-                var repairLog = new Progress<string>(msg => Log(msg));
-                await ExoticInstallService.RepairExoticScriptsAsync(_pythonExe, repairLog, cts.Token);
-                exe = await ExoticInstallService.FindExoticExeAsync(_pythonExe, cts.Token);
-            }
 
             var ver = await ExoticInstallService.GetExoticVersionAsync(_pythonExe, cts.Token);
 
             ExoticStatusIcon = "✓";
             ExoticStatus     = ver is not null
-                ? (exe is not null ? $"EXOTIC {ver}  [pre-release]   {exe}" : $"EXOTIC {ver}  [pre-release]   (path unknown — see log)")
-                : (exe is not null ? $"Installed  [pre-release]   {exe}" : "Installed [pre-release] (path unknown — see log)");
+                ? (exe is not null ? $"EXOTIC {ver}  [pre-release]   {exe}" : $"EXOTIC {ver}  [pre-release]   via {_pythonExe}")
+                : (exe is not null ? $"Installed  [pre-release]   {exe}" : $"Installed [pre-release] via {_pythonExe}");
 
-            HeadlineText = exe is not null
-                ? "Pre-release installation complete!"
-                : "Pre-release installed but exotic.exe could not be located — see log for details.";
+            HeadlineText = "Pre-release installation complete!";
 
             if (exe is not null)
             {
@@ -383,7 +356,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
             }
             else
             {
-                Log("ERROR: exotic.exe could not be found even after repair.");
+                Log($"exotic.exe not found; TransitLab will run: {_pythonExe} -m exotic.exotic");
             }
         }
         catch (OperationCanceledException) { HeadlineText = "Cancelled."; }
