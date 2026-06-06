@@ -572,24 +572,13 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         static JsonNode? N(string s)  => string.IsNullOrWhiteSpace(s) ? null : JsonValue.Create(s);
         static JsonNode? NF(string s) => double.TryParse(s, out var d) ? JsonValue.Create(d) : null;
-        // EXOTIC expects RA in decimal hours in inits.json, not decimal degrees.
-        // It multiplies the value by 15 internally to get degrees, so we must divide here.
-        static JsonNode? NRA(string s)
-        {
-            if (string.IsNullOrWhiteSpace(s)) return null;
-            if (double.TryParse(s, System.Globalization.NumberStyles.Any,
-                                System.Globalization.CultureInfo.InvariantCulture, out var deg))
-                return JsonValue.Create((deg / 15.0).ToString(
-                    "G10", System.Globalization.CultureInfo.InvariantCulture));
-            return JsonValue.Create(s); // pass through if not parseable
-        }
 
         var et = EquipmentTarget;
         var ob = Observation;
 
         var pp = new JsonObject
         {
-            ["Target Star RA"]  = NRA(et.TargetRa),
+            ["Target Star RA"]  = N(et.TargetRa),
             ["Target Star Dec"] = N(et.TargetDec),
             ["Planet Name"]     = N(et.PlanetName),
             ["Host Star Name"]  = N(et.HostStarName),
