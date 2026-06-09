@@ -42,7 +42,8 @@ public static class UpdateService
             {
                 var name = asset?["name"]?.GetValue<string>() ?? "";
                 var url  = asset?["browser_download_url"]?.GetValue<string>() ?? "";
-                if (name.Contains(platform, StringComparison.OrdinalIgnoreCase) && name.EndsWith(".zip"))
+                if (name.Contains(platform, StringComparison.OrdinalIgnoreCase) &&
+                    (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".dmg", StringComparison.OrdinalIgnoreCase)))
                     return new UpdateInfo(latestVersion, name, url);
             }
         }
@@ -82,7 +83,8 @@ public static class UpdateService
                     {
                         var name = asset?["name"]?.GetValue<string>() ?? "";
                         var url  = asset?["browser_download_url"]?.GetValue<string>() ?? "";
-                        if (name.Contains(platform, StringComparison.OrdinalIgnoreCase) && name.EndsWith(".zip"))
+                        if (name.Contains(platform, StringComparison.OrdinalIgnoreCase) &&
+                            (name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".dmg", StringComparison.OrdinalIgnoreCase)))
                         {
                             assetName = name;
                             downloadUrl = url;

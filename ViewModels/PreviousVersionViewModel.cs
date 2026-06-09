@@ -72,7 +72,9 @@ public partial class PreviousVersionViewModel : ObservableObject
                     DownloadProgress = (double)p.done / p.total * 100;
             });
             await ExoticInstallService.DownloadFileAsync(SelectedRelease.DownloadUrl, destPath, progress, default);
-            StatusText = $"Downloaded to {folder} — extract the ZIP to use this version.";
+            var ext = System.IO.Path.GetExtension(SelectedRelease.AssetName).ToUpperInvariant();
+            var hint = ext == ".DMG" ? "open the DMG to install" : "extract the ZIP to use this version";
+            StatusText = $"Downloaded to {folder} — {hint}.";
         }
         catch (Exception ex)
         {
