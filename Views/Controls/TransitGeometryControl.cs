@@ -176,6 +176,19 @@ public class TransitGeometryControl : Control
         int starSeed = string.IsNullOrEmpty(vm.TargetName) ? 42 : Math.Abs(vm.TargetName.GetHashCode());
         DrawStar(ctx, cx, cy, R, vm.StarTeff, starSeed);
 
+        // ── Active starspot ───────────────────────────────────────────────────
+        if (vm.VisSpotEnabled)
+        {
+            double spotDist2 = vm.VisSpotX * vm.VisSpotX + vm.VisSpotY * vm.VisSpotY;
+            double spotPxR   = vm.VisSpotRadius * R;
+            if (spotDist2 < 1.0 && spotPxR > 1.5)
+            {
+                double sx = cx + vm.VisSpotX * R;
+                double sy = cy + vm.VisSpotY * R;
+                DrawActiveSpot(ctx, sx, sy, spotPxR, vm.VisSpotDeltaT);
+            }
+        }
+
         // ── Planet position ───────────────────────────────────────────────────
         double phi  = 2 * Math.PI * (phase - 0.5);
         double xSky = aRs * Math.Sin(phi);
@@ -310,6 +323,29 @@ public class TransitGeometryControl : Control
         // Dark inner core
         ctx.DrawEllipse(new SolidColorBrush(Color.FromArgb(245, 4, 1, 0)), null,
             new Point(x - r * 0.04, y + r * 0.05), r * 0.46, r * 0.38);
+    }
+
+    // ── Active starspot rendering ─────────────────────────────────────────────
+
+    private static void DrawActiveSpot(DrawingContext ctx, double x, double y, double r, double deltaT)
+    {
+        // Intensity scales with temperature contrast
+        byte pa = (byte)Math.Clamp((int)(90 + deltaT * 0.05), 70, 180);
+        byte ua = (byte)Math.Clamp((int)(150 + deltaT * 0.05), 140, 235);
+
+        // Penumbra halo
+        ctx.DrawEllipse(new SolidColorBrush(Color.FromArgb(pa, 80, 28, 4)), null,
+            new Point(x, y), r * 1.65, r * 1.45);
+        // Umbra
+        ctx.DrawEllipse(new SolidColorBrush(Color.FromArgb(ua, 16, 5, 0)), null,
+            new Point(x, y), r, r);
+        // Highlight ring so the spot is identifiable at any star color
+        ctx.DrawEllipse(null,
+            new Pen(new SolidColorBrush(Color.FromArgb(170, 255, 130, 40)), 1.5),
+            new Point(x, y), r, r);
+        // Label
+        var lbl = MakeText("spot", 16, new SolidColorBrush(Color.FromArgb(210, 255, 160, 60)));
+        ctx.DrawText(lbl, new Point(x - lbl.Width / 2, y + r + 3));
     }
 
     // ── Planet rendering ──────────────────────────────────────────────────────

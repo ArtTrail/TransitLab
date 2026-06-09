@@ -10,11 +10,14 @@
         <Border DockPanel.Dock="Top" Padding="0,0,0,4">
             <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
 
-                <Button Grid.Column="0"
-                        Classes="primary"
-                        Content="  Scan Files  "
-                        Command="{Binding ScanFilesCommand}"
-                        VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Button Content="[?]" FontSize="12" Padding="3,0"
+                            VerticalAlignment="Center" Click="OnHelpImageAnalysis_Click"/>
+                    <Button Classes="primary"
+                            Content="  Scan Files  "
+                            Command="{Binding ScanFilesCommand}"
+                            VerticalAlignment="Center"/>
+                </StackPanel>
 
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal" Spacing="6"
@@ -35,7 +38,7 @@
                            TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
 
                 <Button Grid.Column="3"
-                        Classes="toolbar" Content="Auto-exclude Flagged"
+                        Classes="toolbar" Content="Exclude Flagged"
                         Command="{Binding AutoExcludeFlaggedCommand}"
                         VerticalAlignment="Center" Margin="8,0,0,0"/>
 

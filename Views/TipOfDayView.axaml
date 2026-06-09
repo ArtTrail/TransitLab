@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TransitLab.ViewModels"
+             x:DataType="vm:TipOfDayViewModel"
+             x:Class="TransitLab.Views.TipOfDayView">
+
+    <StackPanel Margin="28,22,28,20" Spacing="14" MinWidth="420">
+
+        <!-- Counter -->
+        <TextBlock Text="{Binding TipCounter}"
+                   Classes="hint"
+                   HorizontalAlignment="Center"/>
+
+        <!-- Separator -->
+        <Rectangle Height="1" Fill="{StaticResource BrushSep}"/>
+
+        <!-- Tip text -->
+        <TextBlock Text="{Binding TipText}"
+                   TextWrapping="Wrap"
+                   FontSize="16"
+                   MinHeight="90"
+                   Margin="0,4"/>
+
+        <!-- Separator -->
+        <Rectangle Height="1" Fill="{StaticResource BrushSep}"/>
+
+        <!-- Navigation -->
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Center"
+                    Spacing="16">
+            <Button Classes="toolbar" Content="← Previous"
+                    Command="{Binding PreviousCommand}"/>
+            <Button Classes="toolbar" Content="Next →"
+                    Command="{Binding NextCommand}"/>
+        </StackPanel>
+
+        <!-- Bottom row: checkbox + close -->
+        <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
+            <CheckBox Grid.Column="0"
+                      Content="Show tips at startup"
+                      IsChecked="{Binding ShowAtStartup}"
+                      VerticalAlignment="Center"/>
+            <Button Grid.Column="1"
+                    Classes="primary"
+                    Content="Close"
+                    MinWidth="80"
+                    Click="OnCloseClick"/>
+        </Grid>
+
+    </StackPanel>
+
+</UserControl>

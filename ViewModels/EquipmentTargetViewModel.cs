@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TransitLab.Services;
 using System;
@@ -56,7 +56,16 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     {
         if (FilterFwhm.TryGetValue(value, out var fwhm))
         { FilterMin = fwhm.Min.ToString("G"); FilterMax = fwhm.Max.ToString("G"); }
+        DebounceLog("Filter", value);
     }
+
+    partial void OnCameraTypeChanged(string value)  => DebounceLog("Camera type",   value);
+    partial void OnBinningChanged(string value)     => DebounceLog("Binning",       value);
+    partial void OnFilterMinChanged(string value)   => DebounceLog("Filter min nm", value);
+    partial void OnFilterMaxChanged(string value)   => DebounceLog("Filter max nm", value);
+    partial void OnPixelScaleChanged(string value)  => DebounceLog("Pixel scale",   value);
+    partial void OnNotesChanged(string value)       => DebounceLog("Notes",         value);
+    partial void OnPlanetNameChanged(string value)  => DebounceLog("Planet name",   value);
 
     // ── Star Selection ────────────────────────────────────────────────────────
     [ObservableProperty] private string _csvFileName        = "No file selected";
@@ -113,6 +122,9 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     [ObservableProperty] private string _pmDec             = "";
 
     // ── Injected ──────────────────────────────────────────────────────────────
+    /// <summary>Set to true by MainWindowViewModel while an automation sequence is running; suppresses blocking dialogs.</summary>
+    public bool IsAutomationRunning { get; set; }
+
     /// <summary>Called whenever a new target host star name becomes available (e.g. from NEA).</summary>
     public Action<string>? TargetNameChanged { get; set; }
 
@@ -130,6 +142,14 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     private string _wcsFitsPath = "";
     private CancellationTokenSource? _aavsoCompCts;
     private bool   _isNeaRunning = false;  // true while FetchFromNeaAsync is in progress
+
+    /// <summary>Called by ObservationViewModel at the start of ReadFitsHeader to invalidate the previous plate solve.</summary>
+    public void ResetWcs()
+    {
+        _wcsReady    = false;
+        _wcsFitsPath = "";
+        UpdateAutoTargetEnabled();
+    }
 
     /// <summary>Called by ObservationViewModel when a plate solve succeeds or WCS is already present.</summary>
     public void NotifyWcsReady(string fitsPath, string saveDir = "", string exoticExePath = "")
@@ -451,6 +471,7 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(IsAutoTargetEnabled))]
     private async Task AutoSelectTarget()
     {
+        Services.SessionLogService.Write("[UI] User clicked Auto Select Target");
         AutoTargetStatus = "Searching…";
 
         if (!double.TryParse(TargetRa,  NumberStyles.Any, CultureInfo.InvariantCulture, out var ra) ||
@@ -514,6 +535,7 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(IsAutoCompsEnabled))]
     private async Task AutoSelectComps()
     {
+        Services.SessionLogService.Write("[UI] User clicked Auto Select Comps");
         // Parse target position
         if (!TryParseXY(TargetXY, out var tx, out var ty))
         {
@@ -525,12 +547,20 @@ public partial class EquipmentTargetViewModel : ViewModelBase
         int slots    = 10 - existing.Count;
         if (slots <= 0)
         {
-            if (ShowErrorFunc is not null)
+            if (IsAutomationRunning)
+            {
+                // Automation: clear existing comps so auto-select can proceed with a fresh set
+                CompXY = "";
+                existing = [];
+                slots    = 10;
+                Services.SessionLogService.Write("[Automation] Cleared existing comp stars (was at max 10) to allow auto-select to proceed.");
+            }
+            else if (ShowErrorFunc is not null)
                 await ShowErrorFunc("Maximum Comp Stars Reached",
                     "You already have 10 comparison stars selected.\n\nRemove one or more before running Auto Select Comps.");
             else
                 AavsoCompStatus = "⚠  Already have 10 comp stars — remove some first";
-            return;
+            if (!IsAutomationRunning) return;
         }
 
         // Find FITS file

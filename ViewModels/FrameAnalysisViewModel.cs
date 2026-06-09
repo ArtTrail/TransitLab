@@ -25,9 +25,9 @@ public partial class FrameAnalysisViewModel : ViewModelBase
     [ObservableProperty] private bool    _isScanRunning = false;
 
     // ── Exclusion row ─────────────────────────────────────────────────────────
-    [ObservableProperty] private string  _exclusionStatus = "0 images excluded";
-    [ObservableProperty] private string  _flaggedStatus   = "0 images flagged";
-    [ObservableProperty] private bool    _isDarkSubtract  = false;
+    [ObservableProperty] private string  _exclusionStatus      = "0 images excluded";
+    [ObservableProperty] private string  _flaggedStatus        = "0 images flagged";
+    [ObservableProperty] private bool    _isDarkSubtract       = false;
 
     // ── VSP controls ──────────────────────────────────────────────────────────
     [ObservableProperty] private decimal _vspFov        = 60m;
@@ -249,6 +249,7 @@ public partial class FrameAnalysisViewModel : ViewModelBase
     [RelayCommand]
     private void AutoExcludeFlagged()
     {
+        Services.SessionLogService.Write("[Scan] User clicked Exclude Flagged");
         foreach (var f in Frames)
             if (f.Status == "Flagged") f.IsExcluded = true;
         RefreshExclusionCount();
@@ -392,6 +393,7 @@ public partial class FrameAnalysisViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(CanScanFiles))]
     private async Task ScanFiles()
     {
+        Services.SessionLogService.Write("[Scan] User clicked Scan Frames");
         var dir = FitsDirFunc?.Invoke() ?? "";
         if (!Directory.Exists(dir))
         {
@@ -402,6 +404,7 @@ public partial class FrameAnalysisViewModel : ViewModelBase
         IsScanRunning   = true;
         ScanStatus      = "⟳  Scanning…";
         Frames.Clear();
+        ExclusionStatus = "0 images excluded";
         _currentImage   = null;
         _displayPixels  = null;
         HasImage        = false;
@@ -511,15 +514,11 @@ public partial class FrameAnalysisViewModel : ViewModelBase
     [RelayCommand]
     private void RestoreExcluded()
     {
+        Services.SessionLogService.Write("[Scan] User clicked Restore Excluded");
         var excluded = Frames.Where(f => f.IsExcluded).ToList();
-        if (excluded.Count == 0)
-        {
-            ScanStatus = "No images are currently excluded.";
-            return;
-        }
+        if (excluded.Count == 0) return;
         foreach (var f in excluded) f.IsExcluded = false;
         RefreshExclusionCount();
-        ScanStatus = $"✓  {excluded.Count} image{(excluded.Count == 1 ? "" : "s")} un-excluded.";
     }
 
 

@@ -2,6 +2,8 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -566,5 +568,55 @@ public partial class FrameAnalysisView : UserControl
         Canvas.SetLeft(label, cx + r + 2);
         Canvas.SetTop (label, cy - 6);
         PickOverlay.Children.Add(label);
+    }
+
+    // ── [?] Help button ───────────────────────────────────────────────────────
+
+    private void OnHelpImageAnalysis_Click(object? sender, RoutedEventArgs e) =>
+        ShowHelpPopup("Image Analysis",
+            "Scan Files — reads all FITS images in the FITS Directory and computes the background sky level for each frame. Frames with a background significantly above the median are flagged as potential outliers.\n\n" +
+            "Flag σ — the threshold (in standard deviations above the median background) at which a frame is flagged. Lower values flag more frames; 3.0 is a typical starting point.\n\n" +
+            "Exclude Flagged — marks all flagged frames as excluded so EXOTIC will skip them. Review the list first to confirm the flagged frames are genuinely bad.\n\n" +
+            "Restore Excluded — un-excludes all frames so you can start the exclusion process fresh.\n\n" +
+            "Dark-subtract before background estimate — subtracts the dark frame from each image before computing the background. Use this if your dark library is well-matched to the science frames.\n\n" +
+            "Frame list — shows each scanned frame with its background value and status. Check the 'Excl' box on individual rows to manually exclude specific frames.\n\n" +
+            "VSP chart (FOV / Mag / Star / Show VSP) — loads the AAVSO Variable Star Plotter comparison chart for the host star at the chosen field-of-view and magnitude limit. Useful for visually identifying comparison star magnitudes in the field.\n\n" +
+            "Image viewer — click a row in the frame list to display that frame. Use the Black / White sliders or Auto Stretch to adjust the display contrast. Zoom with +/− /Reset or mouse wheel. Click and drag to pan.\n\n" +
+            "Pick Target Star — enables click-to-pick mode. Click the target star in the image, then click 'Send to Target Star' to populate the Target Star X,Y field on the Parameters tab.\n\n" +
+            "Pick Comp Stars — enables multi-click comp picking mode. Click up to 10 comparison stars in the image, then click 'Send to Comp Stars' to append them to the Comparison Stars list on the Parameters tab.");
+
+    private void ShowHelpPopup(string title, string message)
+    {
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner is null) return;
+
+        var tb = new TextBlock
+        {
+            Text         = message,
+            TextWrapping = TextWrapping.Wrap,
+            Margin       = new Thickness(16, 14, 16, 10),
+            MaxWidth     = 440,
+            FontSize     = 15,
+        };
+        var btn = new Button
+        {
+            Content             = "OK",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            MinWidth            = 80,
+            Margin              = new Thickness(0, 2, 0, 14),
+        };
+        var layout = new StackPanel { Children = { tb, btn } };
+        var dialog = new Window
+        {
+            Title                 = title,
+            Content               = layout,
+            Width                 = 480,
+            SizeToContent         = SizeToContent.Height,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            CanResize             = false,
+            ShowInTaskbar         = false,
+        };
+        btn.Click += (_, _) => dialog.Close();
+        _ = dialog.ShowDialog(owner);
     }
 }

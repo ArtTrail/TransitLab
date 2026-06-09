@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -7,10 +8,12 @@ using System.Threading.Tasks;
 namespace TransitLab.Services;
 
 public record UpdateInfo(string Version, string AssetName, string DownloadUrl);
+public record ReleaseInfo(string Version, string Released, string AssetName, string DownloadUrl, bool HasAsset);
 
 public static class UpdateService
 {
-    private const string ApiUrl = "https://api.github.com/repos/ArtTrail/TransitLab/releases/latest";
+    private const string ApiUrl     = "https://api.github.com/repos/ArtTrail/TransitLab/releases/latest";
+    private const string AllApiUrl  = "https://api.github.com/repos/ArtTrail/TransitLab/releases";
 
     private static readonly HttpClient Http = new()
     {
@@ -45,6 +48,55 @@ public static class UpdateService
         }
         catch { }
         return null;
+    }
+
+    public static async Task<List<ReleaseInfo>> GetAllReleasesAsync(CancellationToken ct = default)
+    {
+        var result   = new List<ReleaseInfo>();
+        var platform = GetPlatformId();
+        try
+        {
+            var json  = await Http.GetStringAsync(AllApiUrl, ct);
+            var array = JsonNode.Parse(json)?.AsArray();
+            if (array is null) return result;
+
+            foreach (var release in array)
+            {
+                var tag = release?["tag_name"]?.GetValue<string>();
+                if (tag is null) continue;
+
+                var version = tag.TrimStart('v');
+
+                var rawDate  = release?["published_at"]?.GetValue<string>() ?? "";
+                var released = DateTime.TryParse(rawDate, out var dt)
+                    ? dt.ToString("yyyy-MM-dd")
+                    : rawDate;
+
+                var assets   = release?["assets"]?.AsArray();
+                string assetName = "", downloadUrl = "";
+                bool hasAsset = false;
+
+                if (assets is not null)
+                {
+                    foreach (var asset in assets)
+                    {
+                        var name = asset?["name"]?.GetValue<string>() ?? "";
+                        var url  = asset?["browser_download_url"]?.GetValue<string>() ?? "";
+                        if (name.Contains(platform, StringComparison.OrdinalIgnoreCase) && name.EndsWith(".zip"))
+                        {
+                            assetName = name;
+                            downloadUrl = url;
+                            hasAsset = true;
+                            break;
+                        }
+                    }
+                }
+
+                result.Add(new ReleaseInfo(version, released, assetName, downloadUrl, hasAsset));
+            }
+        }
+        catch { }
+        return result;
     }
 
     public static string GetPlatformId()

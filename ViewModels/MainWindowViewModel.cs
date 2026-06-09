@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TransitLab.Services;
 using System;
@@ -19,8 +19,8 @@ namespace TransitLab.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
-    public string Version { get; } = "2.6.3";
-    public string Title   { get; } = "TransitLab  v2.6.3";
+    public string Version { get; } = "2.6.5";
+    public string Title   { get; } = "TransitLab  v2.6.5";
 
     public ExoticSetupViewModel     ExoticSetup     { get; } = new();
     public MObsViewModel            MObs            { get; } = new();
@@ -58,6 +58,18 @@ public partial class MainWindowViewModel : ViewModelBase
         set { _cfg.StatusAlertsEnabled = value; ConfigService.Save(_cfg); }
     }
 
+    public bool ShowTipsAtStartup
+    {
+        get => _cfg.ShowTipsAtStartup;
+        set { _cfg.ShowTipsAtStartup = value; ConfigService.Save(_cfg); }
+    }
+
+    public int NextTipIndex
+    {
+        get => _cfg.NextTipIndex;
+        set { _cfg.NextTipIndex = value; ConfigService.Save(_cfg); }
+    }
+
     // Injected by MainWindow code-behind
     public Func<string, string, Task<string?>>?  SaveFilePickerFunc      { get; set; }
     public Func<string, Task<string?>>?           OpenFilePickerFunc      { get; set; }
@@ -88,11 +100,16 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void SkipUpdate() => IsUpdateAvailable = false;
+    private void SkipUpdate()
+    {
+        SessionLogService.Write("[Update] User clicked Skip Update");
+        IsUpdateAvailable = false;
+    }
 
     [RelayCommand]
     private async Task DownloadUpdate()
     {
+        SessionLogService.Write("[Update] User clicked Download Update");
         if (_pendingUpdate is null || BrowseUpdateFolderFunc is null) return;
 
         var folder = await BrowseUpdateFolderFunc();
@@ -132,6 +149,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task CheckForUpdates()
     {
+        SessionLogService.Write("[Update] User clicked Check for Updates");
         var info = await UpdateService.CheckAsync(Version);
         if (info is null)
         {
@@ -165,6 +183,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private ExclusionSession?         _activeExclSession;
 
     private AppConfig _cfg;
+    private string?   _detectedExoticVersion;
 
     public MainWindowViewModel()
     {
@@ -309,7 +328,6 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         _cfg.AutoMonitorFolder    = Automation.MonitorFolder;
         _cfg.AutoStartTime        = Automation.StartTime;
-        _cfg.AutoDurationMinutes  = Automation.DurationMinutes;
         ConfigService.Save(_cfg);
     }
 
@@ -324,6 +342,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public async Task RunAutomationSequenceAsync()
     {
         _isAutomationRunning = true;
+        EquipmentTarget.IsAutomationRunning = true;
         try
         {
         await RunAutomationSequenceInternalAsync();
@@ -331,6 +350,7 @@ public partial class MainWindowViewModel : ViewModelBase
         finally
         {
             _isAutomationRunning = false;
+            EquipmentTarget.IsAutomationRunning = false;
         }
     }
 
@@ -381,7 +401,11 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        // 5. Read FITS header — this fires plate solve and NEA as background tasks; returns immediately
+        // 5. Read FITS header — clear stale RA/Dec first so the wait loop below cannot pass until
+        //    NEA fetches fresh coordinates for this target (WCS is re-set synchronously inside
+        //    ReadFitsHeader when FITS already carry WCS, so _wcsReady alone is not sufficient).
+        EquipmentTarget.TargetRa  = "";
+        EquipmentTarget.TargetDec = "";
         Automation.AutomationStatus = "Running sequence: reading FITS header…";
         SessionLogService.Write("[Automation] Reading FITS header…");
         await Observation.ReadFitsHeaderCommand.ExecuteAsync(null);
@@ -500,7 +524,8 @@ public partial class MainWindowViewModel : ViewModelBase
         // MObs
         if (!string.IsNullOrEmpty(cfg.MobsDownloadDir))
             MObs.DownloadFolder = cfg.MobsDownloadDir;
-        MObs.IsDefaultFolder = cfg.MobsIsDefaultFolder;
+        MObs.IsDefaultFolder  = cfg.MobsIsDefaultFolder;
+        MObs.LookbackDays     = cfg.MobsLookbackDays;
 
         // Frame Analysis
         FrameAnalysis.FlagSigma = (decimal)cfg.FlagSigma;
@@ -508,13 +533,17 @@ public partial class MainWindowViewModel : ViewModelBase
         // Automation
         Automation.MonitorFolder    = cfg.AutoMonitorFolder;
         Automation.StartTime        = cfg.AutoStartTime;
-        Automation.DurationMinutes  = cfg.AutoDurationMinutes;
 
         // Results / AAVSO credentials
         Results.AavsoUsername     = cfg.AavsoUsername;
         Results.SavePassword      = cfg.SavePassword;
         Results.AavsoPassword     = cfg.SavePassword ? cfg.AavsoPassword : "";
         Results.AutoAnswerPrompts = cfg.AutoAnswerPrompts;
+
+        // Restore output file paths from the last session's SaveDir so the
+        // Upload button is available without needing to re-run EXOTIC.
+        if (!string.IsNullOrEmpty(cfg.LastUi.SaveDir) && Directory.Exists(cfg.LastUi.SaveDir))
+            Results.ScanOutputFiles(cfg.LastUi.SaveDir);
     }
 
     public void SaveOnExit()
@@ -556,10 +585,10 @@ public partial class MainWindowViewModel : ViewModelBase
         _cfg.Observatories  = [.. Observation.LiveObservatories];
         _cfg.MobsDownloadDir       = MObs.DownloadFolder;
         _cfg.MobsIsDefaultFolder   = MObs.IsDefaultFolder;
+        _cfg.MobsLookbackDays      = (int)MObs.LookbackDays;
         _cfg.FlagSigma             = (double)FrameAnalysis.FlagSigma;
         _cfg.AutoMonitorFolder    = Automation.MonitorFolder;
         _cfg.AutoStartTime        = Automation.StartTime;
-        _cfg.AutoDurationMinutes  = Automation.DurationMinutes;
         _cfg.AavsoUsername         = Results.AavsoUsername;
         _cfg.SavePassword          = Results.SavePassword;
         _cfg.AavsoPassword         = Results.SavePassword ? Results.AavsoPassword : "";
@@ -567,6 +596,29 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     // ── inits.json builder ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns true when the EXOTIC version is 4.3.2 or later.
+    /// Handles version strings with pre-release suffixes (e.g. "4.3.2.dev0").
+    /// Defaults to false (safe for 4.3.1) when version is null or unparseable.
+    /// </summary>
+    private static bool IsExotic432OrLater(string? versionString)
+    {
+        if (string.IsNullOrWhiteSpace(versionString)) return false;
+        var parts = versionString.Trim().Split('.');
+        if (!int.TryParse(parts[0], out var major)) return false;
+        int minor = 0, patch = 0;
+        if (parts.Length >= 2 && !int.TryParse(parts[1], out minor)) return false;
+        if (parts.Length >= 3)
+        {
+            // patch segment may have a non-numeric suffix (e.g. "2dev0"); extract leading digits
+            var patchStr = new string(parts[2].TakeWhile(char.IsDigit).ToArray());
+            if (!int.TryParse(patchStr, out patch)) return false;
+        }
+        return (major > 4) ||
+               (major == 4 && minor > 3) ||
+               (major == 4 && minor == 3 && patch >= 2);
+    }
 
     private JsonObject BuildInits()
     {
@@ -578,8 +630,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
         var pp = new JsonObject
         {
-            ["Target Star RA"]  = N(et.TargetRa),
-            ["Target Star Dec"] = N(et.TargetDec),
+            ["Target Star RA"]  = NF(et.TargetRa),
+            ["Target Star Dec"] = NF(et.TargetDec),
             ["Planet Name"]     = N(et.PlanetName),
             ["Host Star Name"]  = N(et.HostStarName),
             ["Orbital Period (days)"]           = NF(et.OrbitalPeriod),
@@ -623,7 +675,9 @@ public partial class MainWindowViewModel : ViewModelBase
             ["Filter Name (aavso.org/filters)"] = N(et.Filter),
             ["Observing Notes"]            = N(et.Notes),
             ["Plate Solution? (y/n)"]      = JsonValue.Create("n"),
-            ["Add Comparison Stars from AAVSO? (y/n)"] = JsonValue.Create("y"),
+            ["Add Comparison Stars from AAVSO? (y/n)"] = JsonValue.Create(
+                string.IsNullOrWhiteSpace(et.CompXY) ? "y" :
+                IsExotic432OrLater(_detectedExoticVersion) ? "n" : "y"),
             ["Target Star X & Y Pixel"]    = N(et.TargetXY),
             ["Comparison Star(s) X & Y Pixel"] = N(et.CompXY),
             ["Demosaic Format"]            = null,
@@ -742,6 +796,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (Observation.FitsDirNeedsHeaderRead)
         {
+            if (_isAutomationRunning)
+            {
+                SessionLogService.Write("[Automation] Aborted — FITS directory changed since last header read; Read FITS Header is required.");
+                return;
+            }
             if (ShowErrorFunc is not null)
                 await ShowErrorFunc("Read FITS Header Required",
                     "The FITS Files Directory has changed since the last header read.\n\n" +
@@ -798,6 +857,11 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             var missingFlat = missing.ToString().Trim().Replace(Environment.NewLine, ", ").TrimStart(',', ' ');
             SessionLogService.Write($"[Run] Validation failed — missing fields: {missingFlat}");
+            if (_isAutomationRunning)
+            {
+                SessionLogService.Write($"[Automation] Aborted — required fields are empty: {missingFlat}");
+                return;
+            }
             if (ShowErrorFunc is not null)
                 await ShowErrorFunc("Cannot Run EXOTIC",
                     "The following required fields are empty:\n\n" + missing.ToString().TrimEnd() +
@@ -811,6 +875,11 @@ public partial class MainWindowViewModel : ViewModelBase
             (rprsCheck < 0.01 || rprsCheck > 0.35))
         {
             SessionLogService.Write($"[Run] Validation failed — suspicious Rp/Rs = {rprsCheck:G6} (expected 0.01–0.35)");
+            if (_isAutomationRunning)
+            {
+                SessionLogService.Write($"[Automation] Aborted — suspicious Rp/Rs value: {rprsCheck:G6}");
+                return;
+            }
             if (ShowErrorFunc is not null)
                 await ShowErrorFunc("Suspicious Rp/Rs Value",
                     $"Rp/Rs = {rprsCheck:G6} is outside the expected range (0.01 – 0.35) for a transiting exoplanet.\n\n" +
@@ -821,6 +890,13 @@ public partial class MainWindowViewModel : ViewModelBase
         var ts   = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         var dir  = InitsDefaultPath();
         var path = Path.Combine(dir, $"inits_{ts}.json");
+
+        // Probe EXOTIC version before writing inits so BuildInits can choose
+        // the correct "Add Comparison Stars from AAVSO?" setting.
+        // Uses cached value after the first run; the probe takes ~1 s the first time.
+        if (_detectedExoticVersion is null && !string.IsNullOrWhiteSpace(_cfg.PythonExePath))
+            _detectedExoticVersion = await ExoticInstallService.GetExoticVersionAsync(_cfg.PythonExePath);
+
         WriteInits(path);
         RecordSession(path);
         SessionLogService.Write($"[Run] Starting EXOTIC — planet: \"{et.PlanetName}\", FITS: {ob.FitsDir}, inits: {path}");
@@ -942,6 +1018,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (runtime is null)
         {
+            if (_isAutomationRunning)
+            {
+                SessionLogService.Write("[Automation] Aborted — EXOTIC runtime could not be resolved automatically.");
+                _exoticCts = null;
+                return;
+            }
             if (BrowseExoticFunc is not null)
             {
                 var selectedPath = await BrowseExoticFunc("Locate python.exe or exotic.exe for the EXOTIC environment");
@@ -981,6 +1063,10 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         ConfigService.Save(_cfg);
 
+        // Cache the resolved EXOTIC version for future WriteInits() calls.
+        if (runtime.Version is not null)
+            _detectedExoticVersion = runtime.Version;
+
         // Switch to Results tab (index 3: Data=0, ImageAnalysis=1, Parameters=2, Results=3, Visualizer=4, History=5)
         SelectTabFunc?.Invoke(3);
 
@@ -1019,6 +1105,12 @@ public partial class MainWindowViewModel : ViewModelBase
             };
             foreach (var kv in env) psi.Environment[kv.Key] = kv.Value;
 
+            // Delete stale exotic.log so EXOTIC's TimedRotatingFileHandler has nothing
+            // to rotate on cross-day runs (avoids PermissionError: [WinError 32] spam).
+            var exoticLogPath = Path.Combine(psi.WorkingDirectory, "exotic.log");
+            if (File.Exists(exoticLogPath))
+                try { File.Delete(exoticLogPath); } catch { }
+
             using var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
             _exoticProcess = proc;
             proc.Start();
@@ -1044,6 +1136,13 @@ public partial class MainWindowViewModel : ViewModelBase
             AppendLog(rc == 0
                 ? "\n✓  EXOTIC finished successfully.\n"
                 : $"\n✗  EXOTIC exited with code {rc}.\n");
+            if (rc != 0)
+            {
+                var exoticLog = System.IO.Path.Combine(
+                    System.IO.Path.GetDirectoryName(initsPath) ?? "", "exotic.log");
+                if (System.IO.File.Exists(exoticLog))
+                    AppendLog($"   Detailed error log: {exoticLog}\n");
+            }
         }
         catch (OperationCanceledException)
         {
@@ -1060,6 +1159,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void CancelExotic()
     {
+        SessionLogService.Write("[Run] User cancelled EXOTIC run.");
         try { _exoticProcess?.Kill(entireProcessTree: true); } catch { }
         Results.CancelPrompt();
         _exoticCts?.Cancel();
@@ -1160,6 +1260,16 @@ public partial class MainWindowViewModel : ViewModelBase
                 continue;
             }
 
+            if (ch == '\r')
+            {
+                // Carriage return: EXOTIC spinner frame — update UI in place, no session log
+                var frame = buf.ToString().TrimEnd('\r');
+                if (!string.IsNullOrWhiteSpace(frame))
+                    UpdateSpinnerLine(frame);
+                buf.Clear();
+                continue;
+            }
+
             buf.Append(ch);
             if (ch == '\n')
             {
@@ -1211,6 +1321,14 @@ public partial class MainWindowViewModel : ViewModelBase
             Results.AppendLog(text));
     }
 
+    /// <summary>
+    /// Called for each \r-terminated EXOTIC spinner frame.
+    /// Updates the UI in place — no session log entry (spinner frames are transient).
+    /// </summary>
+    private void UpdateSpinnerLine(string text) =>
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            Results.UpdateSpinnerLine(text));
+
     private void RecordSession(string path)
     {
         var planet = EquipmentTarget.PlanetName.Trim();
@@ -1226,6 +1344,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task SaveInitsOnly()
     {
+        SessionLogService.Write("[Session] User clicked Save inits Only");
         if (SaveFilePickerFunc is null) return;
         var ts  = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         var dir = InitsDefaultPath();
@@ -1237,6 +1356,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task LoadInits()
     {
+        SessionLogService.Write("[Session] User clicked Load previous inits");
         if (OpenFilePickerFunc is null) return;
         var path = await OpenFilePickerFunc(
             string.IsNullOrEmpty(_cfg.LastInitsDir) ? InitsDefaultPath() : _cfg.LastInitsDir);
@@ -1282,20 +1402,49 @@ public partial class MainWindowViewModel : ViewModelBase
                 return (s[..idx].Trim(), s[(idx + 3)..].Trim().Split(' ')[0]);
             }
 
+            // Try both key names for fields renamed in EXOTIC 4.3.2
+            static (string Val, string Unc) ParseVUAny(JsonElement el, params string[] keys)
+            {
+                foreach (var k in keys) { var r = ParseVU(el, k); if (r.Val != "") return r; }
+                return ("", "");
+            }
+
             var (tmidV,  tmidU)  = ParseVU(pp, "Mid-Transit Time (Tmid)");
-            var (depthV, depthU) = ParseVU(pp, "Transit depth (Rp/Rs)^2");
+            var (depthV, depthU) = ParseVUAny(pp,
+                "Radius-ratio area depth (Rp/R*)^2",   // EXOTIC 4.3.2+
+                "Transit depth (Rp/Rs)^2");              // EXOTIC 4.3.1 and earlier
             var (incV,   _)      = ParseVU(pp, "Orbital Inclination (inc)");
             var (durV,   _)      = ParseVU(pp, "Transit Duration (day)");
-            var scatter = pp.TryGetProperty(
-                "Scatter in the residuals of the lightcurve fit is", out var sv)
-                ? sv.ToString().Replace("%", "").Trim() : "";
 
-            string rpRs = depthV, rpRsUnc = depthU;
-            if (double.TryParse(depthV, out var dv) &&
-                double.TryParse(depthU, out var du) && dv > 0.1)
+            // Scatter key renamed in EXOTIC 4.3.2
+            string scatter = "";
+            foreach (var scatterKey in new[] {
+                "Residual scatter around full model fit",       // EXOTIC 4.3.2+
+                "Scatter in the residuals of the lightcurve fit is" }) // EXOTIC 4.3.1
             {
-                rpRs    = (dv / 100.0).ToString("F6");
-                rpRsUnc = (du / 100.0).ToString("F6");
+                if (pp.TryGetProperty(scatterKey, out var sv))
+                { scatter = sv.ToString().Replace("%", "").Trim(); break; }
+            }
+
+            // Rp/Rs: read directly if available (EXOTIC 4.3.2+), otherwise derive from depth
+            var (rpRsDirect, rpRsDirectUnc) = ParseVUAny(pp,
+                "Ratio of Planet to Stellar Radius (Rp/R*)");  // EXOTIC 4.3.2+
+            string rpRs, rpRsUnc;
+            if (!string.IsNullOrEmpty(rpRsDirect))
+            {
+                rpRs    = rpRsDirect;
+                rpRsUnc = rpRsDirectUnc;
+            }
+            else
+            {
+                // Derive from depth percentage: depth% = (Rp/Rs)^2 * 100
+                rpRs = depthV; rpRsUnc = depthU;
+                if (double.TryParse(depthV, out var dv) &&
+                    double.TryParse(depthU, out var du) && dv > 0.1)
+                {
+                    rpRs    = (dv / 100.0).ToString("F6");
+                    rpRsUnc = (du / 100.0).ToString("F6");
+                }
             }
 
             string snr = "";
@@ -1345,6 +1494,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void ClearAllFields()
     {
+        SessionLogService.Write("[Session] User clicked Clear All Fields");
         Observation.FitsDir        = "";
         Observation.SaveDir        = "";
         Observation.SaveDirUserSet = false;

@@ -56,9 +56,9 @@
 ## Installation
 
 1. Download the latest release for your platform from **[Releases](https://github.com/ArtTrail/TransitLab/releases/latest)**
-   - **Windows:** `TransitLab-v2.6.3-win-x64.zip` — extract and run `TransitLab.exe`
-   - **macOS:** `TransitLab-v2.6.3-osx-arm64.dmg` — drag to Applications, right-click → Open the first time
-   - **Linux:** `TransitLab-v2.6.3-linux-x64.zip` — extract and run `./TransitLab`
+   - **Windows:** `TransitLab-v2.6.4-win-x64.zip` — extract and run `TransitLab.exe`
+   - **macOS:** `TransitLab-v2.6.4-osx-arm64.dmg` — drag to Applications, right-click → Open the first time
+   - **Linux:** `TransitLab-v2.6.4-linux-x64.zip` — extract and run `./TransitLab`
 2. Open **Tools → Python & EXOTIC Setup** and click **Check System** to verify or install Python and EXOTIC
 
 No installer required. No .NET installation required.
@@ -75,6 +75,12 @@ No installer required. No .NET installation required.
 6. Submit to AAVSO directly from the Results tab
 
 See the built-in User Guide (**Help → User Guide**) for full documentation.
+
+---
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 

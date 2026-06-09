@@ -70,12 +70,31 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
     [RelayCommand]
     private void AutoDetect()
     {
-        // Prefer astap_cli.exe (headless CLI build) over astap.exe
-        var candidates = new[]
+        string[] candidates;
+        string notFoundMsg;
+        if (OperatingSystem.IsWindows())
         {
-            @"C:\Program Files\astap\astap_cli.exe",
-            @"C:\Program Files\astap\astap.exe",
-        };
+            // Prefer astap_cli.exe (headless CLI build) over astap.exe
+            candidates   = [@"C:\Program Files\astap\astap_cli.exe", @"C:\Program Files\astap\astap.exe"];
+            notFoundMsg  = @"⚠  ASTAP not found at C:\Program Files\astap\ — use Browse";
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            var userApps = Path.Combine(Environment.GetFolderPath(
+                Environment.SpecialFolder.UserProfile), "Applications");
+            candidates  =
+            [
+                "/Applications/ASTAP.app/Contents/MacOS/astap",
+                Path.Combine(userApps, "ASTAP.app", "Contents", "MacOS", "astap"),
+            ];
+            notFoundMsg = "⚠  ASTAP not found in /Applications — use Browse to locate ASTAP.app";
+        }
+        else  // Linux
+        {
+            candidates  = ["/usr/bin/astap", "/usr/local/bin/astap"];
+            notFoundMsg = "⚠  ASTAP not found at /usr/bin/astap — use Browse";
+        }
+
         var candidate = candidates.FirstOrDefault(File.Exists);
         if (candidate is not null)
         {
@@ -85,7 +104,7 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
         }
         else
         {
-            TestStatus = @"⚠  ASTAP not found at C:\Program Files\astap\astap.exe — use Browse";
+            TestStatus = notFoundMsg;
         }
     }
 

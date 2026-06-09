@@ -28,6 +28,30 @@ public partial class HistoryViewModel : ViewModelBase
     public Func<Task<string?>>?  OpenJsonFunc      { get; set; }
     public Func<Task<string?>>?  OpenCsvXlsxFunc  { get; set; }
 
+    public HistoryViewModel()
+    {
+        // Subscribe/unsubscribe to each entry's PropertyChanged as items are added or removed,
+        // so that any inline edit in the DataGrid triggers an auto-save.
+        Entries.CollectionChanged += (_, e) =>
+        {
+            if (e.NewItems is not null)
+                foreach (HistoryEntry item in e.NewItems)
+                    item.PropertyChanged += OnEntryChanged;
+            if (e.OldItems is not null)
+                foreach (HistoryEntry item in e.OldItems)
+                    item.PropertyChanged -= OnEntryChanged;
+        };
+    }
+
+    // Called whenever any property on any entry changes (including inline DataGrid edits).
+    private void OnEntryChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        // SubmittedStr fires alongside Submitted for the same user action — skip it to avoid
+        // saving twice; the Submitted change covers the actual data update.
+        if (e.PropertyName == nameof(HistoryEntry.SubmittedStr)) return;
+        SaveHistoryFunc?.Invoke(Entries);
+    }
+
     // ── Columns metadata ──────────────────────────────────────────────────────
 
     private static readonly (string Key, string Header)[] Columns =
@@ -73,7 +97,9 @@ public partial class HistoryViewModel : ViewModelBase
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
 
-            if (!root.TryGetProperty("FINAL PLANETARY PARAMETERS", out var pp)) return;
+            // EXOTIC 4.3.2+: parameters are nested under "FINAL PLANETARY PARAMETERS".
+            // EXOTIC 4.3.1 and earlier: parameters are at the root level.
+            var pp = root.TryGetProperty("FINAL PLANETARY PARAMETERS", out var inner) ? inner : root;
 
             static (string Val, string Unc) ParseVU(JsonElement el, string key)
             {
@@ -86,20 +112,48 @@ public partial class HistoryViewModel : ViewModelBase
                 return (val, unc);
             }
 
+            // Try multiple key names — some were renamed between EXOTIC 4.3.1 and 4.3.2
+            static (string Val, string Unc) ParseVUAny(JsonElement el, params string[] keys)
+            {
+                foreach (var k in keys) { var r = ParseVU(el, k); if (r.Val != "") return r; }
+                return ("", "");
+            }
+
             var (tmidV,  tmidU)  = ParseVU(pp, "Mid-Transit Time (Tmid)");
-            var (depthV, depthU) = ParseVU(pp, "Transit depth (Rp/Rs)^2");
+            var (depthV, depthU) = ParseVUAny(pp,
+                "Radius-ratio area depth (Rp/R*)^2",         // EXOTIC 4.3.2+
+                "Transit depth (Rp/Rs)^2");                   // EXOTIC 4.3.1 and earlier
             var (incV,   _)      = ParseVU(pp, "Orbital Inclination (inc)");
             var (durV,   _)      = ParseVU(pp, "Transit Duration (day)");
-            var scatterRaw = pp.TryGetProperty("Scatter in the residuals of the lightcurve fit is",
-                                out var sv) ? sv.ToString().Replace("%", "").Trim() : "";
 
-            // Convert depth% → fraction for RpRs
-            string rpRs = depthV, rpRsUnc = depthU;
-            if (double.TryParse(depthV, out var dv) &&
-                double.TryParse(depthU, out var du) && dv > 0.1)
+            // Scatter key was renamed in EXOTIC 4.3.2
+            string scatter = "";
+            foreach (var scatterKey in new[] {
+                "Residual scatter around full model fit",              // EXOTIC 4.3.2+
+                "Scatter in the residuals of the lightcurve fit is" }) // EXOTIC 4.3.1
             {
-                rpRs    = (dv / 100.0).ToString("F6");
-                rpRsUnc = (du / 100.0).ToString("F6");
+                if (pp.TryGetProperty(scatterKey, out var sv))
+                { scatter = sv.ToString().Replace("%", "").Trim(); break; }
+            }
+
+            // Rp/Rs: available as a direct key in EXOTIC 4.3.2+; derive from depth% otherwise
+            var (rpRsDirect, rpRsDirectUnc) = ParseVUAny(pp,
+                "Ratio of Planet to Stellar Radius (Rp/R*)");  // EXOTIC 4.3.2+
+            string rpRs, rpRsUnc;
+            if (!string.IsNullOrEmpty(rpRsDirect))
+            {
+                rpRs    = rpRsDirect;
+                rpRsUnc = rpRsDirectUnc;
+            }
+            else
+            {
+                rpRs = depthV; rpRsUnc = depthU;
+                if (double.TryParse(depthV, out var dv) &&
+                    double.TryParse(depthU, out var du) && dv > 0.1)
+                {
+                    rpRs    = (dv / 100.0).ToString("F6");
+                    rpRsUnc = (du / 100.0).ToString("F6");
+                }
             }
 
             string snr = "";
@@ -107,6 +161,7 @@ public partial class HistoryViewModel : ViewModelBase
                 double.TryParse(rpRsUnc, out var ru) && ru > 0)
                 snr = (rv / ru).ToString("F1");
 
+            // Derive ObsDate from Tmid if not otherwise available
             string obsDate = "";
             if (!string.IsNullOrEmpty(tmidV) && double.TryParse(tmidV, out var jd))
             {
@@ -119,8 +174,25 @@ public partial class HistoryViewModel : ViewModelBase
                 catch { }
             }
 
+            // Extract planet name from filename: FinalParams_<PlanetName>_<dd-MMM-yyyy>.json
+            string planet = "";
+            var fname = Path.GetFileNameWithoutExtension(path);
+            if (fname.StartsWith("FinalParams_", StringComparison.OrdinalIgnoreCase))
+            {
+                var body    = fname["FinalParams_".Length..];
+                var lastUs  = body.LastIndexOf('_');
+                if (lastUs > 0)
+                {
+                    planet = body[..lastUs].Trim();
+                    // Normalise compact suffix: "HAT-P-22b" → "HAT-P-22 b"
+                    if (planet.Length > 1 && char.IsLetter(planet[^1]) && char.IsDigit(planet[^2]))
+                        planet = planet[..^1] + " " + planet[^1];
+                }
+            }
+
             var entry = new HistoryEntry
             {
+                Planet    = planet,
                 ObsDate   = obsDate,
                 Submitted = DateTime.Today,
                 Tmid      = tmidV,
@@ -131,7 +203,7 @@ public partial class HistoryViewModel : ViewModelBase
                 Depth     = depthV,
                 Inc       = incV,
                 Duration  = durV,
-                Scatter   = scatterRaw,
+                Scatter   = scatter,
             };
             Entries.Insert(0, entry);
             SaveHistoryFunc?.Invoke(Entries);

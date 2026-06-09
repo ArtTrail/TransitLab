@@ -1,4 +1,4 @@
-﻿using TransitLab.Models;
+using TransitLab.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -83,6 +83,7 @@ public class AppConfig
     public List<SessionRecord>   SessionHistory  { get; set; } = [];
     public string                MobsDownloadDir       { get; set; } = "";
     public bool                  MobsIsDefaultFolder   { get; set; } = false;
+    public int                   MobsLookbackDays      { get; set; } = 5;
     public string                LastInitsDir    { get; set; } = "";
     public string                AavsoUsername   { get; set; } = "";
     public bool                  SavePassword    { get; set; } = false;
@@ -100,7 +101,10 @@ public class AppConfig
     // Automation
     public string AutoMonitorFolder    { get; set; } = "";
     public string AutoStartTime        { get; set; } = "";   // "HH:mm" 24-hour, empty = immediate
-    public int    AutoDurationMinutes  { get; set; } = 120;
+
+    // Tip of the Day
+    public bool ShowTipsAtStartup { get; set; } = true;
+    public int  NextTipIndex      { get; set; } = 0;
 
     // Plate solver settings
     public string PlateSolver       { get; set; } = "AstrometryNet";  // "AstrometryNet" | "ASTAP"

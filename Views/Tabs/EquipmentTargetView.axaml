@@ -23,7 +23,11 @@
                 </StackPanel>
 
                 <!-- ── Equipment ── -->
-                <TextBlock Classes="h2" Text="Equipment" Margin="4,6,0,2"/>
+                <StackPanel Orientation="Horizontal" Margin="4,6,0,2">
+                    <TextBlock Classes="h2" Text="Equipment"/>
+                    <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
+                            VerticalAlignment="Center" Click="OnHelpEquipment_Click"/>
+                </StackPanel>
                 <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
 
                 <!-- Camera Type + Pixel Binning side by side -->
@@ -107,7 +111,11 @@
                 </Grid>
 
                 <!-- ── Observer Information ── -->
-                <TextBlock Classes="h2" Text="Observer Information" Margin="4,12,0,2"/>
+                <StackPanel Orientation="Horizontal" Margin="4,12,0,2">
+                    <TextBlock Classes="h2" Text="Observer Information"/>
+                    <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
+                            VerticalAlignment="Center" Click="OnHelpObserver_Click"/>
+                </StackPanel>
                 <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
 
                 <!-- AAVSO Code -->
@@ -158,7 +166,11 @@
                 <TextBlock Classes="hint" Text="  e.g.  27-FEB-2026" Margin="4,0,0,4"/>
 
                 <!-- ── Observatory / Location ── -->
-                <TextBlock Classes="h2" Text="Observatory / Location" Margin="4,12,0,2"/>
+                <StackPanel Orientation="Horizontal" Margin="4,12,0,2">
+                    <TextBlock Classes="h2" Text="Observatory / Location"/>
+                    <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
+                            VerticalAlignment="Center" Click="OnHelpObservatory_Click"/>
+                </StackPanel>
                 <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
 
                 <!-- Select Observatory -->
@@ -211,7 +223,11 @@
                            Margin="4,0,0,4"/>
 
                 <!-- ── Plate Solve ── -->
-                <TextBlock Classes="h2" Text="Plate Solve" Margin="4,12,0,2"/>
+                <StackPanel Orientation="Horizontal" Margin="4,12,0,2">
+                    <TextBlock Classes="h2" Text="Plate Solve"/>
+                    <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
+                            VerticalAlignment="Center" Click="OnHelpPlateSolve_Click"/>
+                </StackPanel>
                 <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
                 <StackPanel Orientation="Horizontal" Margin="4,2,4,2" Spacing="10">
                     <Button Classes="toolbar" Content="Plate Solve"
@@ -232,7 +248,11 @@
                 </StackPanel>
 
                 <!-- ── Star Selection ── -->
-                <TextBlock Classes="h2" Text="Star Selection" Margin="4,12,0,2"/>
+                <StackPanel Orientation="Horizontal" Margin="4,12,0,2">
+                    <TextBlock Classes="h2" Text="Star Selection"/>
+                    <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
+                            VerticalAlignment="Center" Click="OnHelpStarSelection_Click"/>
+                </StackPanel>
                 <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
 
                 <!-- Import NINA Star List (no preview textbox) -->
@@ -314,8 +334,16 @@
                       VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="8,4,8,16" Spacing="2">
 
+                <!-- ── Planet Parameters ── -->
+                <StackPanel Orientation="Horizontal" Margin="4,6,0,2">
+                    <TextBlock Classes="h2" Text="Planet Parameters"/>
+                    <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
+                            VerticalAlignment="Center" Click="OnHelpPlanetParameters_Click"/>
+                </StackPanel>
+                <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
+
                 <!-- Planet name -->
-                <Grid Margin="4,10,4,3">
+                <Grid Margin="4,4,4,3">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>

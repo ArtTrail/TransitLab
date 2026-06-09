@@ -22,29 +22,50 @@ public partial class ResultsViewModel : ViewModelBase
 
     [ObservableProperty] private bool _isLogFrozen = false;
 
+    // True when the last line in LogLines was written by UpdateSpinnerLine;
+    // the next spinner frame should replace it rather than append a new entry.
+    private bool _lastLineIsSpinner = false;
+
     public void AppendLog(string text)
     {
+        _lastLineIsSpinner = false;
         foreach (var raw in text.Split('\n'))
         {
-            var line  = raw.TrimEnd('\r');
-            var lower = line.ToLowerInvariant();
-            IBrush color;
-            if (lower.Contains("error")     || lower.Contains("traceback") ||
-                lower.Contains("exception") || lower.Contains("failed")    ||
-                lower.StartsWith("✗"))
-                color = new SolidColorBrush(Color.FromRgb(0xBF, 0x61, 0x6A));
-            else if (lower.Contains("warning") || lower.Contains("warn"))
-                color = new SolidColorBrush(Color.FromRgb(0xEB, 0xCB, 0x8B));
-            else if (lower.Contains("success") || lower.Contains("complete") ||
-                     lower.Contains("done")    || lower.StartsWith("✓"))
-                color = new SolidColorBrush(Color.FromRgb(0xA3, 0xBE, 0x8C));
-            else if (line.TrimStart().StartsWith("▶"))
-                color = new SolidColorBrush(Color.FromRgb(0x88, 0x92, 0xA0));
-            else
-                color = new SolidColorBrush(Color.FromRgb(0xEC, 0xEF, 0xF4));
-
-            LogLines.Add(new LogLine { Text = line, Color = color });
+            var line = raw.TrimEnd('\r');
+            LogLines.Add(new LogLine { Text = line, Color = LineColor(line) });
         }
+    }
+
+    /// <summary>
+    /// Called for each \r-terminated spinner frame from EXOTIC.
+    /// Replaces the last log line in place so the spinner animates rather than spams.
+    /// Not written to the session log.
+    /// </summary>
+    public void UpdateSpinnerLine(string text)
+    {
+        var entry = new LogLine { Text = text, Color = LineColor(text) };
+        if (_lastLineIsSpinner && LogLines.Count > 0)
+            LogLines[^1] = entry;
+        else
+            LogLines.Add(entry);
+        _lastLineIsSpinner = true;
+    }
+
+    private static IBrush LineColor(string line)
+    {
+        var lower = line.ToLowerInvariant();
+        if (lower.Contains("error")     || lower.Contains("traceback") ||
+            lower.Contains("exception") || lower.Contains("failed")    ||
+            lower.StartsWith("✗"))
+            return new SolidColorBrush(Color.FromRgb(0xBF, 0x61, 0x6A));
+        if (lower.Contains("warning") || lower.Contains("warn"))
+            return new SolidColorBrush(Color.FromRgb(0xEB, 0xCB, 0x8B));
+        if (lower.Contains("success") || lower.Contains("complete") ||
+            lower.Contains("done")    || lower.StartsWith("✓"))
+            return new SolidColorBrush(Color.FromRgb(0xA3, 0xBE, 0x8C));
+        if (line.TrimStart().StartsWith("▶"))
+            return new SolidColorBrush(Color.FromRgb(0x88, 0x92, 0xA0));
+        return new SolidColorBrush(Color.FromRgb(0xEC, 0xEF, 0xF4));
     }
 
     public void ClearLog()
@@ -191,14 +212,17 @@ public partial class ResultsViewModel : ViewModelBase
         _reportFullPath = "";
         _lcFullPath     = "";
 
+        SessionLogService.Write($"[Results] ScanOutputFiles: saveDir=\"{saveDir}\" exists={Directory.Exists(saveDir)}");
         if (!Directory.Exists(saveDir)) return;
 
         var reports = Directory.GetFiles(saveDir, "AAVSO_*.txt", SearchOption.AllDirectories);
+        SessionLogService.Write($"[Results] ScanOutputFiles: found {reports.Length} AAVSO_*.txt report(s)");
         if (reports.Length > 0)
         {
             var newest = reports.OrderByDescending(File.GetLastWriteTime).First();
             ReportFile      = "Report:  " + Path.GetFileName(newest);
             _reportFullPath = newest;
+            SessionLogService.Write($"[Results] ScanOutputFiles: reportFullPath=\"{_reportFullPath}\" exists={File.Exists(_reportFullPath)}");
         }
 
         var images = Directory.GetFiles(saveDir, "FinalLightCurve_*.png", SearchOption.AllDirectories);
@@ -250,10 +274,17 @@ public partial class ResultsViewModel : ViewModelBase
 
     private void UpdateUploadEnabled()
     {
-        IsUploadEnabled = _isLoggedIn && GdprAccepted &&
-                          !string.IsNullOrWhiteSpace(EwSite)      && EwSite      != "— select —" &&
-                          !string.IsNullOrWhiteSpace(EwEquipment) && EwEquipment != "— select —" &&
-                          !string.IsNullOrEmpty(_reportFullPath)  && File.Exists(_reportFullPath);
+        bool ok = _isLoggedIn && GdprAccepted &&
+                  !string.IsNullOrWhiteSpace(EwSite)      && EwSite      != "— select —" &&
+                  !string.IsNullOrWhiteSpace(EwEquipment) && EwEquipment != "— select —" &&
+                  !string.IsNullOrEmpty(_reportFullPath)  && File.Exists(_reportFullPath);
+        if (ok != IsUploadEnabled || !ok)
+            SessionLogService.Write(
+                $"[Results] UpdateUploadEnabled: loggedIn={_isLoggedIn} gdpr={GdprAccepted} " +
+                $"site=\"{EwSite}\" equip=\"{EwEquipment}\" " +
+                $"report=\"{_reportFullPath}\" reportExists={(!string.IsNullOrEmpty(_reportFullPath) && File.Exists(_reportFullPath))} " +
+                $"→ enabled={ok}");
+        IsUploadEnabled = ok;
     }
 
     // ── Login command ─────────────────────────────────────────────────────────

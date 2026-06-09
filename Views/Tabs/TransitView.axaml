@@ -13,12 +13,15 @@
         <Border DockPanel.Dock="Top" Padding="0,0,0,8">
             <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
 
-                <!-- Play / Pause -->
-                <Button Grid.Column="0"
-                        Classes="primary"
-                        Content="{Binding Transit.IsPlaying, Converter={x:Static converters:BoolToPlayPauseConverter.Instance}}"
-                        Command="{Binding Transit.PlayPauseCommand}"
-                        Width="110" VerticalAlignment="Center"/>
+                <!-- [?] + Play / Pause -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Button Content="[?]" FontSize="12" Padding="3,0"
+                            VerticalAlignment="Center" Click="OnHelpVisualizer_Click"/>
+                    <Button Classes="primary"
+                            Content="{Binding Transit.IsPlaying, Converter={x:Static converters:BoolToPlayPauseConverter.Instance}}"
+                            Command="{Binding Transit.PlayPauseCommand}"
+                            Width="110" VerticalAlignment="Center"/>
+                </StackPanel>
 
                 <!-- Reset -->
                 <Button Grid.Column="1"

@@ -22,6 +22,13 @@ public partial class TransitViewModel : ViewModelBase
     [ObservableProperty] private double _visU1     = 0.40;
     [ObservableProperty] private double _visU2     = 0.30;
 
+    // ── Starspot parameters ────────────────────────────────────────────────────
+    [ObservableProperty] private bool   _visSpotEnabled = false;
+    [ObservableProperty] private double _visSpotRadius  = 0.10;   // stellar radii
+    [ObservableProperty] private double _visSpotDeltaT  = 500.0;  // K cooler than photosphere
+    [ObservableProperty] private double _visSpotX       = 0.0;    // stellar radii, horizontal
+    [ObservableProperty] private double _visSpotY       = 0.0;    // stellar radii, vertical
+
     private bool _suppressVisRecompute = false;
 
     partial void OnVisRpRsChanged(double value)
@@ -67,9 +74,14 @@ public partial class TransitViewModel : ViewModelBase
         RecomputeVisualization();
     }
 
-    partial void OnVisPeriodChanged(double value) { if (!_suppressVisRecompute) RecomputeVisualization(); }
-    partial void OnVisU1Changed(double value)     { if (!_suppressVisRecompute) RecomputeVisualization(); }
-    partial void OnVisU2Changed(double value)     { if (!_suppressVisRecompute) RecomputeVisualization(); }
+    partial void OnVisPeriodChanged(double value)      { if (!_suppressVisRecompute) RecomputeVisualization(); }
+    partial void OnVisU1Changed(double value)          { if (!_suppressVisRecompute) RecomputeVisualization(); }
+    partial void OnVisU2Changed(double value)          { if (!_suppressVisRecompute) RecomputeVisualization(); }
+    partial void OnVisSpotEnabledChanged(bool value)   { if (!_suppressVisRecompute) RecomputeVisualization(); }
+    partial void OnVisSpotRadiusChanged(double value)  { if (!_suppressVisRecompute) RecomputeVisualization(); }
+    partial void OnVisSpotDeltaTChanged(double value)  { if (!_suppressVisRecompute) RecomputeVisualization(); }
+    partial void OnVisSpotXChanged(double value)       { if (!_suppressVisRecompute) RecomputeVisualization(); }
+    partial void OnVisSpotYChanged(double value)       { if (!_suppressVisRecompute) RecomputeVisualization(); }
 
     // ── Animation state ───────────────────────────────────────────────────────
     [ObservableProperty] private bool   _isPlaying  = false;
@@ -336,13 +348,18 @@ public partial class TransitViewModel : ViewModelBase
         double b      = ARs * Math.Cos(incRad);
 
         _suppressVisRecompute = true;
-        VisRpRs   = RpRs;
-        VisB      = b;
-        VisARs    = ARs;
-        VisIncDeg = IncDeg;
-        VisPeriod = Period;
-        VisU1     = 0.40;
-        VisU2     = 0.30;
+        VisRpRs       = RpRs;
+        VisB          = b;
+        VisARs        = ARs;
+        VisIncDeg     = IncDeg;
+        VisPeriod     = Period;
+        VisU1         = 0.40;
+        VisU2         = 0.30;
+        VisSpotEnabled = false;
+        VisSpotRadius  = 0.10;
+        VisSpotDeltaT  = 500.0;
+        VisSpotX       = 0.0;
+        VisSpotY       = 0.0;
         _suppressVisRecompute = false;
 
         RecomputeVisualization();
@@ -408,17 +425,76 @@ public partial class TransitViewModel : ViewModelBase
         double incRad = incDeg * Math.PI / 180.0;
         double cosI   = Math.Cos(incRad);
 
+        // Starspot parameters (Silva 2003; Zellem et al. 2017)
+        bool   spotOn  = VisSpotEnabled;
+        double rSpot   = VisSpotRadius;
+        double xSpot   = VisSpotX;
+        double ySpot   = VisSpotY;
+
+        double fLdTotal    = 1.0 - u1 / 3.0 - u2 / 6.0;
+        if (fLdTotal <= 0) fLdTotal = 1.0;
+
+        double contrast    = 0.0;
+        double iSpot       = 0.0;
+        double rSpotSq     = 0.0;
+
+        if (spotOn && xSpot * xSpot + ySpot * ySpot < 1.0)
+        {
+            double teff   = StarTeff;
+            double tSpot  = Math.Max(1.0, teff - VisSpotDeltaT);
+            double tRatio = tSpot / teff;
+            contrast      = 1.0 - tRatio * tRatio * tRatio * tRatio;   // Stefan-Boltzmann
+            double muSpot = Math.Sqrt(Math.Max(0.0, 1.0 - xSpot * xSpot - ySpot * ySpot));
+            iSpot         = 1.0 - u1 * (1.0 - muSpot) - u2 * (1.0 - muSpot) * (1.0 - muSpot);
+            rSpotSq       = rSpot * rSpot;
+        }
+        else
+        {
+            spotOn = false;
+        }
+
         for (int i = 0; i < N; i++)
         {
-            double phi   = (i / (double)(N - 1) - 0.5) * 2 * Math.PI;
-            double xSky  = aRs * Math.Sin(phi);
-            double ySky  = aRs * Math.Cos(phi) * cosI;
-            double z     = Math.Sqrt(xSky * xSky + ySky * ySky);
-            bool inFront = Math.Cos(phi) > 0;
-            flux[i] = (float)(inFront ? QuadLDFlux(z, k, u1, u2) : 1.0);
+            double phi    = (i / (double)(N - 1) - 0.5) * 2 * Math.PI;
+            double xSky   = aRs * Math.Sin(phi);
+            double ySky   = aRs * Math.Cos(phi) * cosI;
+            double z      = Math.Sqrt(xSky * xSky + ySky * ySky);
+            bool   inFront = Math.Cos(phi) > 0;
+
+            double f = inFront ? QuadLDFlux(z, k, u1, u2) : 1.0;
+
+            if (spotOn)
+            {
+                // In-transit spot bump: planet occulting darker region recovers flux
+                // (Silva 2003, A&A 400, 723)
+                double aOverlap = 0.0;
+                if (inFront)
+                {
+                    double dx   = xSky - xSpot;
+                    double dy   = ySky - ySpot;
+                    double dist = Math.Sqrt(dx * dx + dy * dy);
+                    aOverlap = CircleIntersectionArea(k, rSpot, dist);
+                }
+                f += (aOverlap / Math.PI - rSpotSq) * contrast * iSpot / fLdTotal;
+            }
+
+            flux[i] = (float)f;
         }
 
         LightCurveFlux = flux;
+    }
+
+    // Lens-intersection area of two circles (radii r1, r2; centre separation d)
+    private static double CircleIntersectionArea(double r1, double r2, double d)
+    {
+        if (d >= r1 + r2) return 0.0;
+        if (d <= Math.Abs(r1 - r2)) return Math.PI * Math.Min(r1, r2) * Math.Min(r1, r2);
+        double d2   = d * d, r1sq = r1 * r1, r2sq = r2 * r2;
+        double alpha = Math.Acos(Math.Clamp((d2 + r1sq - r2sq) / (2.0 * d * r1), -1.0, 1.0));
+        double beta  = Math.Acos(Math.Clamp((d2 + r2sq - r1sq) / (2.0 * d * r2), -1.0, 1.0));
+        return r1sq * alpha + r2sq * beta
+               - 0.5 * Math.Sqrt(Math.Max(0.0,
+                   (-d + r1 + r2) * (d + r1 - r2) * (d - r1 + r2) * (d + r1 + r2)));
     }
 
     // ── Animation ─────────────────────────────────────────────────────────────

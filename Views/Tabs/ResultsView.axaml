@@ -11,7 +11,11 @@
         <Grid DockPanel.Dock="Top"
               ColumnDefinitions="Auto,Auto,*,Auto"
               Margin="0,0,0,2">
-            <TextBlock Grid.Column="0" Classes="h2" Text="EXOTIC Log" VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Classes="h2" Text="EXOTIC Log" VerticalAlignment="Center"/>
+                <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
+                        VerticalAlignment="Center" Click="OnHelpExoticLog_Click"/>
+            </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
                         VerticalAlignment="Center" Margin="16,0,0,0">
                 <ToggleSwitch IsChecked="{Binding AutoAnswerPrompts}"
@@ -43,7 +47,11 @@
             <StackPanel Spacing="8">
 
                 <!-- Section header -->
-                <TextBlock Classes="h2" Text="Submit Results"/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Classes="h2" Text="Submit Results" VerticalAlignment="Center"/>
+                    <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
+                            VerticalAlignment="Center" Click="OnHelpSubmitResults_Click"/>
+                </StackPanel>
 
                 <!-- Credentials row -->
                 <WrapPanel Orientation="Horizontal" ItemHeight="36">
@@ -109,8 +117,16 @@
                                           VerticalAlignment="Center"/>
                             </StackPanel>
 
-                            <CheckBox Content="I accept the GDPR terms"
-                                      IsChecked="{Binding GdprAccepted}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <CheckBox Content="I accept the GDPR terms"
+                                          IsChecked="{Binding GdprAccepted}"
+                                          VerticalAlignment="Center"/>
+                                <HyperlinkButton Content="(gdpr.eu)"
+                                                 NavigateUri="https://gdpr.eu/"
+                                                 VerticalAlignment="Center"
+                                                 FontSize="13"
+                                                 Padding="0"/>
+                            </StackPanel>
 
                             <Button Classes="primary"
                                     Content="Upload to AAVSO Exoplanet"

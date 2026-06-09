@@ -44,6 +44,17 @@
                           VerticalAlignment="Center"/>
         </Grid>
 
+        <!-- Show tips at startup toggle -->
+        <Grid ColumnDefinitions="*,12,Auto">
+            <TextBlock Grid.Column="0"
+                       Text="Show tips at startup"
+                       VerticalAlignment="Center"/>
+            <ToggleSwitch Grid.Column="2"
+                          IsChecked="{Binding ShowTipsAtStartup}"
+                          OnContent="Enabled" OffContent="Disabled"
+                          VerticalAlignment="Center"/>
+        </Grid>
+
         <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="0,4,0,0"/>
 
         <!-- Buttons -->

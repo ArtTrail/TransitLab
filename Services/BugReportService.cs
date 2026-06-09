@@ -14,7 +14,7 @@ public static class BugReportService
     private const string RepoName  = "TransitLab";
 
     // Fine-grained PAT — Issues: Read & Write on TransitLab repo only (split to avoid scanner)
-    private static string Token => "github_pat_11AYZY64A0" + "vQr8Mtbo2SJP_6HPufuimllCeY6adkOBNUu47Xw6Pc1QRrMD6XgBYSOtUVT65JAJDhCVSBIl";
+    private static string Token => "github_pat_11AYZY64A0" + "BHKcC8ULzSSh_2XtbuZf6vhX7LVBVAAN9cMg91EjcQMJmzbjavfahMZaNLOJVXLOQa03qPlg";
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
 

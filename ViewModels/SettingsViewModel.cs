@@ -20,13 +20,14 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty] private string _customSoundPath      = "";
     [ObservableProperty] private bool   _isCustom;
     [ObservableProperty] private bool   _statusAlertsEnabled  = true;
+    [ObservableProperty] private bool   _showTipsAtStartup    = true;
 
     partial void OnSelectedSoundChanged(string value)
         => IsCustom = value == "Custom…";
 
     public Func<Task<string?>>?    BrowseSoundFunc { get; set; }
     public Action<string, string>? TestSoundFunc   { get; set; }
-    public Action<string, string, bool>? SaveCallback { get; set; }
+    public Action<string, string, bool, bool>? SaveCallback { get; set; }
     public Action?                 CloseCallback   { get; set; }
 
     [RelayCommand]
@@ -44,7 +45,7 @@ public partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private void Save()
     {
-        SaveCallback?.Invoke(SelectedSound, CustomSoundPath, StatusAlertsEnabled);
+        SaveCallback?.Invoke(SelectedSound, CustomSoundPath, StatusAlertsEnabled, ShowTipsAtStartup);
         CloseCallback?.Invoke();
     }
 

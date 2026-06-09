@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TransitLab.ViewModels"
+             x:DataType="vm:PreviousVersionViewModel"
+             x:Class="TransitLab.Views.PreviousVersionView">
+
+    <DockPanel Margin="20,16,20,16" MinWidth="540">
+
+        <!-- Button bar -->
+        <StackPanel DockPanel.Dock="Bottom"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8"
+                    Margin="0,12,0,0">
+            <Button Content="Download"
+                    Classes="primary"
+                    Command="{Binding DownloadCommand}"
+                    MinWidth="100"/>
+            <Button Content="Close"
+                    Command="{Binding CloseCommand}"
+                    MinWidth="80"/>
+        </StackPanel>
+
+        <!-- Progress + status -->
+        <StackPanel DockPanel.Dock="Bottom" Spacing="4" Margin="0,8,0,0">
+            <ProgressBar Value="{Binding DownloadProgress}"
+                         Minimum="0" Maximum="100"
+                         Height="6"
+                         IsVisible="{Binding IsDownloading}"/>
+            <TextBlock Text="{Binding StatusText}"
+                       TextWrapping="Wrap"
+                       FontSize="12"
+                       IsVisible="{Binding HasStatus}"/>
+        </StackPanel>
+
+        <!-- Header -->
+        <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,10">
+            <TextBlock Text="{Binding PlatformLabel}"
+                       FontSize="12"
+                       Foreground="{StaticResource BrushHint}"/>
+            <TextBlock TextWrapping="Wrap"
+                       FontSize="12"
+                       Foreground="{StaticResource BrushHint}"
+                       Text="Select a version and click Download. The ZIP will be saved to a folder you choose — extract it to replace your current installation. Versions without an asset for your platform are shown but cannot be downloaded."/>
+        </StackPanel>
+
+        <!-- Release list -->
+        <Border BorderThickness="1"
+                BorderBrush="{StaticResource BrushSep}"
+                CornerRadius="4">
+            <DataGrid ItemsSource="{Binding Releases}"
+                      SelectedItem="{Binding SelectedRelease}"
+                      IsReadOnly="True"
+                      CanUserResizeColumns="True"
+                      CanUserSortColumns="False"
+                      GridLinesVisibility="Horizontal"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      MinHeight="200">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Version"  Binding="{Binding Version}"  Width="100"/>
+                    <DataGridTextColumn Header="Released" Binding="{Binding Released}" Width="110"/>
+                    <DataGridTextColumn Header="Asset"    Binding="{Binding AssetName}" Width="*"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+    </DockPanel>
+
+</UserControl>

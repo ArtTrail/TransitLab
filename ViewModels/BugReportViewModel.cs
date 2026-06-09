@@ -17,7 +17,7 @@ public partial class BugReportViewModel : ViewModelBase
     [ObservableProperty] private bool   _isSubmitting = false;
     [ObservableProperty] private bool   _isSubmitted  = false;
 
-    public string   Version     => "2.6.3";
+    public string   Version     => "2.6.5";
     public string   OsName      => DetectOs();
     public string[] ReportTypes { get; } = ["Bug Report", "Feature Request"];
 

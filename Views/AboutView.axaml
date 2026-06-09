@@ -10,7 +10,7 @@
                        Text="TransitLab"
                        HorizontalAlignment="Center"/>
             <TextBlock Classes="hint"
-                       Text="Version 2.6.3"
+                       Text="Version 2.6.4"
                        HorizontalAlignment="Center"
                        Margin="0,4,0,0"/>
 
@@ -20,7 +20,7 @@
                        HorizontalAlignment="Center"
                        Margin="0,4,0,0"/>
             <TextBlock Classes="hint"
-                       Text="Free to use for personal and non-commercial use"
+                       Text="Released under the MIT License"
                        HorizontalAlignment="Center"
                        Margin="0,2,0,0"/>
 
@@ -117,8 +117,20 @@
                        Classes="hint"
                        HorizontalAlignment="Center"
                        TextAlignment="Center"
-                       Margin="0,2,0,0"
+                       Margin="0,2,0,10"
                        Text="Han Kleijn&#x0a;hnsky.org/astap.htm"/>
+
+            <!-- Physical Models -->
+            <TextBlock TextWrapping="Wrap"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Text="Physical Models — Starspot Effect (Visualizer)"/>
+            <TextBlock TextWrapping="Wrap"
+                       Classes="hint"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Margin="0,2,0,0"
+                       Text="Zellem et al. (2017, ApJ 844, 1) — unocculted spot baseline depression&#x0a;Silva (2003, A&amp;A 400, 723) — in-transit spot geometry (flux bump)"/>
 
         </StackPanel>
     </Border>

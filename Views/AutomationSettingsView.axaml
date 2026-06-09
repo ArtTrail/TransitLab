@@ -7,7 +7,7 @@
     <StackPanel Margin="28,24,28,20" Spacing="16" MinWidth="560">
 
         <!-- Description -->
-        <TextBlock Text="Watch a folder for calibrated FITS files and run the full reduction pipeline automatically — wake up to results."
+        <TextBlock Text="Set a folder and start time — TransitLab will run the full reduction pipeline automatically at the scheduled time."
                    TextWrapping="Wrap"
                    Foreground="{StaticResource BrushHint}"/>
 
@@ -38,23 +38,6 @@
             <TextBox Grid.Column="2"
                      Text="{Binding StartTime}"
                      Watermark="e.g. 06:30  (leave blank to start immediately when armed)"/>
-        </Grid>
-
-        <!-- Duration row -->
-        <Grid ColumnDefinitions="Auto,12,120,8,Auto">
-            <TextBlock Grid.Column="0"
-                       Text="Monitor window"
-                       VerticalAlignment="Center"
-                       MinWidth="140"/>
-            <NumericUpDown Grid.Column="2"
-                           Value="{Binding DurationMinutes}"
-                           Minimum="1"
-                           Maximum="720"
-                           FormatString="0"
-                           Increment="1"/>
-            <TextBlock Grid.Column="4"
-                       Text="minutes"
-                       VerticalAlignment="Center"/>
         </Grid>
 
         <!-- Before-arming checklist -->

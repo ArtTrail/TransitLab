@@ -1,10 +1,12 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Platform.Storage;
 using TransitLab.Services;
 using TransitLab.ViewModels;
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
@@ -42,7 +44,10 @@ public partial class MainWindow : Window
         Opened += async (_, _) =>
         {
             if (DataContext is MainWindowViewModel vm)
+            {
                 await vm.RunStartupUpdateCheckAsync();
+                await ShowTipOfDayAsync(vm);
+            }
         };
 
         Closing += (_, _) =>
@@ -128,6 +133,28 @@ public partial class MainWindow : Window
         win.Show(this);
     }
 
+    private async Task ShowTipOfDayAsync(MainWindowViewModel vm)
+    {
+        if (!vm.ShowTipsAtStartup) return;
+        var tipVm = new TipOfDayViewModel(vm.NextTipIndex, vm.ShowTipsAtStartup);
+        Window? win = null;
+        win = new Window
+        {
+            Title                 = "Tip of the Day",
+            Width                 = 500,
+            SizeToContent         = Avalonia.Controls.SizeToContent.Height,
+            CanResize             = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content               = new TipOfDayView { DataContext = tipVm },
+        };
+        win.Closed += (_, _) =>
+        {
+            vm.ShowTipsAtStartup = tipVm.ShowAtStartup;
+            vm.NextTipIndex      = (tipVm.CurrentIndex + 1) % Services.TipService.Tips.Length;
+        };
+        await win.ShowDialog(this);
+    }
+
     private void OnNotificationsSettingsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm) return;
@@ -138,11 +165,13 @@ public partial class MainWindow : Window
             SelectedSound        = NormalizeSoundPreset(vm.CompletionSound),
             CustomSoundPath      = vm.CompletionSoundPath,
             StatusAlertsEnabled  = vm.StatusAlertsEnabled,
-            SaveCallback         = (sound, path, alerts) =>
+            ShowTipsAtStartup    = vm.ShowTipsAtStartup,
+            SaveCallback         = (sound, path, alerts, showTips) =>
             {
                 vm.CompletionSound      = sound;
                 vm.CompletionSoundPath  = path;
                 vm.StatusAlertsEnabled  = alerts;
+                vm.ShowTipsAtStartup    = showTips;
             },
         };
         settingsVm.IsCustom        = settingsVm.SelectedSound == "Custom…";
@@ -252,17 +281,40 @@ public partial class MainWindow : Window
 
     private async Task<string?> BrowseAstapExeAsync()
     {
+        var isMac     = OperatingSystem.IsMacOS();
+        var isWindows = OperatingSystem.IsWindows();
         var results = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title          = "Locate ASTAP Executable",
             AllowMultiple  = false,
             FileTypeFilter = new List<FilePickerFileType>
             {
-                new("ASTAP executable") { Patterns = ["astap_cli.exe", "astap.exe", "astap"] },
-                new("All files")        { Patterns = ["*"] },
+                isWindows
+                    ? new("ASTAP executable")  { Patterns = ["astap_cli.exe", "astap.exe", "astap"] }
+                    : isMac
+                        ? new("ASTAP application") { Patterns = ["ASTAP.app", "*.app", "astap", "astap_cli"] }
+                        : new("ASTAP executable")  { Patterns = ["astap", "astap_cli"] },
+                new("All files") { Patterns = ["*"] },
             }
         });
-        return results.Count > 0 ? results[0].Path.LocalPath : null;
+        if (results.Count == 0) return null;
+        var path = results[0].Path.LocalPath;
+
+        // On macOS, the user may select the .app bundle — resolve to the binary inside
+        if (isMac && path.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
+        {
+            var binary = Path.Combine(path, "Contents", "MacOS", "astap");
+            if (File.Exists(binary)) return binary;
+            // Fallback: first executable (no extension) in Contents/MacOS
+            var macosDir = Path.Combine(path, "Contents", "MacOS");
+            if (Directory.Exists(macosDir))
+            {
+                var exe = Directory.GetFiles(macosDir)
+                                   .FirstOrDefault(f => !Path.GetFileName(f).Contains('.'));
+                if (exe is not null) return exe;
+            }
+        }
+        return path;
     }
 
     private async Task<string?> BrowseCatalogDirAsync()
@@ -273,6 +325,25 @@ public partial class MainWindow : Window
             AllowMultiple = false,
         });
         return folder.Count > 0 ? folder[0].Path.LocalPath : null;
+    }
+
+    private void OnPreviousVersionsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        Window? win = null;
+        var vm = new PreviousVersionViewModel();
+        vm.BrowseFolderFunc = BrowseUpdateFolderAsync;
+        vm.CloseCallback    = () => win?.Close();
+
+        win = new Window
+        {
+            Title                 = "Previous Versions",
+            Width                 = 580,
+            Height                = 420,
+            CanResize             = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content               = new PreviousVersionView { DataContext = vm },
+        };
+        win.Show(this);
     }
 
     private void OnRevisionHistoryClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -505,8 +576,9 @@ public partial class MainWindow : Window
     {
         Window? win = null;
         var diagVm = new DiagnosticsViewModel();
-        diagVm.SaveFileFunc  = SaveDiagnosticsLogAsync;
-        diagVm.CloseCallback = () => win?.Close();
+        diagVm.SaveFileFunc    = SaveDiagnosticsLogAsync;
+        diagVm.OpenLogFileFunc = OpenPreviousLogAsync;
+        diagVm.CloseCallback   = () => win?.Close();
 
         win = new Window
         {
@@ -519,6 +591,26 @@ public partial class MainWindow : Window
         win.Opened += (_, _) => diagVm.Connect();
         win.Closed  += (_, _) => diagVm.Disconnect();
         win.Show(this);
+    }
+
+    private async Task<string?> OpenPreviousLogAsync()
+    {
+        var logsDir = System.IO.Path.Combine(
+            System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData),
+            "TransitLab", "logs");
+
+        var results = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title          = "Open Previous Session Log",
+            AllowMultiple  = false,
+            SuggestedStartLocation = await StorageProvider.TryGetFolderFromPathAsync(logsDir),
+            FileTypeFilter = new List<FilePickerFileType>
+            {
+                new("Log files") { Patterns = ["*.log"] },
+                new("All files") { Patterns = ["*"]     },
+            }
+        });
+        return results.Count > 0 ? results[0].Path.LocalPath : null;
     }
 
     private async Task<string?> SaveDiagnosticsLogAsync()

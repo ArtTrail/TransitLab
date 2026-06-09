@@ -10,7 +10,11 @@
         <StackPanel Margin="8,4,8,16" Spacing="2">
 
             <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• DIRECTORIES â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
-            <TextBlock Classes="h2" Text="Directories" Margin="4,10,0,2"/>
+            <StackPanel Orientation="Horizontal" Margin="4,10,0,2">
+                <TextBlock Classes="h2" Text="Directories"/>
+                <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
+                        VerticalAlignment="Center" Click="OnHelpDirectories_Click"/>
+            </StackPanel>
             <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
 
             <Grid Margin="4,3">
@@ -88,7 +92,11 @@
             </Grid>
 
             <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• MObs â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
-            <TextBlock Classes="h2" Text="MicroObservatory (MObs)" Margin="4,14,0,2"/>
+            <StackPanel Orientation="Horizontal" Margin="4,14,0,2">
+                <TextBlock Classes="h2" Text="MicroObservatory (MObs)"/>
+                <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
+                        VerticalAlignment="Center" Click="OnHelpMObs_Click"/>
+            </StackPanel>
             <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,2"/>
             <TextBlock Classes="hint"
                        Text="MObs section powered by Python code provided by Douglas James"
@@ -96,11 +104,7 @@
 
             <!-- Fetch controls row -->
             <StackPanel Orientation="Horizontal" Spacing="10" Margin="4,4,4,0" VerticalAlignment="Center">
-                <TextBlock Text="Telescope:" VerticalAlignment="Center"/>
-                <ComboBox ItemsSource="{Binding MObs.Telescopes}"
-                          SelectedItem="{Binding MObs.SelectedTelescope}"
-                          Width="130"/>
-                <TextBlock Text="Lookback days:" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                <TextBlock Text="Lookback days:" VerticalAlignment="Center"/>
                 <NumericUpDown Value="{Binding MObs.LookbackDays}"
                                Minimum="1" Maximum="30"
                                FormatString="0"

@@ -1,4 +1,4 @@
-TransitLab  v2.6.3
+TransitLab  v2.6.5
 ==================
 © Art Trail 2026
 Powered by EXOTIC (Zellem, Pearson, Blaser et al. 2020, PASP 132)
@@ -19,7 +19,7 @@ Additional features include:
   • Automatic NEA target-parameter lookup via the NASA Exoplanet Archive
   • Automatic AAVSO comparison-star selection
   • Transit geometry visualizer (real-time animated transit preview)
-  • Session history browser with EXOTIC output viewer
+  • Editable submission history table (export CSV/XLSX, import FinalParams JSON)
   • Python & EXOTIC setup wizard (install, upgrade, uninstall)
   • Automation mode for hands-off, time-triggered reduction runs
   • Automatic update checker with one-click download

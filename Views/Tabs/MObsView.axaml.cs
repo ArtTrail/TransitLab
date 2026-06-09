@@ -1,4 +1,8 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using TransitLab.Models;
@@ -91,5 +95,60 @@ public partial class MObsView : UserControl
                 SuggestedStartLocation = startFolder,
             });
         return results.Count > 0 ? results[0].Path.LocalPath : null;
+    }
+
+    // ── [?] Help buttons ──────────────────────────────────────────────────
+
+    private void OnHelpDirectories_Click(object? sender, RoutedEventArgs e) =>
+        ShowHelpPopup("Directories",
+            "Lights Directory — the folder containing your science (light) FITS frames for this transit. This is the primary input for EXOTIC.\n\n" +
+            "Darks Directory — folder containing dark calibration frames matched to your science frame exposure time and temperature. Leave blank if not using darks.\n\n" +
+            "Flats Directory — folder containing flat-field calibration frames. Leave blank if not using flats.\n\n" +
+            "Biases Directory — folder containing bias (zero-second) calibration frames. Leave blank if not using biases.\n\n" +
+            "Save Plots Directory — the output folder where EXOTIC writes the reduced light curve, stellar variability plot, AAVSO report file, and FITS output. Each run creates a timestamped subfolder here.");
+
+    private void OnHelpMObs_Click(object? sender, RoutedEventArgs e) =>
+        ShowHelpPopup("MicroObservatory (MObs)",
+            "MicroObservatory (MObs) is a network of robotic telescopes operated by the Harvard-Smithsonian Center for Astrophysics. TransitLab can fetch and download your MObs observation data directly.\n\n" +
+            "Lookback days — how many days back to search for available observations.\n\n" +
+            "Fetch List — queries the MObs server and populates the observations list below with matching sessions, showing object name, date, science frame count, calibration frames, and weather.\n\n" +
+            "Download Directory — the local folder where selected observations will be downloaded. Check 'Set as default download directory' to reuse it automatically; a target-named subfolder is created inside it.\n\n" +
+            "Download Selected — downloads the FITS frames for the row selected in the list. A progress bar tracks the download.\n\n" +
+            "Use This Data — sets the Lights Directory to the downloaded folder so EXOTIC can process the frames immediately.\n\n" +
+            "MObs functionality powered by Python code courtesy of Douglas James.");
+
+    private void ShowHelpPopup(string title, string message)
+    {
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner is null) return;
+
+        var tb = new TextBlock
+        {
+            Text         = message,
+            TextWrapping = TextWrapping.Wrap,
+            Margin       = new Thickness(16, 14, 16, 10),
+            MaxWidth     = 440,
+            FontSize     = 15,
+        };
+        var btn = new Button
+        {
+            Content             = "OK",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            MinWidth            = 80,
+            Margin              = new Thickness(0, 2, 0, 14),
+        };
+        var layout = new StackPanel { Children = { tb, btn } };
+        var dialog = new Window
+        {
+            Title                 = title,
+            Content               = layout,
+            Width                 = 480,
+            SizeToContent         = SizeToContent.Height,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            CanResize             = false,
+            ShowInTaskbar         = false,
+        };
+        btn.Click += (_, _) => dialog.Close();
+        _ = dialog.ShowDialog(owner);
     }
 }

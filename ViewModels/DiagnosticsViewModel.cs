@@ -18,8 +18,12 @@ public partial class DiagnosticsViewModel : ViewModelBase
 
     private readonly Queue<string> _pending = new();
 
-    public Func<Task<string?>>? SaveFileFunc  { get; set; }
-    public Action?              CloseCallback { get; set; }
+    public Func<Task<string?>>? SaveFileFunc    { get; set; }
+    public Func<Task<string?>>? OpenLogFileFunc { get; set; }
+    public Action?              CloseCallback   { get; set; }
+
+    [ObservableProperty] private string _logTitle = "Current Session";
+    private bool _viewingPrevious;
 
     // ── Live feed ─────────────────────────────────────────────────────────────
 
@@ -37,6 +41,7 @@ public partial class DiagnosticsViewModel : ViewModelBase
 
     private void OnLineWritten(string line)
     {
+        if (_viewingPrevious) return;
         Dispatcher.UIThread.Post(() =>
         {
             if (IsLogFrozen)
@@ -63,6 +68,25 @@ public partial class DiagnosticsViewModel : ViewModelBase
         var path = await SaveFileFunc();
         if (path is null) return;
         try { await File.WriteAllTextAsync(path, string.Join(Environment.NewLine, LogLines)); }
+        catch { }
+    }
+
+    [RelayCommand]
+    private async Task LoadPreviousLog()
+    {
+        if (OpenLogFileFunc is null) return;
+        var path = await OpenLogFileFunc();
+        if (path is null) return;
+        try
+        {
+            var text = await File.ReadAllTextAsync(path);
+            _viewingPrevious = true;
+            _pending.Clear();
+            LogLines.Clear();
+            LogTitle = System.IO.Path.GetFileName(path);
+            foreach (var line in text.Split('\n'))
+                LogLines.Add(line.TrimEnd('\r'));
+        }
         catch { }
     }
 

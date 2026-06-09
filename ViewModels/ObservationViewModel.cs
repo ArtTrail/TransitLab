@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TransitLab.Models;
 using TransitLab.Services;
@@ -133,6 +133,13 @@ public partial class ObservationViewModel : ViewModelBase
         Elevation = obs.Elev;
     }
 
+    partial void OnObsDateChanged(string value)       => DebounceLog("Obs date",       value);
+    partial void OnLatitudeChanged(string value)      => DebounceLog("Latitude",        value);
+    partial void OnLongitudeChanged(string value)     => DebounceLog("Longitude",       value);
+    partial void OnElevationChanged(string value)     => DebounceLog("Elevation",       value);
+    partial void OnAavsoCodeChanged(string value)     => DebounceLog("AAVSO code",      value);
+    partial void OnSecondaryCodeChanged(string value) => DebounceLog("Secondary code",  value);
+
     // ── Commands — Directories ────────────────────────────────────────────────
     [RelayCommand] private async Task BrowseFitsDir()
         => await BrowseFolder("Select FITS Files Directory", v =>
@@ -141,23 +148,50 @@ public partial class ObservationViewModel : ViewModelBase
             _fitsDirNeedsHeaderRead = true;
             FitsDirNeedsHeaderReadChanged?.Invoke();
             ClearSessionFieldsCallback?.Invoke();
+            Services.SessionLogService.Write($"[FITS] FITS dir: {v}");
         });
 
     [RelayCommand] private async Task BrowseSaveDir()
-        => await BrowseFolder("Select Save Plots Directory", v => { SaveDir = v; SaveDirUserSet = true; });
+        => await BrowseFolder("Select Save Plots Directory", v =>
+        {
+            SaveDir = v;
+            SaveDirUserSet = true;
+            Services.SessionLogService.Write($"[Field] Save dir: {v}");
+        });
 
     [RelayCommand] private async Task BrowseDarksDir()
-    { _darksAuto = false; await BrowseFolder("Select Darks Directory", v => DarksDir = v); }
+    {
+        _darksAuto = false;
+        await BrowseFolder("Select Darks Directory", v =>
+        {
+            DarksDir = v;
+            Services.SessionLogService.Write($"[Field] Darks dir: {v}");
+        });
+    }
 
     [RelayCommand] private void ClearDarksDir()  { DarksDir  = ""; _darksAuto = true; }
 
     [RelayCommand] private async Task BrowseFlatsDir()
-    { _flatsAuto = false; await BrowseFolder("Select Flats Directory", v => FlatsDir = v); }
+    {
+        _flatsAuto = false;
+        await BrowseFolder("Select Flats Directory", v =>
+        {
+            FlatsDir = v;
+            Services.SessionLogService.Write($"[Field] Flats dir: {v}");
+        });
+    }
 
     [RelayCommand] private void ClearFlatsDir()  { FlatsDir = ""; _flatsAuto = true; }
 
     [RelayCommand] private async Task BrowseBiasDir()
-    { _biasAuto = false; await BrowseFolder("Select Biases Directory", v => BiasDir = v); }
+    {
+        _biasAuto = false;
+        await BrowseFolder("Select Biases Directory", v =>
+        {
+            BiasDir = v;
+            Services.SessionLogService.Write($"[Field] Bias dir: {v}");
+        });
+    }
 
     [RelayCommand] private void ClearBiasDir()   { BiasDir  = ""; _biasAuto = true; }
 
@@ -165,15 +199,19 @@ public partial class ObservationViewModel : ViewModelBase
     [RelayCommand]
     private async Task ReadFitsHeader()
     {
+        Services.SessionLogService.Write("[FITS] User clicked Read FITS Header");
         if (string.IsNullOrWhiteSpace(FitsDir))
         {
             FitsHeaderStatus = "⚠  Set the FITS Files Directory first.";
             return;
         }
 
-        // Clear pixel coordinates — they are image-specific and must be re-picked each session
+        // Clear pixel coordinates and stale WCS — both are image-specific and must come from the new plate solve
         if (EquipmentTarget is not null)
+        {
             EquipmentTarget.TargetXY = "";
+            EquipmentTarget.ResetWcs();
+        }
 
         // Auto-scan frames, exclude flagged, get first non-excluded file
         string? fitsPath;

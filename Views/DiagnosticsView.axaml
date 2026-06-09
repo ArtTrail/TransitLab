@@ -16,6 +16,10 @@
                           Content="⏸ Pause"
                           IsChecked="{Binding IsLogFrozen}"
                           ToolTip.Tip="Pause auto-scroll so you can read the log"/>
+            <Button Content="Load Previous Log"
+                    Command="{Binding LoadPreviousLogCommand}"
+                    MinWidth="120"
+                    ToolTip.Tip="Open a log file from a previous session"/>
             <Button Content="Save Log"
                     Classes="primary"
                     Command="{Binding SaveLogCommand}"
@@ -24,6 +28,13 @@
                     Command="{Binding CloseCommand}"
                     MinWidth="80"/>
         </StackPanel>
+
+        <!-- Log title -->
+        <TextBlock DockPanel.Dock="Top"
+                   Text="{Binding LogTitle}"
+                   FontSize="12"
+                   Foreground="#8A9BB0"
+                   Margin="2,0,0,6"/>
 
         <!-- Log list -->
         <Border Background="#1A1D23"

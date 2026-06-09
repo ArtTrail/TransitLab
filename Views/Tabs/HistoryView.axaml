@@ -9,6 +9,9 @@
         <!-- ── Button bar ────────────────────────────────────────────────────── -->
         <Border DockPanel.Dock="Top" Padding="0,0,0,6" Background="Transparent">
             <StackPanel Orientation="Horizontal">
+                <Button Content="[?]" FontSize="12" Padding="3,0"
+                        VerticalAlignment="Center" Margin="0,0,6,0"
+                        Click="OnHelpHistory_Click"/>
                 <Button Classes="toolbar"
                         Content="Export CSV"
                         Command="{Binding DownloadCsvCommand}"
@@ -55,19 +58,19 @@
                   SelectionMode="Single">
 
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Planet"         Binding="{Binding Planet}"       SortMemberPath="Planet"      Width="Auto" IsReadOnly="True"/>
-                <DataGridTextColumn Header="Obs"            Binding="{Binding Obs}"          SortMemberPath="Obs"         Width="Auto" IsReadOnly="True"/>
-                <DataGridTextColumn Header="Obs Date"       Binding="{Binding ObsDate}"      SortMemberPath="ObsDateSort" Width="Auto" IsReadOnly="True"/>
-                <DataGridTextColumn Header="Submitted"      Binding="{Binding SubmittedStr}" SortMemberPath="Submitted"   Width="Auto" IsReadOnly="True"/>
-                <DataGridTextColumn Header="Tmid (BJD_TDB)" Binding="{Binding Tmid}"         SortMemberPath="TmidSort"    Width="Auto" IsReadOnly="True"/>
-                <DataGridTextColumn Header="±Tmid"          Binding="{Binding TmidUnc}"      SortMemberPath="TmidUncSort" Width="Auto" IsReadOnly="True"/>
-                <DataGridTextColumn Header="(Rp/R*)²"       Binding="{Binding RpRs}"         SortMemberPath="RpRsSort"    Width="Auto" IsReadOnly="True"/>
-                <DataGridTextColumn Header="±(Rp/R*)²"      Binding="{Binding RpRsUnc}"      SortMemberPath="RpRsUncSort" Width="Auto" IsReadOnly="True"/>
-                <DataGridTextColumn Header="SNR"            Binding="{Binding Snr}"          SortMemberPath="SnrSort"     Width="Auto" IsReadOnly="True"/>
-                <DataGridTextColumn Header="Depth %"        Binding="{Binding Depth}"        SortMemberPath="DepthSort"   Width="Auto" IsReadOnly="True"/>
-                <DataGridTextColumn Header="Inc °"          Binding="{Binding Inc}"          SortMemberPath="IncSort"     Width="Auto" IsReadOnly="True"/>
-                <DataGridTextColumn Header="Dur (d)"        Binding="{Binding Duration}"     SortMemberPath="DurationSort" Width="Auto" IsReadOnly="True"/>
-                <DataGridTextColumn Header="Scatter %"      Binding="{Binding Scatter}"      SortMemberPath="ScatterSort" Width="Auto" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Planet"         Binding="{Binding Planet}"       SortMemberPath="Planet"       Width="Auto"/>
+                <DataGridTextColumn Header="Obs"            Binding="{Binding Obs}"          SortMemberPath="Obs"          Width="Auto"/>
+                <DataGridTextColumn Header="Obs Date"       Binding="{Binding ObsDate}"      SortMemberPath="ObsDateSort"  Width="Auto"/>
+                <DataGridTextColumn Header="Submitted"      Binding="{Binding SubmittedStr}" SortMemberPath="Submitted"    Width="Auto"/>
+                <DataGridTextColumn Header="Tmid (BJD_TDB)" Binding="{Binding Tmid}"         SortMemberPath="TmidSort"     Width="Auto"/>
+                <DataGridTextColumn Header="±Tmid"          Binding="{Binding TmidUnc}"      SortMemberPath="TmidUncSort"  Width="Auto"/>
+                <DataGridTextColumn Header="(Rp/R*)²"       Binding="{Binding RpRs}"         SortMemberPath="RpRsSort"     Width="Auto"/>
+                <DataGridTextColumn Header="±(Rp/R*)²"      Binding="{Binding RpRsUnc}"      SortMemberPath="RpRsUncSort"  Width="Auto"/>
+                <DataGridTextColumn Header="SNR"            Binding="{Binding Snr}"          SortMemberPath="SnrSort"      Width="Auto"/>
+                <DataGridTextColumn Header="Depth %"        Binding="{Binding Depth}"        SortMemberPath="DepthSort"    Width="Auto"/>
+                <DataGridTextColumn Header="Inc °"          Binding="{Binding Inc}"          SortMemberPath="IncSort"      Width="Auto"/>
+                <DataGridTextColumn Header="Dur (d)"        Binding="{Binding Duration}"     SortMemberPath="DurationSort" Width="Auto"/>
+                <DataGridTextColumn Header="Scatter %"      Binding="{Binding Scatter}"      SortMemberPath="ScatterSort"  Width="Auto"/>
             </DataGrid.Columns>
 
         </DataGrid>

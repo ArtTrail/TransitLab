@@ -59,6 +59,8 @@
                 <Separator/>
                 <MenuItem Header="Check for Updates"
                           Command="{Binding CheckForUpdatesCommand}"/>
+                <MenuItem Header="Previous Versions…"
+                          Click="OnPreviousVersionsClick"/>
                 <Separator/>
                 <MenuItem Header="Submit Feedback"
                           Click="OnBugReportClick"/>
@@ -151,8 +153,41 @@
         <!-- ── Bottom attribution bar ───────────────────────────────────── -->
         <Border DockPanel.Dock="Bottom" Padding="0,2,10,4">
             <TextBlock Classes="hint"
-                       Text="© Art Trail 2026  ·  TransitLab v2.6.3  ·  Powered by EXOTIC (Zellem, Pearson, Blaser et al. 2020, PASP 132)"
+                       Text="© Art Trail 2026  ·  TransitLab v2.6.4  ·  Powered by EXOTIC (Zellem, Pearson, Blaser et al. 2020, PASP 132)"
                        HorizontalAlignment="Right"/>
+        </Border>
+
+        <!-- ── Automation armed banner ──────────────────────────────────── -->
+        <Border DockPanel.Dock="Top"
+                IsVisible="{Binding Automation.IsArmed}"
+                Background="#1a2e1a"
+                Padding="0,5">
+            <Border.Styles>
+                <Style Selector="TextBlock.armed-flash">
+                    <Style.Animations>
+                        <Animation Duration="0:0:2" IterationCount="INFINITE" Easing="SineEaseInOut">
+                            <KeyFrame Cue="0%">  <Setter Property="Opacity" Value="1.0"/></KeyFrame>
+                            <KeyFrame Cue="50%"> <Setter Property="Opacity" Value="0.2"/></KeyFrame>
+                            <KeyFrame Cue="100%"><Setter Property="Opacity" Value="1.0"/></KeyFrame>
+                        </Animation>
+                    </Style.Animations>
+                </Style>
+            </Border.Styles>
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="14"
+                        VerticalAlignment="Center">
+                <TextBlock Classes="armed-flash"
+                           Text="⬤  AUTOMATION ARMED"
+                           Foreground="#A3BE8C"
+                           FontWeight="SemiBold"
+                           FontSize="13"
+                           VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Automation.CountdownText}"
+                           Foreground="#A3BE8C"
+                           FontSize="13"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
         </Border>
 
         <!-- ── Tab control ──────────────────────────────────────────────── -->
