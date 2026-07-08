@@ -56,12 +56,30 @@
 ## Installation
 
 1. Download the latest release for your platform from **[Releases](https://github.com/ArtTrail/TransitLab/releases/latest)**
-   - **Windows:** `TransitLab-v2.6.4-win-x64.zip` — extract and run `TransitLab.exe`
-   - **macOS:** `TransitLab-v2.6.4-osx-arm64.dmg` — drag to Applications, right-click → Open the first time
-   - **Linux:** `TransitLab-v2.6.4-linux-x64.zip` — extract and run `./TransitLab`
+   - **Windows:** `TransitLab-v2.7.0-win-x64.zip` — extract and run `TransitLab.exe`
+   - **macOS:** `TransitLab-v2.7.0-osx-arm64.dmg` — drag to Applications, right-click → Open the first time
+   - **Linux:** `TransitLab-v2.7.0-linux-x64.zip` — extract and run `./TransitLab`
 2. Open **Tools → Python & EXOTIC Setup** and click **Check System** to verify or install Python and EXOTIC
 
 No installer required. No .NET installation required.
+
+---
+
+## Windows Security Warning
+
+TransitLab is not code-signed (that requires a paid certificate plus a hardware security key, not currently justified for a free, open-source project), so Windows may flag it as coming from an unrecognized publisher. This is expected — here's how to get past it:
+
+**Most users see this — "Windows protected your PC" (SmartScreen):**
+Click **More info**, then **Run anyway**.
+
+**Less common — the app opens briefly then silently closes, no error at all:**
+This is **Smart App Control**, a stricter Windows 11 feature enabled by default on some newer installs. To fix:
+1. **Settings → Privacy & security → Windows Security → App & browser control → Smart App Control** → turn it **Off**.
+2. **Restart your PC** — the change needs a reboot to take effect.
+3. Delete your existing TransitLab folder and **re-download and re-extract a fresh copy** (a blocked file may already have been partially removed).
+4. Right-click `TransitLab.exe` → **Properties** → check **Unblock** at the bottom → **Apply**, then launch again.
+
+If you still have trouble, use **Help → Submit Feedback** from a working install, or open a GitHub issue.
 
 ---
 
