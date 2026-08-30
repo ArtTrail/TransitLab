@@ -455,8 +455,9 @@ public static class ExoticInstallService
 
         Report(log,$"\nInstalling EXOTIC pre-release from branch…");
         Report(log,$"  {pipUrl}\n");
+        var wheelhouse = Path.Combine(AppContext.BaseDirectory, "wheelhouse");
         await RunStreamAsync(pythonExe,
-            $"-m pip install --upgrade \"{pipUrl}\" --user --no-warn-script-location",
+            $"-m pip install --upgrade --find-links \"{wheelhouse}\" --only-binary=ultranest \"{pipUrl}\" --user --no-warn-script-location",
             log, ct);
     }
 

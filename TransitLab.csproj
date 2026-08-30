@@ -12,6 +12,10 @@
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
     <None Include="README.txt" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
+    <None Include="..\EXOTIC\wheelhouse\ultranest-4.5.0-cp31*-cp31*-win_amd64.whl"
+          Link="wheelhouse\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
