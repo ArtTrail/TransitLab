@@ -175,31 +175,81 @@ public static class MObsService
             return IgnoreWords.Any(w => low.Contains(w));
         }
 
-        // Group by (object, date)
+        // Session-cluster threshold: a gap this large between consecutive frames of the
+        // same object means a new observing session, not a continuation. MObs frames
+        // within one session are typically only a few minutes apart; different nights
+        // for the same target are always >>3h apart, so this safely distinguishes the
+        // two without risk of merging two genuinely separate nights.
+        const double SessionGapHours = 3.0;
+
+        // Splits a time-ordered sequence into sessions, breaking wherever the gap to the
+        // next timestamp exceeds SessionGapHours. Returns each cluster as (start index,
+        // count) into the given (already time-sorted) list.
+        static List<(int start, int count)> ClusterSessions(List<DateTime> sortedTimes)
+        {
+            var clusters = new List<(int start, int count)>();
+            if (sortedTimes.Count == 0) return clusters;
+            int start = 0;
+            for (int i = 1; i <= sortedTimes.Count; i++)
+            {
+                if (i == sortedTimes.Count || (sortedTimes[i] - sortedTimes[i - 1]).TotalHours > SessionGapHours)
+                {
+                    clusters.Add((start, i - start));
+                    start = i;
+                }
+            }
+            return clusters;
+        }
+
+        // A whole session's date key is derived once, from its earliest frame, rather
+        // than per file. Previously each file independently computed dt.AddHours(-12).Date
+        // (a 12-hour offset so files after midnight UTC group with the previous evening),
+        // which meant a single continuous session whose frames happened to straddle the
+        // point where that shift crosses a calendar day boundary (12:00 UTC) was silently
+        // split into two separate observations for no real reason — confirmed with a real
+        // TOI2570 session (10:24–12:50 UTC) that got split into "2026-08-31" and
+        // "2026-09-01" halves, even though every frame was genuinely part of one session.
+        static string SessionDateKey(DateTime sessionStart) =>
+            sessionStart.AddHours(-12).Date.ToString("yyyy-MM-dd");
+
+        // Group by (object, date) — the date is now a whole-session key, not per-file.
         var calByDate  = new Dictionary<string, List<(string url, string fn)>>();
         var sciGroups  = new Dictionary<(string obj, string date),
                              (string weather, DateTime latest, List<(string url, string fn, DateTime dt)> files)>();
 
-        foreach (var (obj, dt, weather, url, fn) in rawRows)
+        // Calibration frames aren't per-target, so they're clustered as one pool by time.
+        var calRows = rawRows.Where(r => IsCal(r.obj) || IsCal(r.filename)).OrderBy(r => r.dt).ToList();
+        var calTimes = calRows.Select(r => r.dt).ToList();
+        foreach (var (start, count) in ClusterSessions(calTimes))
         {
-            // Use a 12-hour offset so that files timestamped after midnight UTC (00:00–12:00)
-            // are grouped with the previous evening's session, not a new calendar day.
-            // This keeps overnight acquisitions that span midnight UTC as a single observation.
-            var dateKey = dt.AddHours(-12).Date.ToString("yyyy-MM-dd");
-            if (IsCal(obj) || IsCal(fn))
-            {
-                calByDate.TryAdd(dateKey, []);
-                calByDate[dateKey].Add((url, fn));
-                continue;
-            }
-            if (IsIgnored(obj)) continue;
+            var dateKey = SessionDateKey(calTimes[start]);
+            calByDate.TryAdd(dateKey, []);
+            for (int i = start; i < start + count; i++)
+                calByDate[dateKey].Add((calRows[i].dlUrl, calRows[i].filename));
+        }
 
-            var key = (obj, dateKey);
-            if (!sciGroups.ContainsKey(key))
-                sciGroups[key] = (weather, dt, []);
-            var g = sciGroups[key];
-            g.files.Add((url, fn, dt));
-            if (dt > g.latest) sciGroups[key] = (weather, dt, g.files);
+        // Science frames are clustered per object, so a gap in one target's own timeline
+        // starts a new session without being affected by other targets observed nearby.
+        var sciRowsByObj = rawRows
+            .Where(r => !IsCal(r.obj) && !IsCal(r.filename) && !IsIgnored(r.obj))
+            .GroupBy(r => r.obj);
+
+        foreach (var objGroup in sciRowsByObj)
+        {
+            var objRows = objGroup.OrderBy(r => r.dt).ToList();
+            var times   = objRows.Select(r => r.dt).ToList();
+            foreach (var (start, count) in ClusterSessions(times))
+            {
+                var dateKey = SessionDateKey(times[start]);
+                var latest  = times[start];
+                var files   = new List<(string url, string fn, DateTime dt)>();
+                for (int i = start; i < start + count; i++)
+                {
+                    files.Add((objRows[i].dlUrl, objRows[i].filename, objRows[i].dt));
+                    if (objRows[i].dt > latest) latest = objRows[i].dt;
+                }
+                sciGroups[(objGroup.Key, dateKey)] = (objRows[start].weather, latest, files);
+            }
         }
 
         var observations = new List<Observation>();
