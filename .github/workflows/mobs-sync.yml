@@ -1,0 +1,25 @@
+name: MObs → R2 Daily Sync
+
+on:
+  schedule:
+    # ~7 AM MDT (UTC-6). Cron doesn't observe DST, so this drifts to ~6 AM MST-season.
+    - cron: '0 13 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run MObsSync
+        working-directory: MObsSync
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: dotnet run -c Release
