@@ -3,7 +3,10 @@ name: MObs → R2 Daily Sync
 on:
   schedule:
     # ~7 AM MDT (UTC-6). Cron doesn't observe DST, so this drifts to ~6 AM MST-season.
-    - cron: '0 13 * * *'
+    # Offset 7 minutes past the hour, not on it — GitHub's own docs warn that on-the-hour
+    # schedules are the highest-load window for Actions and are more likely to be delayed.
+    # The very first scheduled run (2026-09-03 13:00 UTC) never fired at all under '0 13 * * *'.
+    - cron: '7 13 * * *'
   workflow_dispatch: {}
 
 jobs:
