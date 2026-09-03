@@ -74,7 +74,9 @@ public static class MObsService
         var trMatches = Regex.Matches(html, @"<tr[^>]*>(.*?)</tr>",
             RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
-        var cutoff = DateTime.UtcNow.AddDays(-lookbackDays);
+        // Compare against midnight N days ago, not "now minus N days" — see the same fix
+        // in TransitLab's own Services/MObsService.cs for the full explanation.
+        var cutoff = DateTime.UtcNow.Date.AddDays(-lookbackDays);
 
         var rawRows = new List<(string obj, DateTime dt, string weather, string dlUrl, string filename)>();
 
