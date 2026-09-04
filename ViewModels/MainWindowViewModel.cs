@@ -373,6 +373,7 @@ public partial class MainWindowViewModel : ViewModelBase
         FrameAnalysis.DarksDirFunc = () => Observation.DarksDir;
         EquipmentTarget.FitsDirFunc   = () => Observation.FitsDir;
         EquipmentTarget.GetFirstNonExcludedFitsFunc = FrameAnalysis.ScanExcludeAndGetFirstAsync;
+        EquipmentTarget.GetExcludedPathsFunc        = FrameAnalysis.GetExcludedPaths;
         // Late-bound closures: ShowConfirmFunc may be assigned by the View after this
         // constructor runs, so forward to whatever it is at call time, not wiring time.
         Observation.ShowConfirmFunc = (title, msg) => ShowConfirmFunc?.Invoke(title, msg) ?? Task.FromResult(false);

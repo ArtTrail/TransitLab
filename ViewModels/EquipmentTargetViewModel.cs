@@ -237,6 +237,8 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     public Func<string>?                 FitsDirFunc                 { get; set; }
     /// <summary>Returns the first non-excluded FITS file path (may scan first).</summary>
     public Func<Task<string?>>?          GetFirstNonExcludedFitsFunc { get; set; }
+    /// <summary>Returns the full paths of all frames currently checked "Excl" in Image Analysis.</summary>
+    public Func<List<string>>?           GetExcludedPathsFunc        { get; set; }
 
     // ── WCS state ─────────────────────────────────────────────────────────────
     private bool   _wcsReady    = false;
@@ -632,7 +634,8 @@ public partial class EquipmentTargetViewModel : ViewModelBase
             {
                 config = config with { Ra = ra, Dec = dec };
             }
-            result = await PlateSolveService.SolveAsync(fitsPath, saveDir, exoticExePath, config, progress, ct, pythonExePath);
+            var excludedPaths = GetExcludedPathsFunc?.Invoke();
+            result = await PlateSolveService.SolveAsync(fitsPath, saveDir, exoticExePath, config, progress, ct, pythonExePath, excludedPaths);
         }
         catch (OperationCanceledException)
         {

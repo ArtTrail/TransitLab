@@ -104,13 +104,21 @@ else:
         SolverConfig? solverConfig = null,
         IProgress<string>? progress = null,
         CancellationToken ct = default,
-        string pythonExePath = "")
+        string pythonExePath = "",
+        IReadOnlyCollection<string>? excludedPaths = null)
     {
+        // Built once and threaded through to every "solve all frames" path so excluded
+        // frames (checked in Image Analysis) never get attempted — those solvers otherwise
+        // list the FITS directory directly, with no knowledge of the app's exclusion state.
+        var excludedSet = excludedPaths is { Count: > 0 }
+            ? new HashSet<string>(excludedPaths, StringComparer.OrdinalIgnoreCase)
+            : null;
+
         // Route to ASTAP if selected
         if (solverConfig?.Solver == "ASTAP")
         {
             if (solverConfig.SolveAllFrames)
-                return await SolveAllWithAstapAsync(fitsPath, solverConfig, progress, ct);
+                return await SolveAllWithAstapAsync(fitsPath, solverConfig, progress, ct, excludedSet);
             return await SolveWithAstapAsync(fitsPath, solverConfig, progress, ct);
         }
 
@@ -119,7 +127,7 @@ else:
         if (solverConfig?.Solver == "StarFix")
         {
             if (solverConfig.SolveAllFrames)
-                return await SolveAllWithStarFixAsync(fitsPath, solverConfig, progress, ct);
+                return await SolveAllWithStarFixAsync(fitsPath, solverConfig, progress, ct, excludedSet);
             return await SolveWithStarFixAsync(fitsPath, solverConfig, progress, ct);
         }
 
@@ -134,7 +142,7 @@ else:
             return new Result(false, "Python not found — install Python and EXOTIC using the EXOTIC Setup tab first.");
 
         if (solverConfig?.SolveAllFrames == true)
-            return await SolveAllWithOnlineSolverAsync(fitsPath, saveDir, solverConfig, pythonExe, progress, ct);
+            return await SolveAllWithOnlineSolverAsync(fitsPath, saveDir, solverConfig, pythonExe, progress, ct, excludedSet);
 
         return await SolveOneWithOnlineSolverAsync(fitsPath, saveDir, solverConfig, pythonExe, progress, ct);
     }
@@ -268,7 +276,8 @@ else:
         SolverConfig? solverConfig,
         string pythonExe,
         IProgress<string>? progress,
-        CancellationToken ct)
+        CancellationToken ct,
+        HashSet<string>? excludedSet = null)
     {
         var solverLabel = solverConfig?.Solver == "NextAstro" ? "NextAstro" : "Astrometry.net";
         var dir = Path.GetDirectoryName(firstFitsPath);
@@ -282,6 +291,7 @@ else:
             .Concat(Directory.GetFiles(dir, "*.fit", SearchOption.TopDirectoryOnly))
             .Concat(Directory.GetFiles(dir, "*.fts", SearchOption.TopDirectoryOnly))
             .Concat(Directory.GetFiles(dir, "*.fz",  SearchOption.TopDirectoryOnly))
+            .Where(f => excludedSet is null || !excludedSet.Contains(f))
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToArray();
         if (files.Length == 0) return new Result(false, "No FITS files found in directory.");
 
@@ -500,7 +510,8 @@ else:
 
     private static async Task<Result> SolveAllWithAstapAsync(
         string firstFitsPath, SolverConfig config,
-        IProgress<string>? progress, CancellationToken ct)
+        IProgress<string>? progress, CancellationToken ct,
+        HashSet<string>? excludedSet = null)
     {
         var dir = Path.GetDirectoryName(firstFitsPath);
         if (dir is null || !Directory.Exists(dir))
@@ -513,6 +524,7 @@ else:
             .Concat(Directory.GetFiles(dir, "*.fit", SearchOption.TopDirectoryOnly))
             .Concat(Directory.GetFiles(dir, "*.fts", SearchOption.TopDirectoryOnly))
             .Concat(Directory.GetFiles(dir, "*.fz",  SearchOption.TopDirectoryOnly))
+            .Where(f => excludedSet is null || !excludedSet.Contains(f))
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToArray();
         if (files.Length == 0) return new Result(false, "No FITS files found in directory.");
 
@@ -686,7 +698,8 @@ else:
 
     private static async Task<Result> SolveAllWithStarFixAsync(
         string firstFitsPath, SolverConfig config,
-        IProgress<string>? progress, CancellationToken ct)
+        IProgress<string>? progress, CancellationToken ct,
+        HashSet<string>? excludedSet = null)
     {
         var dir = Path.GetDirectoryName(firstFitsPath);
         if (dir is null || !Directory.Exists(dir))
@@ -699,6 +712,7 @@ else:
             .Concat(Directory.GetFiles(dir, "*.fit", SearchOption.TopDirectoryOnly))
             .Concat(Directory.GetFiles(dir, "*.fts", SearchOption.TopDirectoryOnly))
             .Concat(Directory.GetFiles(dir, "*.fz",  SearchOption.TopDirectoryOnly))
+            .Where(f => excludedSet is null || !excludedSet.Contains(f))
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToArray();
         if (files.Length == 0) return new Result(false, "No FITS files found in directory.");
 
