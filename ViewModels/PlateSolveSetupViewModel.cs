@@ -326,6 +326,20 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
         catch { /* best-effort */ }
     }
 
+    [RelayCommand]
+    private void OpenNextAstroWebsite()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName        = "https://nextastro.org",
+                UseShellExecute = true,
+            });
+        }
+        catch { /* best-effort */ }
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void RefreshCatalogStatus()
