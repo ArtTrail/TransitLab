@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Net.Http;
 using System.Runtime.Versioning;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,7 +15,6 @@ public record ReleaseInfo(string Version, string Released, string AssetName, str
 
 public static class UpdateService
 {
-    private const string ApiUrl     = "https://api.github.com/repos/ArtTrail/TransitLab/releases/latest";
     private const string AllApiUrl  = "https://api.github.com/repos/ArtTrail/TransitLab/releases";
 
     private static readonly HttpClient Http = new()
@@ -27,9 +27,7 @@ public static class UpdateService
     {
         try
         {
-            var json = await Http.GetStringAsync(ApiUrl, ct);
-            var root = JsonNode.Parse(json);
-
+            var root = await FindLatestAppReleaseAsync(ct);
             var tag = root?["tag_name"]?.GetValue<string>();
             if (tag is null) return null;
 
@@ -67,6 +65,12 @@ public static class UpdateService
             {
                 var tag = release?["tag_name"]?.GetValue<string>();
                 if (tag is null) continue;
+
+                // This repo also hosts non-app releases as a side effect of sharing GitHub
+                // infrastructure — e.g. "gaia-catalog-v1" (StarFix's Gaia DR3 catalog data,
+                // hosted here rather than under StarFix's own repo). Only a real "vX.Y.Z"
+                // TransitLab version tag belongs in this list.
+                if (!AppVersionTagPattern.IsMatch(tag)) continue;
 
                 var version = tag.TrimStart('v');
 
@@ -117,9 +121,7 @@ public static class UpdateService
         if (!OperatingSystem.IsWindows()) return null;
         try
         {
-            var json = await Http.GetStringAsync(ApiUrl, ct);
-            var root = JsonNode.Parse(json);
-
+            var root = await FindLatestAppReleaseAsync(ct);
             var tag = root?["tag_name"]?.GetValue<string>();
             if (tag is null) return null;
 
@@ -187,6 +189,29 @@ public static class UpdateService
             Arguments       = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS",
             UseShellExecute = true,
         });
+    }
+
+    // GitHub Releases regex — matches a real TransitLab version tag ("v2.10.0" or "2.10.0")
+    // but not other releases this same repo hosts for unrelated purposes, e.g. "gaia-catalog-v1"
+    // (StarFix's Gaia DR3 catalog data). /releases/latest resolves to whichever release was
+    // published most recently regardless of what it is, so a non-app release published after
+    // the real latest version would otherwise be picked up as "the latest TransitLab version."
+    private static readonly Regex AppVersionTagPattern = new(@"^v?\d+\.\d+\.\d+$", RegexOptions.Compiled);
+
+    /// <summary>Fetches the releases list and returns the first (most recent) one that is an actual TransitLab version release.</summary>
+    private static async Task<JsonNode?> FindLatestAppReleaseAsync(CancellationToken ct)
+    {
+        var json  = await Http.GetStringAsync(AllApiUrl, ct);
+        var array = JsonNode.Parse(json)?.AsArray();
+        if (array is null) return null;
+
+        foreach (var release in array)
+        {
+            var tag = release?["tag_name"]?.GetValue<string>();
+            if (tag is not null && AppVersionTagPattern.IsMatch(tag))
+                return release;
+        }
+        return null;
     }
 
     public static string GetPlatformId()
