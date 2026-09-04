@@ -25,3 +25,7 @@ eaConf.json
 # Logs
 logs/
 *.log
+
+# Cloudflare Workers (wrangler local build cache)
+.wrangler/
+node_modules/
