@@ -468,13 +468,14 @@
             <TextBlock TextWrapping="Wrap" Text="[6] Geoffrey Stone, CompStarSelector — the comparison-star vetting approach the Stone and VSP + Stone methods are named after and modeled on. github.com/geofstone/exotic-proto"/>
             <TextBlock TextWrapping="Wrap" Text="[7] ASTAP (Astrometric STAcking Program), Han Kleijn — one of TransitLab's four plate solvers. hnsky.org/astap.htm"/>
             <TextBlock TextWrapping="Wrap" Text="[8] Lang, D., Hogg, D. W., Mierle, K., Blanton, M., &amp; Roweis, S. 2010, The Astronomical Journal, 139, 1782 — Astrometry.net, the online blind-astrometry service EXOTIC uses as TransitLab's default plate solver."/>
-            <TextBlock TextWrapping="Wrap" Text="[9] StarFix — a separate, first-party local Gaia DR3 plate solver, one of TransitLab's four plate-solver options. github.com/ArtTrail/StarFix"/>
-            <TextBlock TextWrapping="Wrap" Text="[10] MicroObservatory Robotic Telescope Network — telescope data mirrored via the Data tab's MObs section. microobservatory.org"/>
-            <TextBlock TextWrapping="Wrap" Text="[11] Mandel, K., &amp; Agol, E. 2002, &quot;Analytic Light Curves for Planetary Transit Searches,&quot; The Astrophysical Journal, 580, L171 — the quadratic limb-darkened transit model behind the Visualizer's light curve."/>
-            <TextBlock TextWrapping="Wrap" Text="[12] Bessell, M. S. 1990, Publications of the Astronomical Society of the Pacific, 102, 1181 — source for the Johnson-Cousins U/B/V/R/I filter wavelength defaults (see Appendix)."/>
-            <TextBlock TextWrapping="Wrap" Text="[13] Fukugita, M., Ichikawa, T., Gunn, J. E., et al. 1996, The Astronomical Journal, 111, 1748 — source for the Sloan filter wavelength defaults (see Appendix)."/>
-            <TextBlock TextWrapping="Wrap" Text="[14] Zellem et al. 2017, The Astrophysical Journal, 844, 1 — unocculted-starspot baseline depression model (Visualizer Starspot Effect)."/>
-            <TextBlock TextWrapping="Wrap" Text="[15] Silva, A. V. R. 2003, Astronomy &amp; Astrophysics, 400, 723 — in-transit starspot flux-bump model (Visualizer Starspot Effect)." Margin="0,0,0,12"/>
+            <TextBlock TextWrapping="Wrap" Text="[9] NextAstro plate solving, Michael Fitzgerald (NextAstronomy, Melbourne, Australia) — a hosted astrometry service integration and the EXOTIC ldtk HTTPS fallback, both contributed to EXOTIC; one of TransitLab's four plate solvers."/>
+            <TextBlock TextWrapping="Wrap" Text="[10] StarFix — a separate, first-party local Gaia DR3 plate solver, one of TransitLab's four plate-solver options. github.com/ArtTrail/StarFix"/>
+            <TextBlock TextWrapping="Wrap" Text="[11] MicroObservatory Robotic Telescope Network — telescope data mirrored via the Data tab's MObs section. microobservatory.org"/>
+            <TextBlock TextWrapping="Wrap" Text="[12] Mandel, K., &amp; Agol, E. 2002, &quot;Analytic Light Curves for Planetary Transit Searches,&quot; The Astrophysical Journal, 580, L171 — the quadratic limb-darkened transit model behind the Visualizer's light curve."/>
+            <TextBlock TextWrapping="Wrap" Text="[13] Bessell, M. S. 1990, Publications of the Astronomical Society of the Pacific, 102, 1181 — source for the Johnson-Cousins U/B/V/R/I filter wavelength defaults (see Appendix)."/>
+            <TextBlock TextWrapping="Wrap" Text="[14] Fukugita, M., Ichikawa, T., Gunn, J. E., et al. 1996, The Astronomical Journal, 111, 1748 — source for the Sloan filter wavelength defaults (see Appendix)."/>
+            <TextBlock TextWrapping="Wrap" Text="[15] Zellem et al. 2017, The Astrophysical Journal, 844, 1 — unocculted-starspot baseline depression model (Visualizer Starspot Effect)."/>
+            <TextBlock TextWrapping="Wrap" Text="[16] Silva, A. V. R. 2003, Astronomy &amp; Astrophysics, 400, 723 — in-transit starspot flux-bump model (Visualizer Starspot Effect)." Margin="0,0,0,12"/>
 
             <Border Height="60"/>
 
