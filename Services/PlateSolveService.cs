@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -112,10 +114,14 @@ else:
             return await SolveWithAstapAsync(fitsPath, solverConfig, progress, ct);
         }
 
-        // StarFix invocation isn't wired up yet — guard explicitly rather than falling through
-        // to the online-solver branch below, which would silently run Astrometry.net instead.
+        // Route to StarFix if selected — guarded explicitly rather than falling through to the
+        // online-solver branch below, which would otherwise silently run Astrometry.net instead.
         if (solverConfig?.Solver == "StarFix")
-            return new Result(false, "StarFix plate-solving isn't wired up yet in this build.");
+        {
+            if (solverConfig.SolveAllFrames)
+                return await SolveAllWithStarFixAsync(fitsPath, solverConfig, progress, ct);
+            return await SolveWithStarFixAsync(fitsPath, solverConfig, progress, ct);
+        }
 
         // 1. Derive python.exe from exotic.exe location.
         //    Works for conda: <env>\Scripts\exotic.exe → <env>\python.exe
@@ -577,6 +583,178 @@ else:
         // Succeed if at least one frame solved; individual frame failures (bad/excluded frames) are expected.
         return new Result(solved > 0, summary, SmallImageWarning: anySmallImageWarning,
             FirstSolvedPath: firstSolvedPath, IsPartialSuccess: partial);
+    }
+
+    // ── StarFix (ArtTrail/StarFix, separate app, invoked headlessly) ──────────
+
+    /// <summary>
+    /// The Gaia catalog StarFix's GUI downloads into via Tools → Download Gaia Catalog — solve.exe
+    /// needs STARFIX_GAIA_CATALOG_DIR pointed at it explicitly, since its own default is relative
+    /// to the frozen exe's own folder, not where the catalog actually landed.
+    /// </summary>
+    private static string StarFixCatalogDir =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "StarFix", "gaia_catalog");
+
+    private static async Task<Result> SolveWithStarFixAsync(
+        string fitsPath,
+        SolverConfig config,
+        IProgress<string>? progress,
+        CancellationToken ct)
+    {
+        var solveExe = StarFixService.SolveExePath(config.StarFixExePath);
+        if (!File.Exists(solveExe))
+        {
+            SessionLogService.Write($"[PlateSolve/StarFix] ERROR — solve.exe not found: {solveExe}");
+            return new Result(false, $"StarFix not found — install it in Tools → Plate Solve Setup.");
+        }
+
+        if (!File.Exists(fitsPath))
+        {
+            SessionLogService.Write($"[PlateSolve/StarFix] ERROR — FITS file not found: {fitsPath}");
+            return new Result(false, $"FITS file not found: {fitsPath}");
+        }
+
+        progress?.Report($"Starting StarFix plate solve for {Path.GetFileName(fitsPath)}…");
+        SessionLogService.Write($"[PlateSolve/StarFix] Starting solve: {Path.GetFileName(fitsPath)}");
+
+        var psi = new ProcessStartInfo
+        {
+            FileName               = solveExe,
+            RedirectStandardOutput = true,
+            RedirectStandardError  = true,
+            UseShellExecute        = false,
+            CreateNoWindow         = true,
+        };
+        psi.ArgumentList.Add(fitsPath);
+        // RA/Dec hints are optional — solve.exe falls back to the FITS header's own RA/DEC when
+        // omitted, same default AstrometryNet/NextAstro already rely on via this same config.
+        if (config.Ra is double ra)   { psi.ArgumentList.Add("--ra");  psi.ArgumentList.Add(ra.ToString("F6", CultureInfo.InvariantCulture)); }
+        if (config.Dec is double dec) { psi.ArgumentList.Add("--dec"); psi.ArgumentList.Add(dec.ToString("F6", CultureInfo.InvariantCulture)); }
+        // SearchRadius is stored in arcminutes (shared with ASTAP's own field); solve.exe's -r
+        // expects degrees, added as a margin on top of the image's own computed FOV.
+        var radiusDeg = (config.SearchRadius / 60.0).ToString("F4", CultureInfo.InvariantCulture);
+        psi.ArgumentList.Add("-r"); psi.ArgumentList.Add(radiusDeg);
+        psi.ArgumentList.Add("--json");
+        // No --dry-run: solve.exe writes the WCS back into the file in place by default, same as ASTAP.
+
+        if (Directory.Exists(StarFixCatalogDir))
+            psi.Environment["STARFIX_GAIA_CATALOG_DIR"] = StarFixCatalogDir;
+
+        using var proc = new Process { StartInfo = psi };
+        proc.Start();
+
+        var stdoutTask = proc.StandardOutput.ReadToEndAsync(ct);
+        var stderrTask = proc.StandardError.ReadToEndAsync(ct);
+        await Task.WhenAll(stdoutTask, stderrTask);
+        await proc.WaitForExitAsync(ct);
+
+        var stdout = stdoutTask.Result.Trim();
+        var stderr = stderrTask.Result.Trim();
+
+        foreach (var line in stderr.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0))
+            SessionLogService.Write($"[PlateSolve/StarFix] {line}");
+
+        if (proc.ExitCode != 0 || stdout.Length == 0)
+        {
+            var detail = ExtractPythonErrorLine(stderr) ?? "no output from StarFix";
+            SessionLogService.Write($"[PlateSolve/StarFix] ✗  {Path.GetFileName(fitsPath)} — exit code {proc.ExitCode}: {detail}");
+            return new Result(false, $"StarFix solve failed — {detail}");
+        }
+
+        try
+        {
+            var json        = JsonNode.Parse(stdout);
+            var summary     = json?["summary"];
+            var numDetected = json?["num_detected"]?.GetValue<int>() ?? 0;
+            var numMatched  = json?["num_matched"]?.GetValue<int>() ?? 0;
+            var rmsPixels   = json?["rms_pixels"]?.GetValue<double>() ?? 0;
+            var pixelScale  = summary?["pixel_scale_arcsec"]?.GetValue<double>() ?? 0;
+
+            SessionLogService.Write(
+                $"[PlateSolve/StarFix] ✓  {Path.GetFileName(fitsPath)} — {numMatched}/{numDetected} matched, " +
+                $"RMS {rmsPixels:F2}px, WCS written.");
+            return new Result(true,
+                $"StarFix plate solve complete — {numMatched}/{numDetected} matched, RMS {rmsPixels:F2}px.",
+                WcsPixelScaleArcsec: pixelScale);
+        }
+        catch (Exception ex)
+        {
+            SessionLogService.Write($"[PlateSolve/StarFix] ✗  {Path.GetFileName(fitsPath)} — could not parse output: {ex.Message}");
+            return new Result(false, $"StarFix returned unparseable output: {ex.Message}");
+        }
+    }
+
+    private static async Task<Result> SolveAllWithStarFixAsync(
+        string firstFitsPath, SolverConfig config,
+        IProgress<string>? progress, CancellationToken ct)
+    {
+        var dir = Path.GetDirectoryName(firstFitsPath);
+        if (dir is null || !Directory.Exists(dir))
+        {
+            SessionLogService.Write($"[PlateSolve/StarFix] ERROR — cannot determine FITS directory from: {firstFitsPath}");
+            return new Result(false, "Cannot determine FITS directory.");
+        }
+
+        var files = Directory.GetFiles(dir, "*.fits", SearchOption.TopDirectoryOnly)
+            .Concat(Directory.GetFiles(dir, "*.fit", SearchOption.TopDirectoryOnly))
+            .Concat(Directory.GetFiles(dir, "*.fts", SearchOption.TopDirectoryOnly))
+            .Concat(Directory.GetFiles(dir, "*.fz",  SearchOption.TopDirectoryOnly))
+            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToArray();
+        if (files.Length == 0) return new Result(false, "No FITS files found in directory.");
+
+        SessionLogService.Write($"[PlateSolve/StarFix] Starting all-frames solve in: {dir}  ({files.Length} files)");
+        int solved = 0, failed = 0;
+        string firstSolvedPath = "";
+        for (int i = 0; i < files.Length; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            progress?.Report($"⟳  Solving {i + 1}/{files.Length}…  ({solved} solved, {failed} failed so far)");
+            var r = await SolveWithStarFixAsync(files[i], config, null, ct);
+            if (r.Success)
+            {
+                solved++;
+                if (firstSolvedPath.Length == 0) firstSolvedPath = files[i];
+            }
+            else
+            {
+                failed++;
+                SessionLogService.Write($"[PlateSolve/StarFix] ✗  {Path.GetFileName(files[i])} — {r.Message}");
+            }
+        }
+
+        bool partial = solved > 0 && failed > 0;
+        string summary = (solved, failed) switch
+        {
+            (_, 0) => $"All {solved} frame{(solved == 1 ? "" : "s")} solved — no errors.",
+            (0, _) => $"Plate solve failed — 0/{files.Length} solved. EXOTIC cannot run without at least one solved frame.",
+            _      => $"{solved} solved, {failed} failed — usable (EXOTIC only needs one solved reference frame), but check the excluded/failed frames.",
+        };
+        SessionLogService.Write($"[PlateSolve/StarFix] All-frames solve complete — {solved} solved, {failed} failed.");
+
+        return new Result(solved > 0, summary, FirstSolvedPath: firstSolvedPath, IsPartialSuccess: partial);
+    }
+
+    /// <summary>
+    /// Pulls the last "SomeException: message"-shaped line out of a Python traceback (the real
+    /// error, as opposed to PyInstaller's own generic wrapper line that follows it) — falls back
+    /// to the last non-empty line if nothing matches that shape.
+    /// </summary>
+    private static string? ExtractPythonErrorLine(string stderr)
+    {
+        var lines = stderr.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+        if (lines.Count == 0) return null;
+
+        for (int i = lines.Count - 1; i >= 0; i--)
+        {
+            var line = lines[i];
+            var colonIdx = line.IndexOf(':');
+            if (colonIdx <= 0) continue;
+            var head = line[..colonIdx];
+            if (!head.Contains(' ') &&
+                (head.EndsWith("Error", StringComparison.Ordinal) || head.EndsWith("Exception", StringComparison.Ordinal)))
+                return line;
+        }
+        return lines[^1];
     }
 
     /// <summary>
