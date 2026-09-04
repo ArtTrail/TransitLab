@@ -36,6 +36,13 @@ public partial class InstructionsView : UserControl
 
     private void FindNext_Click(object? sender, RoutedEventArgs e) => RunFind();
 
+    private void OnBackToTopClick(object? sender, RoutedEventArgs e)
+    {
+        var scroller = this.FindControl<ScrollViewer>("Scroller");
+        if (scroller is not null)
+            scroller.Offset = new Avalonia.Vector(scroller.Offset.X, 0);
+    }
+
     private void SearchClear_Click(object? sender, RoutedEventArgs e)
     {
         if (SearchBox is not null) SearchBox.Text = "";

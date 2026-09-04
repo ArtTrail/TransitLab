@@ -19,11 +19,14 @@
         </Style>
     </UserControl.Styles>
 
+    <Grid>
     <ScrollViewer x:Name="Scroller"
                   HorizontalScrollBarVisibility="Disabled"
                   VerticalScrollBarVisibility="Auto">
 
         <StackPanel x:Name="ContentPanel" Spacing="6" Margin="32,20,32,24">
+
+            <TextBlock Classes="title" Text="TransitLab User Guide"/>
 
             <!-- ── Search ────────────────────────────────────────────────────── -->
             <Border Background="{StaticResource BrushBg2}"
@@ -75,6 +78,7 @@
                     <Button Classes="link" Tag="Sec14"   Click="TocClick">17.  Submit Feedback  (Help → Submit Feedback)</Button>
                     <Button Classes="link" Tag="SecTips" Click="TocClick">Tips</Button>
                     <Button Classes="link" Tag="SecAppA" Click="TocClick">Appendix — Filter Wavelength Reference Sources</Button>
+                    <Button Classes="link" Tag="SecRefs" Click="TocClick">References</Button>
                 </StackPanel>
             </Border>
 
@@ -453,8 +457,33 @@
             <TextBlock TextWrapping="Wrap" Margin="20,2,0,0" Text="— Stromgren (STU/STV/STB/STY/STHBW/STHBN), NIR (J/H/K), Optec Wing (MA/MB/MI), and RJ/IJ: not independently re-verified against a named source — treat these as reasonable estimates rather than confirmed literature values."/>
             <TextBlock TextWrapping="Wrap" Text="• Bottom line: always confirm Filter Minimum/Maximum Wavelength against your own filter's actual published bandpass before running EXOTIC, especially for Clear-type filters." Margin="0,0,0,12"/>
 
+            <!-- ── References ────────────────────────────────────────────────── -->
+            <TextBlock x:Name="SecRefs" Classes="h2" Text="References" Margin="0,16,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="Software, services, and published sources TransitLab relies on or integrates with directly. Section-specific sources (filter wavelength defaults, Visualizer starspot models) are also cited inline where they're used; see the Appendix above and the Visualizer section." Margin="0,0,0,4"/>
+            <TextBlock TextWrapping="Wrap" Text="[1] Zellem, R. T., Pearson, K. A., Blaser, E., et al. 2020, Publications of the Astronomical Society of the Pacific, 132 — EXOTIC, the reduction pipeline TransitLab launches and streams output from. github.com/rzellem/EXOTIC"/>
+            <TextBlock TextWrapping="Wrap" Text="[2] NASA Exoplanet Archive, operated by the California Institute of Technology under contract with NASA's Exoplanet Exploration Program — source of planetary and stellar parameters (Fetch from NEA). exoplanetarchive.ipac.caltech.edu"/>
+            <TextBlock TextWrapping="Wrap" Text="[3] AAVSO — American Association of Variable Star Observers. VSP comparison-star charts, Exoplanet Watch submission format, and WebObs AID upload. aavso.org"/>
+            <TextBlock TextWrapping="Wrap" Text="[4] Gaia Collaboration, Vallenari, A., Brown, A. G. A., et al. 2023, &quot;Gaia Data Release 3: Summary of the content and survey properties,&quot; Astronomy &amp; Astrophysics, 674, A1 — Gaia DR3, one of the Stone/VSP + Stone comp-star magnitude and astrometric quality sources."/>
+            <TextBlock TextWrapping="Wrap" Text="[5] APASS — AAVSO Photometric All-Sky Survey, another Stone/VSP + Stone comp-star magnitude source. aavso.org/apass"/>
+            <TextBlock TextWrapping="Wrap" Text="[6] Geoffrey Stone, CompStarSelector — the comparison-star vetting approach the Stone and VSP + Stone methods are named after and modeled on. github.com/geofstone/exotic-proto"/>
+            <TextBlock TextWrapping="Wrap" Text="[7] ASTAP (Astrometric STAcking Program), Han Kleijn — one of TransitLab's four plate solvers. hnsky.org/astap.htm"/>
+            <TextBlock TextWrapping="Wrap" Text="[8] Lang, D., Hogg, D. W., Mierle, K., Blanton, M., &amp; Roweis, S. 2010, The Astronomical Journal, 139, 1782 — Astrometry.net, the online blind-astrometry service EXOTIC uses as TransitLab's default plate solver."/>
+            <TextBlock TextWrapping="Wrap" Text="[9] StarFix — a separate, first-party local Gaia DR3 plate solver, one of TransitLab's four plate-solver options. github.com/ArtTrail/StarFix"/>
+            <TextBlock TextWrapping="Wrap" Text="[10] MicroObservatory Robotic Telescope Network — telescope data mirrored via the Data tab's MObs section. microobservatory.org"/>
+            <TextBlock TextWrapping="Wrap" Text="[11] Mandel, K., &amp; Agol, E. 2002, &quot;Analytic Light Curves for Planetary Transit Searches,&quot; The Astrophysical Journal, 580, L171 — the quadratic limb-darkened transit model behind the Visualizer's light curve."/>
+            <TextBlock TextWrapping="Wrap" Text="[12] Bessell, M. S. 1990, Publications of the Astronomical Society of the Pacific, 102, 1181 — source for the Johnson-Cousins U/B/V/R/I filter wavelength defaults (see Appendix)."/>
+            <TextBlock TextWrapping="Wrap" Text="[13] Fukugita, M., Ichikawa, T., Gunn, J. E., et al. 1996, The Astronomical Journal, 111, 1748 — source for the Sloan filter wavelength defaults (see Appendix)."/>
+            <TextBlock TextWrapping="Wrap" Text="[14] Zellem et al. 2017, The Astrophysical Journal, 844, 1 — unocculted-starspot baseline depression model (Visualizer Starspot Effect)."/>
+            <TextBlock TextWrapping="Wrap" Text="[15] Silva, A. V. R. 2003, Astronomy &amp; Astrophysics, 400, 723 — in-transit starspot flux-bump model (Visualizer Starspot Effect)." Margin="0,0,0,12"/>
+
+            <Border Height="60"/>
+
         </StackPanel>
 
     </ScrollViewer>
+
+    <Button Classes="fab" Content="&#x2191;" Click="OnBackToTopClick" ToolTip.Tip="Back to top"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,28,28"/>
+    </Grid>
 
 </UserControl>

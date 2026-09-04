@@ -129,6 +129,21 @@
             <Setter Property="Background" Value="{StaticResource BrushBtnHov}"/>
         </Style>
 
+        <!-- ── Floating round action button ("back to top") ──────────────────── -->
+        <Style Selector="Button.fab">
+            <Setter Property="Background" Value="{StaticResource BrushBtn}"/>
+            <Setter Property="Foreground" Value="{StaticResource BrushFg}"/>
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="CornerRadius" Value="24"/>
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="Button.fab:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{StaticResource BrushBtnHov}"/>
+        </Style>
+
         <!-- ── NumericUpDown spinner: decrease on left, increase on right ─────── -->
         <Style Selector="NumericUpDown /template/ ButtonSpinner /template/ RepeatButton#PART_IncreaseButton">
             <Setter Property="Grid.Column" Value="1"/>
