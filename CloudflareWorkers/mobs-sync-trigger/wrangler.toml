@@ -1,0 +1,25 @@
+# Cloudflare Worker: fires the MObs -> R2 sync on a schedule.
+#
+# GitHub Actions' own cron schedule for .github/workflows/mobs-sync.yml proved unreliable in
+# practice -- it silently failed to fire on its own scheduled time slot on two consecutive days
+# (2026-09-03 and 2026-09-04), with only manually-triggered runs ever actually completing.
+# Cloudflare's Cron Triggers are backed by dedicated infrastructure and don't share that
+# best-effort-scheduling problem for a low-traffic account, so this Worker does the one thing
+# GitHub Actions couldn't be trusted to do reliably: fire on time. It does not reimplement any
+# of the actual sync logic (still MObsSync, the .NET project two levels up) -- it just POSTs a
+# workflow_dispatch to trigger that existing workflow.
+#
+# Deploy (from this directory): npx wrangler deploy
+# Requires a secret first:      npx wrangler secret put GITHUB_PAT
+#   (a fine-grained GitHub PAT scoped to ONLY the ArtTrail/TransitLab repo, with
+#   "Actions: Read and write" permission -- nothing broader. Generate at
+#   https://github.com/settings/personal-access-tokens/new)
+
+name = "transitlab-mobs-sync-trigger"
+main = "src/index.js"
+compatibility_date = "2026-09-04"
+
+[triggers]
+# Same time slot GitHub Actions' own (unreliable) schedule was using -- ~7 AM MDT / UTC-6.
+# Cron doesn't observe DST, so this drifts to ~6 AM during MST season, same caveat as before.
+crons = ["57 12 * * *"]

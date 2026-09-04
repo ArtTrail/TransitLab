@@ -1,12 +1,11 @@
 name: MObs → R2 Daily Sync
 
 on:
-  schedule:
-    # ~7 AM MDT (UTC-6). Cron doesn't observe DST, so this drifts to ~6 AM MST-season.
-    # Offset 3 minutes before the hour, not on it — GitHub's own docs warn that on-the-hour
-    # schedules are the highest-load window for Actions and are more likely to be delayed.
-    # The very first scheduled run (2026-09-03 13:00 UTC) never fired at all under '0 13 * * *'.
-    - cron: '57 12 * * *'
+  # No schedule trigger here on purpose. GitHub Actions' own cron proved unreliable in practice —
+  # it silently failed to fire on its scheduled slot on two consecutive days (2026-09-03 and
+  # 2026-09-04, tried at both '0 13 * * *' and '57 12 * * *'), with only manual runs ever
+  # actually completing. The daily trigger now comes from a Cloudflare Worker Cron Trigger
+  # instead (CloudflareWorkers/mobs-sync-trigger), which POSTs to this workflow_dispatch event.
   workflow_dispatch: {}
 
 jobs:
