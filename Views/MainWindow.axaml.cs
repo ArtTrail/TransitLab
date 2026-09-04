@@ -354,16 +354,18 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainWindowViewModel vm) return;
 
-        var (solver, astapPath, catalogDir, searchRadius, downsample, solveAllFrames) = vm.GetPlateSolverConfig();
+        var (solver, astapPath, catalogDir, searchRadius, downsample, solveAllFrames, starFixPath) = vm.GetPlateSolverConfig();
         var setupVm = new PlateSolveSetupViewModel();
-        setupVm.LoadFromConfig(solver, astapPath, catalogDir, searchRadius, downsample, solveAllFrames);
+        setupVm.LoadFromConfig(solver, astapPath, catalogDir, searchRadius, downsample, solveAllFrames, starFixPath);
 
         Window? win = null;
-        setupVm.BrowseAstapFunc      = () => BrowseAstapExeAsync();
-        setupVm.BrowseCatalogDirFunc = () => BrowseCatalogDirAsync();
-        setupVm.SaveCallback         = (s, p, c, r, d, a) => vm.ApplyPlateSolverSettings(s, p, c, r, d, a);
-        setupVm.CloseCallback        = () => win?.Close();
-        setupVm.ShowInfoFunc         = ShowInfoAsync;
+        setupVm.BrowseAstapFunc        = () => BrowseAstapExeAsync();
+        setupVm.BrowseCatalogDirFunc   = () => BrowseCatalogDirAsync();
+        setupVm.BrowseStarFixFunc      = () => BrowseStarFixFolderAsync();
+        setupVm.GetDownloadTempDirFunc = GetDownloadTempDir;
+        setupVm.SaveCallback           = (s, p, c, r, d, a, sf) => vm.ApplyPlateSolverSettings(s, p, c, r, d, a, sf);
+        setupVm.CloseCallback          = () => win?.Close();
+        setupVm.ShowInfoFunc           = ShowInfoAsync;
 
         win = new Window
         {
@@ -376,6 +378,23 @@ public partial class MainWindow : Window
         };
         win.Opened += async (_, _) => await setupVm.CheckNextAstroSupportAsync(vm.GetActiveEnvironmentPythonExePath());
         win.Show(this);
+    }
+
+    private async Task<string?> BrowseStarFixFolderAsync()
+    {
+        var folder = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title         = "Select StarFix install folder (contains StarFix.exe)",
+            AllowMultiple = false,
+        });
+        return folder.Count > 0 ? folder[0].Path.LocalPath : null;
+    }
+
+    private static string GetDownloadTempDir()
+    {
+        var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TransitLab");
+        System.IO.Directory.CreateDirectory(dir);
+        return dir;
     }
 
     private async Task<string?> BrowseAstapExeAsync()

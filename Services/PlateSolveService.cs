@@ -21,7 +21,7 @@ public static class PlateSolveService
 
     /// <summary>Solver selection and ASTAP parameters.</summary>
     public record SolverConfig(
-        string Solver,           // "AstrometryNet" | "ASTAP" | "NextAstro"
+        string Solver,           // "AstrometryNet" | "ASTAP" | "NextAstro" | "StarFix"
         string AstapExePath,
         string CatalogDir       = "",    // blank = same dir as exe
         int    SearchRadius     = 60,    // arcminutes (converted to degrees when calling ASTAP)
@@ -29,7 +29,8 @@ public static class PlateSolveService
         bool   SolveAllFrames   = false,
         double PixelScaleArcsec = 0.0,   // arcsec/px from user input; 0 = unknown → ASTAP auto-FOV
         double? Ra              = null,  // decimal degrees — hint for AstrometryNet/NextAstro
-        double? Dec             = null); // decimal degrees — hint for AstrometryNet/NextAstro
+        double? Dec             = null,  // decimal degrees — hint for AstrometryNet/NextAstro
+        string StarFixExePath   = "");   // StarFix install root
 
     // Inline Python script — called by the conda Python that has EXOTIC installed.
     // Shared by both online solvers (AstrometryNet's PlateSolution and NextAstro's
@@ -110,6 +111,11 @@ else:
                 return await SolveAllWithAstapAsync(fitsPath, solverConfig, progress, ct);
             return await SolveWithAstapAsync(fitsPath, solverConfig, progress, ct);
         }
+
+        // StarFix invocation isn't wired up yet — guard explicitly rather than falling through
+        // to the online-solver branch below, which would silently run Astrometry.net instead.
+        if (solverConfig?.Solver == "StarFix")
+            return new Result(false, "StarFix plate-solving isn't wired up yet in this build.");
 
         // 1. Derive python.exe from exotic.exe location.
         //    Works for conda: <env>\Scripts\exotic.exe → <env>\python.exe

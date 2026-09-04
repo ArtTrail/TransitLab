@@ -488,7 +488,7 @@ public partial class MainWindowViewModel : ViewModelBase
     /// </summary>
     public void ApplyPlateSolverSettings(
         string solver, string astapPath, string catalogDir, int searchRadius, int downsample,
-        bool solveAllFrames = false, bool save = true)
+        bool solveAllFrames = false, string starFixPath = "", bool save = true)
     {
         _cfg.PlateSolver        = solver;
         _cfg.AstapExePath       = astapPath;
@@ -496,18 +496,24 @@ public partial class MainWindowViewModel : ViewModelBase
         _cfg.AstapSearchRadius  = searchRadius;
         _cfg.AstapDownsample    = downsample;
         _cfg.AstapSolveAllFrames = solveAllFrames;
+        _cfg.StarFixExePath     = starFixPath;
 
-        var config = new PlateSolveService.SolverConfig(solver, astapPath, catalogDir, searchRadius, downsample, solveAllFrames);
+        var config = new PlateSolveService.SolverConfig(solver, astapPath, catalogDir, searchRadius, downsample, solveAllFrames, StarFixExePath: starFixPath);
         EquipmentTarget.PlateSolverConfig  = config;
-        EquipmentTarget.ActiveSolverLabel  =
-            solver == "ASTAP" ? "Solver: ASTAP" : solver == "NextAstro" ? "Solver: NextAstro" : "Solver: Astrometry.net";
+        EquipmentTarget.ActiveSolverLabel  = solver switch
+        {
+            "ASTAP"     => "Solver: ASTAP",
+            "NextAstro" => "Solver: NextAstro",
+            "StarFix"   => "Solver: StarFix",
+            _           => "Solver: Astrometry.net",
+        };
 
         if (save) ConfigService.Save(_cfg);
     }
 
     /// <summary>Exposes current solver config for the Plate Solve Setup dialog.</summary>
-    public (string Solver, string AstapPath, string CatalogDir, int SearchRadius, int Downsample, bool SolveAllFrames) GetPlateSolverConfig()
-        => (_cfg.PlateSolver, _cfg.AstapExePath, _cfg.AstapCatalogDir, _cfg.AstapSearchRadius, _cfg.AstapDownsample, _cfg.AstapSolveAllFrames);
+    public (string Solver, string AstapPath, string CatalogDir, int SearchRadius, int Downsample, bool SolveAllFrames, string StarFixPath) GetPlateSolverConfig()
+        => (_cfg.PlateSolver, _cfg.AstapExePath, _cfg.AstapCatalogDir, _cfg.AstapSearchRadius, _cfg.AstapDownsample, _cfg.AstapSolveAllFrames, _cfg.StarFixExePath);
 
     /// <summary>
     /// The python.exe of whichever environment (Stable or Pre-release) is currently active in
@@ -689,7 +695,7 @@ public partial class MainWindowViewModel : ViewModelBase
         Observation.ExoticExePath = cfg.ExoticExePath;
 
         // Plate solver config
-        ApplyPlateSolverSettings(cfg.PlateSolver, cfg.AstapExePath, cfg.AstapCatalogDir, cfg.AstapSearchRadius, cfg.AstapDownsample, cfg.AstapSolveAllFrames, save: false);
+        ApplyPlateSolverSettings(cfg.PlateSolver, cfg.AstapExePath, cfg.AstapCatalogDir, cfg.AstapSearchRadius, cfg.AstapDownsample, cfg.AstapSolveAllFrames, cfg.StarFixExePath, save: false);
 
         // Directories
         // SaveDirUserSet intentionally not restored — always start fresh so Save Plots

@@ -15,6 +15,7 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
     [ObservableProperty] private bool _useAstrometryNet = true;
     [ObservableProperty] private bool _useAstap         = false;
     [ObservableProperty] private bool _useNextAstro      = false;
+    [ObservableProperty] private bool _useStarFix        = false;
 
     // NextAstroPlateSolution only exists in the EXOTIC pre-release dev build built off the
     // 4.3.2 tag — reported by pip/setuptools_scm as "4.3.2.dev<N>+g<hash>.d<date>", not a
@@ -31,6 +32,13 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
     [ObservableProperty] private int    _downsample      = 0;
     [ObservableProperty] private bool   _solveAllFrames  = false;
 
+    // ── StarFix settings ──────────────────────────────────────────────────────
+    [ObservableProperty] private string _starFixExePath        = "";  // install root, contains StarFix.exe
+    [ObservableProperty] private bool   _isStarFixInstalled     = false;
+    [ObservableProperty] private string _starFixStatus          = "";
+    [ObservableProperty] private bool   _isStarFixDownloading   = false;
+    [ObservableProperty] private double _starFixDownloadProgress = 0;
+
     // ── Status ────────────────────────────────────────────────────────────────
     [ObservableProperty] private string _testStatus     = "";
     [ObservableProperty] private string _catalogStatus  = "";
@@ -39,14 +47,16 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
     // ── Callbacks (wired by MainWindow.axaml.cs) ──────────────────────────────
     public Func<Task<string?>>?  BrowseAstapFunc       { get; set; }
     public Func<Task<string?>>?  BrowseCatalogDirFunc  { get; set; }
-    public Action<string, string, string, int, int, bool>? SaveCallback { get; set; }
+    public Func<Task<string?>>?  BrowseStarFixFunc     { get; set; }
+    public Func<string>?         GetDownloadTempDirFunc { get; set; }
+    public Action<string, string, string, int, int, bool, string>? SaveCallback { get; set; }
     public Action? CloseCallback { get; set; }
     public Func<string, string, Task>? ShowInfoFunc { get; set; }
 
     // ── Radio button change handlers ──────────────────────────────────────────
     partial void OnUseAstapChanged(bool value)
     {
-        if (value) { UseAstrometryNet = false; UseNextAstro = false; }
+        if (value) { UseAstrometryNet = false; UseNextAstro = false; UseStarFix = false; }
     }
 
     partial void OnUseAstrometryNetChanged(bool value)
@@ -55,6 +65,7 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
         {
             UseAstap = false;
             UseNextAstro = false;
+            UseStarFix = false;
             CheckOnlineSolveAllWarning();
         }
     }
@@ -65,7 +76,19 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
         {
             UseAstap = false;
             UseAstrometryNet = false;
+            UseStarFix = false;
             CheckOnlineSolveAllWarning();
+        }
+    }
+
+    partial void OnUseStarFixChanged(bool value)
+    {
+        if (value)
+        {
+            UseAstap = false;
+            UseAstrometryNet = false;
+            UseNextAstro = false;
+            RefreshStarFixDetection();
         }
     }
 
@@ -185,9 +208,97 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
     [RelayCommand]
     private void Save()
     {
-        var solver = UseAstap ? "ASTAP" : UseNextAstro ? "NextAstro" : "AstrometryNet";
-        SaveCallback?.Invoke(solver, AstapExePath, AstapCatalogDir, SearchRadius, Downsample, SolveAllFrames);
+        var solver = UseAstap ? "ASTAP" : UseNextAstro ? "NextAstro" : UseStarFix ? "StarFix" : "AstrometryNet";
+        SaveCallback?.Invoke(solver, AstapExePath, AstapCatalogDir, SearchRadius, Downsample, SolveAllFrames, StarFixExePath);
         CloseCallback?.Invoke();
+    }
+
+    // ── StarFix ───────────────────────────────────────────────────────────────
+
+    partial void OnStarFixExePathChanged(string value) => IsStarFixInstalled = StarFixService.IsValidInstall(value);
+
+    /// <summary>Re-checks StarFix's install state via its Windows uninstall registry entry.</summary>
+    private void RefreshStarFixDetection()
+    {
+        if (IsStarFixInstalled) return;  // already known-good (e.g. from a saved path) — don't clobber it
+        var detected = StarFixService.DetectInstalledPath();
+        if (detected is not null)
+        {
+            StarFixExePath  = detected;
+            StarFixStatus   = "✓  StarFix found";
+        }
+        else
+        {
+            StarFixStatus = "StarFix is not installed.";
+        }
+    }
+
+    [RelayCommand]
+    private async Task BrowseStarFixAsync()
+    {
+        if (BrowseStarFixFunc is null) return;
+        var path = await BrowseStarFixFunc();
+        if (path is not null)
+        {
+            StarFixExePath = path;
+            StarFixStatus  = IsStarFixInstalled ? "✓  StarFix found" : "⚠  StarFix.exe not found at that location";
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadAndInstallStarFixAsync()
+    {
+        IsStarFixDownloading    = true;
+        StarFixDownloadProgress = 0;
+        StarFixStatus           = "⟳  Checking latest StarFix release…";
+        try
+        {
+            var release = await StarFixService.CheckLatestAsync();
+            if (release is null)
+            {
+                StarFixStatus = "✗  Could not reach the StarFix release page — check your internet connection.";
+                return;
+            }
+
+            var tempDir  = GetDownloadTempDirFunc?.Invoke() ?? Path.GetTempPath();
+            var destPath = Path.Combine(tempDir, release.AssetName);
+
+            StarFixStatus = $"⟳  Downloading StarFix v{release.Version}…";
+            var progress = new Progress<(long done, long total)>(t =>
+            {
+                if (t.total > 0)
+                {
+                    StarFixDownloadProgress = (double)t.done / t.total * 100;
+                    StarFixStatus = $"⟳  Downloading StarFix v{release.Version}… {t.done / 1_048_576.0:F1} MB / {t.total / 1_048_576.0:F1} MB";
+                }
+            });
+            await StarFixService.DownloadAndLaunchInstallerAsync(release.DownloadUrl, destPath, progress, default);
+
+            StarFixStatus = "✓  Installer launched — finish the setup wizard, then click Auto-detect below.";
+        }
+        catch (Exception ex)
+        {
+            StarFixStatus = $"✗  {ex.Message}";
+        }
+        finally
+        {
+            IsStarFixDownloading = false;
+        }
+    }
+
+    [RelayCommand]
+    private void AutoDetectStarFix()
+    {
+        var detected = StarFixService.DetectInstalledPath();
+        if (detected is not null)
+        {
+            StarFixExePath = detected;
+            StarFixStatus  = "✓  StarFix found";
+        }
+        else
+        {
+            StarFixStatus = "⚠  StarFix not found — install it above, or use Browse if it's in a non-default location.";
+        }
     }
 
     [RelayCommand]
@@ -216,17 +327,20 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
         CatalogStatus = PlateSolveService.CheckAstapCatalog(dir, isCatalogDir: !string.IsNullOrWhiteSpace(AstapCatalogDir));
     }
 
-    public void LoadFromConfig(string solver, string astapPath, string catalogDir, int searchRadius, int downsample, bool solveAllFrames = false)
+    public void LoadFromConfig(string solver, string astapPath, string catalogDir, int searchRadius, int downsample, bool solveAllFrames = false, string starFixPath = "")
     {
+        StarFixExePath   = starFixPath;   // set before UseStarFix so detection reflects the saved path, not a fresh registry lookup
         UseAstap         = solver == "ASTAP";
         UseNextAstro     = solver == "NextAstro";
-        UseAstrometryNet = !UseAstap && !UseNextAstro;
+        UseStarFix       = solver == "StarFix";
+        UseAstrometryNet = !UseAstap && !UseNextAstro && !UseStarFix;
         AstapExePath     = astapPath;
         AstapCatalogDir  = catalogDir;
         SearchRadius     = searchRadius;
         Downsample       = downsample;
         SolveAllFrames   = solveAllFrames;
         RefreshCatalogStatus();
+        if (UseStarFix && IsStarFixInstalled) StarFixStatus = "✓  StarFix found";
     }
 
     /// <summary>

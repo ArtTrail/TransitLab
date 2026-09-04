@@ -13,8 +13,8 @@
             <TextBlock Text="Active solver" FontWeight="SemiBold" FontSize="18"/>
 
             <StackPanel Spacing="10" Margin="8,0,0,0">
-                <RadioButton Content="Astrometry.net  (via EXOTIC, requires internet)"
-                             IsChecked="{Binding UseAstrometryNet}"
+                <RadioButton Content="StarFix  (local, first-party — Gaia DR3 catalog, no internet required once installed)"
+                             IsChecked="{Binding UseStarFix}"
                              FontSize="18"/>
                 <RadioButton Content="ASTAP  (local, fast, no internet required)"
                              IsChecked="{Binding UseAstap}"
@@ -22,7 +22,7 @@
                 <RadioButton IsChecked="{Binding UseNextAstro}"
                              IsEnabled="{Binding IsNextAstroSupported}"
                              FontSize="18">
-                    <TextBlock Text="NextAstro  (online, via NextAstronomy — experimental, requires EXOTIC 4.3.2 pre-release dev build)"
+                    <TextBlock Text="NextAstro  (online, via NextAstronomy — requires EXOTIC 4.3.2 pre-release dev build)"
                                TextWrapping="Wrap"
                                MaxWidth="560"/>
                 </RadioButton>
@@ -33,7 +33,67 @@
                            Margin="28,0,0,0"
                            FontSize="14"
                            Foreground="{StaticResource BrushWarn}"/>
+                <RadioButton Content="Astrometry.net  (via EXOTIC, requires internet)"
+                             IsChecked="{Binding UseAstrometryNet}"
+                             FontSize="18"/>
             </StackPanel>
+
+            <!-- ── StarFix settings (visible when StarFix selected) ────────── -->
+            <Border IsVisible="{Binding UseStarFix}"
+                    BorderBrush="{StaticResource BrushSep}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="16,14,16,16">
+
+                <StackPanel Spacing="12">
+
+                    <TextBlock Classes="h2" Text="StarFix Settings" FontSize="17"/>
+                    <TextBlock Classes="hint" FontSize="14" TextWrapping="Wrap"
+                               Text="StarFix is a separate, standalone plate-solving app (ArtTrail/StarFix) with its own offline Gaia DR3 catalog. TransitLab calls it headlessly to solve — the catalog itself is downloaded and managed entirely inside StarFix's own app, not here."/>
+
+                    <!-- StarFix install path row -->
+                    <TextBlock Text="StarFix install folder" FontWeight="SemiBold"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBox Text="{Binding StarFixExePath}"
+                                 Width="400"
+                                 FontFamily="Courier New"
+                                 FontSize="16"
+                                 Background="{StaticResource BrushField}"
+                                 Watermark="Path to StarFix install folder…"/>
+                        <Button Classes="toolbar" Content="Browse…"
+                                Command="{Binding BrowseStarFixCommand}"/>
+                    </StackPanel>
+
+                    <!-- Action buttons -->
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Classes="toolbar" Content="Auto-detect"
+                                Command="{Binding AutoDetectStarFixCommand}"/>
+                        <Button Classes="primary" Content="Download &amp; Install StarFix"
+                                Command="{Binding DownloadAndInstallStarFixCommand}"
+                                IsEnabled="{Binding !IsStarFixDownloading}"/>
+                    </StackPanel>
+
+                    <!-- Download progress -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsStarFixDownloading}">
+                        <ProgressBar Value="{Binding StarFixDownloadProgress}"
+                                     Maximum="100"
+                                     Width="300"
+                                     Height="8"
+                                     VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Status -->
+                    <TextBlock Text="{Binding StarFixStatus}"
+                               Classes="hint"
+                               Foreground="{Binding StarFixStatus, Converter={StaticResource StatusBrushConverter}}"
+                               TextWrapping="Wrap"
+                               IsVisible="{Binding StarFixStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+                    <TextBlock Classes="hint" FontSize="14" TextWrapping="Wrap"
+                               Text="Download &amp; Install fetches the latest StarFix installer and launches it — you'll finish the install wizard yourself. Once installed, click Auto-detect (or restart this dialog) to pick it up."/>
+
+                </StackPanel>
+            </Border>
 
             <!-- ── ASTAP settings (visible when ASTAP selected) ───────────── -->
             <Border IsVisible="{Binding UseAstap}"

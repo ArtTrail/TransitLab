@@ -166,12 +166,13 @@ public class AppConfig
     public int MaxCompStars { get; set; } = 10;
 
     // Plate solver settings
-    public string PlateSolver       { get; set; } = "AstrometryNet";  // "AstrometryNet" | "ASTAP" | "NextAstro"
+    public string PlateSolver       { get; set; } = "AstrometryNet";  // "AstrometryNet" | "ASTAP" | "NextAstro" | "StarFix"
     public string AstapExePath      { get; set; } = "";
     public string AstapCatalogDir   { get; set; } = "";  // blank = same dir as exe
     public int    AstapSearchRadius { get; set; } = 60;   // arcminutes
     public int    AstapDownsample    { get; set; } = 0;
     public bool   AstapSolveAllFrames { get; set; } = false;
+    public string StarFixExePath     { get; set; } = "";  // StarFix install root (contains StarFix.exe + PySolver\solve\solve.exe)
 
     // Last-used UI values (restored on next launch)
     public LastUi                LastUi          { get; set; } = new();
