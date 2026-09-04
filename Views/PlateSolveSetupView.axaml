@@ -24,7 +24,7 @@
                     <Button Classes="toolbar"
                             FontSize="14"
                             Padding="4,1"
-                            Content="github.com/ArtTrail/StarFix"
+                            Content="github.com/ArtTrail/StarFix (latest release)"
                             Command="{Binding OpenStarFixWebsiteCommand}"/>
                 </StackPanel>
                 <RadioButton IsChecked="{Binding UseAstap}"

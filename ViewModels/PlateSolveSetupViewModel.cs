@@ -333,7 +333,7 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
-                FileName        = "https://github.com/ArtTrail/StarFix",
+                FileName        = "https://github.com/ArtTrail/StarFix/releases/latest",
                 UseShellExecute = true,
             });
         }
