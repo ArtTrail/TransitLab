@@ -13,12 +13,18 @@
             <TextBlock Text="Active solver" FontWeight="SemiBold" FontSize="18"/>
 
             <StackPanel Spacing="10" Margin="8,0,0,0">
-                <RadioButton Content="StarFix  (local, first-party — Gaia DR3 catalog, no internet required once installed)"
-                             IsChecked="{Binding UseStarFix}"
-                             FontSize="18"/>
-                <RadioButton Content="ASTAP  (local, fast, no internet required)"
-                             IsChecked="{Binding UseAstap}"
-                             FontSize="18"/>
+                <RadioButton IsChecked="{Binding UseStarFix}"
+                             FontSize="18">
+                    <TextBlock Text="StarFix  (local, first-party — Gaia DR3 catalog, no internet required once installed)"
+                               TextWrapping="Wrap"
+                               MaxWidth="560"/>
+                </RadioButton>
+                <RadioButton IsChecked="{Binding UseAstap}"
+                             FontSize="18">
+                    <TextBlock Text="ASTAP  (local, fast, no internet required)"
+                               TextWrapping="Wrap"
+                               MaxWidth="560"/>
+                </RadioButton>
                 <RadioButton IsChecked="{Binding UseNextAstro}"
                              IsEnabled="{Binding IsNextAstroSupported}"
                              FontSize="18">
@@ -41,9 +47,12 @@
                             Content="nextastro.org"
                             Command="{Binding OpenNextAstroWebsiteCommand}"/>
                 </StackPanel>
-                <RadioButton Content="Astrometry.net  (via EXOTIC, requires internet)"
-                             IsChecked="{Binding UseAstrometryNet}"
-                             FontSize="18"/>
+                <RadioButton IsChecked="{Binding UseAstrometryNet}"
+                             FontSize="18">
+                    <TextBlock Text="Astrometry.net  (via EXOTIC, requires internet)"
+                               TextWrapping="Wrap"
+                               MaxWidth="560"/>
+                </RadioButton>
             </StackPanel>
 
             <!-- ── StarFix settings (visible when StarFix selected) ────────── -->
