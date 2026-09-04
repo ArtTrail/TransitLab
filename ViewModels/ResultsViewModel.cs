@@ -17,6 +17,14 @@ namespace TransitLab.ViewModels;
 
 public partial class ResultsViewModel : ViewModelBase
 {
+    // ── EXOTIC version (populated asynchronously at startup and after each run) ─
+    [ObservableProperty] private string _exoticVersion = "EXOTIC —";
+
+    // True for the duration of, and after, a Quick Look (-ql) run — set by MainWindowViewModel
+    // right before launch. Quick Look produces no AAVSO report, so Submit Results stays
+    // explainably disabled instead of just greyed out with no reason given.
+    [ObservableProperty] private bool _isQuickLookRun = false;
+
     // ── EXOTIC log ───────────────────────────────────────────────────────────
     public ObservableCollection<LogLine> LogLines { get; } = new();
 
@@ -149,6 +157,7 @@ public partial class ResultsViewModel : ViewModelBase
     [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _stellarVarBitmap;
     [ObservableProperty] private bool _hasLightCurve;
     [ObservableProperty] private bool _hasStellarVar;
+    [ObservableProperty] private bool _isExoticRunning;
 
     /// <summary>Invoked on the UI thread when a light curve is first loaded. Wire to sound playback.</summary>
     public Action? LightCurveReadySound { get; set; }
@@ -168,12 +177,13 @@ public partial class ResultsViewModel : ViewModelBase
         ImageFile        = "Image file:  —";
         AidFile          = "AID file:  —";
         _reportFullPath  = "";
+        _reportVerified  = false;
         _lcFullPath      = "";
         _svFullPath      = "";
         UpdateUploadEnabled();
     }
 
-    public void LoadOutputImages(string saveDir)
+    public void LoadOutputImages(string saveDir, bool stellarVariabilityOnly = false)
     {
         if (!Directory.Exists(saveDir)) return;
 
@@ -184,6 +194,11 @@ public partial class ResultsViewModel : ViewModelBase
             try { LightCurveBitmap = new Avalonia.Media.Imaging.Bitmap(newest); HasLightCurve = true; }
             catch { }
         }
+
+        // In Stellar-Variability-Only mode, FinalLightCurve_*.png IS the stellar-variability
+        // plot (transit fitting is skipped) — EXOTIC also saves an identical copy as
+        // working_artifacts/Stellar_Variability.png, so skip it here to avoid showing the same plot twice.
+        if (stellarVariabilityOnly) return;
 
         var svFiles = Directory.GetFiles(saveDir, "Stellar_Variability.png", SearchOption.AllDirectories);
         if (svFiles.Length > 0)
@@ -204,12 +219,23 @@ public partial class ResultsViewModel : ViewModelBase
     [ObservableProperty] private string aidFile    = "AID file:  —";
 
     private string _reportFullPath = "";
+    private bool   _reportVerified = false;   // set True when ScanOutputFiles confirms the file exists
+
+    /// <summary>
+    /// The AAVSO report's actual full path from the last ScanOutputFiles call — i.e. inside the
+    /// run's own per-run output subfolder (v2.8.0+), not necessarily the same directory as the
+    /// live Observation.SaveDir, which gets reset back to the base Save Plots directory once the
+    /// run finishes. Callers that need "where did this run's output actually land" (e.g. History
+    /// tab recording after a submission) should derive from this, not from Observation.SaveDir.
+    /// </summary>
+    public string ReportFullPath => _reportFullPath;
     private string _lcFullPath     = "";
     private string _svFullPath     = "";
 
     public void ScanOutputFiles(string saveDir)
     {
         _reportFullPath = "";
+        _reportVerified = false;
         _lcFullPath     = "";
 
         SessionLogService.Write($"[Results] ScanOutputFiles: saveDir=\"{saveDir}\" exists={Directory.Exists(saveDir)}");
@@ -222,7 +248,8 @@ public partial class ResultsViewModel : ViewModelBase
             var newest = reports.OrderByDescending(File.GetLastWriteTime).First();
             ReportFile      = "Report:  " + Path.GetFileName(newest);
             _reportFullPath = newest;
-            SessionLogService.Write($"[Results] ScanOutputFiles: reportFullPath=\"{_reportFullPath}\" exists={File.Exists(_reportFullPath)}");
+            _reportVerified = File.Exists(_reportFullPath);
+            SessionLogService.Write($"[Results] ScanOutputFiles: reportFullPath=\"{_reportFullPath}\" exists={_reportVerified}");
         }
 
         var images = Directory.GetFiles(saveDir, "FinalLightCurve_*.png", SearchOption.AllDirectories);
@@ -264,25 +291,52 @@ public partial class ResultsViewModel : ViewModelBase
     private CancellationTokenSource?  _loginCts;
 
     // ── Injected callbacks ────────────────────────────────────────────────────
-    public Func<string>? ObscodeFunc          { get; set; }
-    public Action?        RecordSubmissionFunc { get; set; }
+    public Func<string>? ObscodeFunc               { get; set; }
+    public Action?        RecordSubmissionFunc      { get; set; }
+    public Func<Task>?    ShowPasswordWarningFunc   { get; set; }
+    public Action?        ImmediatelyClearPasswordFunc { get; set; }
 
     // ── Partial method hooks ─────────────────────────────────────────────────
+    partial void OnSavePasswordChanged(bool value)
+    {
+        if (value)
+        {
+            ShowPasswordWarningFunc?.Invoke();
+        }
+        else
+        {
+            AavsoPassword = "";
+            ImmediatelyClearPasswordFunc?.Invoke();
+        }
+    }
+
     partial void OnGdprAcceptedChanged(bool value)   => UpdateUploadEnabled();
     partial void OnEwSiteChanged(string value)       => UpdateUploadEnabled();
     partial void OnEwEquipmentChanged(string value)  => UpdateUploadEnabled();
 
     private void UpdateUploadEnabled()
     {
+        // Use _reportVerified (set at scan time) rather than a live File.Exists call.
+        // File.Exists can spuriously return False for a path that was confirmed just
+        // minutes earlier — possibly due to AV scanning, OS caching, or EXOTIC
+        // post-processing moving files.  The actual upload still re-checks existence
+        // and surfaces a proper error if the file is gone (see UploadExoplanet).
+        if (_reportVerified && !string.IsNullOrEmpty(_reportFullPath) && !File.Exists(_reportFullPath))
+        {
+            SessionLogService.Write(
+                $"[Results] WARNING: report verified at scan time but File.Exists now False — " +
+                $"\"{_reportFullPath}\" — keeping button enabled; upload will validate.");
+        }
+
         bool ok = _isLoggedIn && GdprAccepted &&
                   !string.IsNullOrWhiteSpace(EwSite)      && EwSite      != "— select —" &&
                   !string.IsNullOrWhiteSpace(EwEquipment) && EwEquipment != "— select —" &&
-                  !string.IsNullOrEmpty(_reportFullPath)  && File.Exists(_reportFullPath);
+                  !string.IsNullOrEmpty(_reportFullPath)  && _reportVerified;
         if (ok != IsUploadEnabled || !ok)
             SessionLogService.Write(
                 $"[Results] UpdateUploadEnabled: loggedIn={_isLoggedIn} gdpr={GdprAccepted} " +
                 $"site=\"{EwSite}\" equip=\"{EwEquipment}\" " +
-                $"report=\"{_reportFullPath}\" reportExists={(!string.IsNullOrEmpty(_reportFullPath) && File.Exists(_reportFullPath))} " +
+                $"report=\"{_reportFullPath}\" reportVerified={_reportVerified} " +
                 $"→ enabled={ok}");
         IsUploadEnabled = ok;
     }

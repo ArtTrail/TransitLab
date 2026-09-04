@@ -10,31 +10,42 @@ using System.Threading.Tasks;
 namespace TransitLab.Services;
 
 /// <summary>
-/// Plate-solves a FITS file using EXOTIC's built-in PlateSolution
-/// (exotic.api.plate_solution), which calls astrometry.net without
-/// requiring the user to supply an API key.
+/// Plate-solves a FITS file using EXOTIC's built-in exotic.api.plate_solution module,
+/// which offers three solvers: PlateSolution (nova.astrometry.net, no API key required),
+/// NextAstroPlateSolution (NextAstronomy's hosted service — requires the EXOTIC 4.3.2
+/// pre-release dev build, not yet in a stable release), or local ASTAP.
 /// </summary>
 public static class PlateSolveService
 {
-    public record Result(bool Success, string Message);
+    public record Result(bool Success, string Message, double WcsPixelScaleArcsec = 0, bool SmallImageWarning = false, string FirstSolvedPath = "", bool IsPartialSuccess = false);
 
     /// <summary>Solver selection and ASTAP parameters.</summary>
     public record SolverConfig(
-        string Solver,           // "AstrometryNet" | "ASTAP"
+        string Solver,           // "AstrometryNet" | "ASTAP" | "NextAstro"
         string AstapExePath,
-        string CatalogDir     = "",   // blank = same dir as exe
-        int    SearchRadius   = 60,   // arcminutes (converted to degrees when calling ASTAP)
-        int    Downsample     = 0,
-        bool   SolveAllFrames = false);
+        string CatalogDir       = "",    // blank = same dir as exe
+        int    SearchRadius     = 60,    // arcminutes (converted to degrees when calling ASTAP)
+        int    Downsample       = 0,
+        bool   SolveAllFrames   = false,
+        double PixelScaleArcsec = 0.0,   // arcsec/px from user input; 0 = unknown → ASTAP auto-FOV
+        double? Ra              = null,  // decimal degrees — hint for AstrometryNet/NextAstro
+        double? Dec             = null); // decimal degrees — hint for AstrometryNet/NextAstro
 
     // Inline Python script — called by the conda Python that has EXOTIC installed.
-    // Prints the wcs.fits path on success, or "FAILED: <reason>" on failure.
+    // Shared by both online solvers (AstrometryNet's PlateSolution and NextAstro's
+    // NextAstroPlateSolution expose the same plate_solution() contract), selected via
+    // the "astrometrynet"/"nextastro" argv[1] flag. Prints the wcs.fits path on success,
+    // or "FAILED: <reason>" on failure.
     private const string PythonScript = """
 import sys
 from pathlib import Path
 
-fits_path = sys.argv[1]
-save_dir  = sys.argv[2]
+solver_name = sys.argv[1]
+fits_path   = sys.argv[2]
+save_dir    = sys.argv[3]
+ra          = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else None
+dec         = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] else None
+pixel_scale = sys.argv[6] if len(sys.argv) > 6 and sys.argv[6] else None
 
 # Redirect library stdout to stderr so progress text doesn't pollute our
 # result channel — only the final path (or FAILED: line) goes to stdout.
@@ -43,12 +54,29 @@ sys.stdout   = sys.stderr
 
 try:
     Path(save_dir, "temp").mkdir(parents=True, exist_ok=True)
-    from exotic.api.plate_solution import PlateSolution
-    ps       = PlateSolution(file=fits_path, directory=save_dir)
+    # Some EXOTIC builds (e.g. the 4.3.2 pre-release) write the solved WCS to
+    # <save_dir>/working_artifacts/wcs.fits instead of <save_dir>/temp/wcs.fits,
+    # but never create that folder themselves -- pre-create it here so the
+    # write doesn't fail with a bare "No such file or directory".
+    Path(save_dir, "working_artifacts").mkdir(parents=True, exist_ok=True)
+    if solver_name == "nextastro":
+        from exotic.api.plate_solution import NextAstroPlateSolution
+        ps = NextAstroPlateSolution(
+            file=fits_path, directory=save_dir,
+            ra=float(ra) if ra else None,
+            dec=float(dec) if dec else None,
+            pixel_scale=float(pixel_scale) if pixel_scale else None,
+        )
+    else:
+        from exotic.api.plate_solution import PlateSolution
+        ps = PlateSolution(file=fits_path, directory=save_dir)
     wcs_file = ps.plate_solution()
 except ImportError as e:
     sys.stdout = _real_stdout
-    print(f"FAILED: {e}  (Python: {sys.executable})")
+    extra = ("  (NextAstro plate solving requires the EXOTIC 4.3.2 pre-release dev build -- "
+             "see Tools -> Python & EXOTIC Setup -> Pre-release / Development Build)"
+             if solver_name == "nextastro" else "")
+    print(f"FAILED: {e}{extra}  (Python: {sys.executable})")
     sys.exit(1)
 except Exception as e:
     sys.stdout = _real_stdout
@@ -63,7 +91,7 @@ else:
 """;
 
     /// <summary>
-    /// Full plate-solve pipeline.  Routes to ASTAP or Astrometry.net
+    /// Full plate-solve pipeline.  Routes to ASTAP, Astrometry.net, or NextAstro
     /// based on <paramref name="solverConfig"/>.
     /// </summary>
     public static async Task<Result> SolveAsync(
@@ -93,8 +121,27 @@ else:
         if (pythonExe is null)
             return new Result(false, "Python not found — install Python and EXOTIC using the EXOTIC Setup tab first.");
 
+        if (solverConfig?.SolveAllFrames == true)
+            return await SolveAllWithOnlineSolverAsync(fitsPath, saveDir, solverConfig, pythonExe, progress, ct);
+
+        return await SolveOneWithOnlineSolverAsync(fitsPath, saveDir, solverConfig, pythonExe, progress, ct);
+    }
+
+    // ── Astrometry.net / NextAstro (shared online-solver code path) ───────────
+
+    private static async Task<Result> SolveOneWithOnlineSolverAsync(
+        string fitsPath,
+        string saveDir,
+        SolverConfig? solverConfig,
+        string pythonExe,
+        IProgress<string>? progress,
+        CancellationToken ct)
+    {
+        var isNextAstro = solverConfig?.Solver == "NextAstro";
+        var solverLabel = isNextAstro ? "NextAstro" : "Astrometry.net";
+
         progress?.Report($"Python: {pythonExe}");
-        SessionLogService.Write($"[PlateSolve] Starting Astrometry.net solve: {Path.GetFileName(fitsPath)}");
+        SessionLogService.Write($"[PlateSolve] Starting {solverLabel} solve: {Path.GetFileName(fitsPath)}");
         SessionLogService.Write($"[PlateSolve] Python: {pythonExe}");
 
         if (!File.Exists(fitsPath))
@@ -126,8 +173,17 @@ else:
             // ArgumentList handles quoting properly — no manual escaping needed,
             // so paths with spaces or trailing backslashes are passed verbatim.
             psi.ArgumentList.Add(scriptPath);
+            psi.ArgumentList.Add(isNextAstro ? "nextastro" : "astrometrynet");
             psi.ArgumentList.Add(fitsPath);
             psi.ArgumentList.Add(saveDir);
+            // RA/Dec/pixel-scale hints — optional for Astrometry.net (blind solve works fine
+            // without them) but meaningfully speed up and improve reliability for NextAstro,
+            // which matches detected sources against the hinted field rather than a blind index search.
+            psi.ArgumentList.Add(solverConfig?.Ra?.ToString("F6", System.Globalization.CultureInfo.InvariantCulture) ?? "");
+            psi.ArgumentList.Add(solverConfig?.Dec?.ToString("F6", System.Globalization.CultureInfo.InvariantCulture) ?? "");
+            psi.ArgumentList.Add(solverConfig?.PixelScaleArcsec > 0
+                ? solverConfig.PixelScaleArcsec.ToString("F4", System.Globalization.CultureInfo.InvariantCulture)
+                : "");
 
             using var proc = new Process { StartInfo = psi };
 
@@ -161,13 +217,96 @@ else:
             var wcsBytes = await File.ReadAllBytesAsync(wcsPath, ct);
             WriteWcsToFits(fitsPath, wcsBytes);
 
+            // 4. Report the actual pixel scale derived from the WCS, for diagnostics —
+            //    useful context if the user later tries ASTAP, which uses the configured
+            //    scale as a FOV hint and needs it to be accurate to converge.
+            double wcsScale = ReadActualPixelScale(wcsBytes);
+            if (wcsScale > 0)
+            {
+                SessionLogService.Write($"[PlateSolve] WCS pixel scale: {wcsScale:F3}\"/px");
+                if (solverConfig?.PixelScaleArcsec > 0)
+                {
+                    double configScale = solverConfig.PixelScaleArcsec;
+                    double diffPct = Math.Abs(wcsScale - configScale) / configScale * 100.0;
+                    if (diffPct > 5.0)
+                        SessionLogService.Write(
+                            $"[PlateSolve] ⚠  Pixel scale mismatch: WCS={wcsScale:F3}\"/px vs " +
+                            $"configured={configScale:F3}\"/px ({diffPct:F1}% difference). " +
+                            $"If you later switch to ASTAP, update the pixel scale in Tools → Plate Solve Setup first — " +
+                            $"ASTAP uses it as a FOV hint and a mismatch this large will cause quad matching to fail.");
+                    else
+                        SessionLogService.Write(
+                            $"[PlateSolve] Pixel scale check: WCS={wcsScale:F3}\"/px vs " +
+                            $"configured={configScale:F3}\"/px ({diffPct:F1}% — within tolerance).");
+                }
+            }
+
             SessionLogService.Write($"[PlateSolve] ✓  {Path.GetFileName(fitsPath)} — WCS written.");
-            return new Result(true, "Plate solve complete — WCS written to FITS.");
+            return new Result(true, "Plate solve complete — WCS written to FITS.", wcsScale);
         }
         finally
         {
             try { File.Delete(scriptPath); } catch { /* best-effort */ }
         }
+    }
+
+    private static async Task<Result> SolveAllWithOnlineSolverAsync(
+        string firstFitsPath,
+        string saveDir,
+        SolverConfig? solverConfig,
+        string pythonExe,
+        IProgress<string>? progress,
+        CancellationToken ct)
+    {
+        var solverLabel = solverConfig?.Solver == "NextAstro" ? "NextAstro" : "Astrometry.net";
+        var dir = Path.GetDirectoryName(firstFitsPath);
+        if (dir is null || !Directory.Exists(dir))
+        {
+            SessionLogService.Write($"[PlateSolve/{solverLabel}] ERROR — cannot determine FITS directory from: {firstFitsPath}");
+            return new Result(false, "Cannot determine FITS directory.");
+        }
+
+        var files = Directory.GetFiles(dir, "*.fits", SearchOption.TopDirectoryOnly)
+            .Concat(Directory.GetFiles(dir, "*.fit", SearchOption.TopDirectoryOnly))
+            .Concat(Directory.GetFiles(dir, "*.fts", SearchOption.TopDirectoryOnly))
+            .Concat(Directory.GetFiles(dir, "*.fz",  SearchOption.TopDirectoryOnly))
+            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToArray();
+        if (files.Length == 0) return new Result(false, "No FITS files found in directory.");
+
+        SessionLogService.Write($"[PlateSolve/{solverLabel}] Starting all-frames solve in: {dir}  ({files.Length} files)");
+        int solved = 0, failed = 0;
+        string firstSolvedPath = "";
+        for (int i = 0; i < files.Length; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            // Each frame is a separate network round-trip to a hosted solver — this can take
+            // a while for a full directory, unlike ASTAP's instant local solve. A live progress
+            // line stays ⟳ (neutral) regardless of how many have failed; only the final verdict
+            // below gets a ✓/⚠/✗ prefix.
+            progress?.Report($"⟳  Solving {i + 1}/{files.Length} via {solverLabel}…  ({solved} solved, {failed} failed so far)");
+            var r = await SolveOneWithOnlineSolverAsync(files[i], saveDir, solverConfig, pythonExe, null, ct);
+            if (r.Success)
+            {
+                solved++;
+                if (firstSolvedPath.Length == 0) firstSolvedPath = files[i];
+            }
+            else
+            {
+                failed++;
+                SessionLogService.Write($"[PlateSolve/{solverLabel}] ✗  {Path.GetFileName(files[i])} — {r.Message}");
+            }
+        }
+
+        bool partial = solved > 0 && failed > 0;
+        string summary = (solved, failed) switch
+        {
+            (_, 0) => $"All {solved} frame{(solved == 1 ? "" : "s")} solved — no errors.",
+            (0, _) => $"Plate solve failed — 0/{files.Length} solved. EXOTIC cannot run without at least one solved frame.",
+            _      => $"{solved} solved, {failed} failed — usable (EXOTIC only needs one solved reference frame), but check the excluded/failed frames.",
+        };
+        SessionLogService.Write($"[PlateSolve/{solverLabel}] All-frames solve complete — {solved} solved, {failed} failed.");
+
+        return new Result(solved > 0, summary, FirstSolvedPath: firstSolvedPath, IsPartialSuccess: partial);
     }
 
     // ── ASTAP ─────────────────────────────────────────────────────────────────
@@ -206,13 +345,46 @@ else:
         var radiusDeg = (config.SearchRadius / 60.0).ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
         psi.ArgumentList.Add("-r");   psi.ArgumentList.Add(radiusDeg);
         psi.ArgumentList.Add("-z");   psi.ArgumentList.Add(config.Downsample.ToString());
-        psi.ArgumentList.Add("-fov"); psi.ArgumentList.Add("0");
+
+        // Compute FOV from pixel scale × shorter image dimension.
+        // ASTAP -fov expects the SHORTER image dimension in degrees (per ASTAP docs).
+        // FITS convention: NAXIS1 = width (columns), NAXIS2 = height (rows).
+        // For landscape images (most CCDs) NAXIS1 > NAXIS2, so NAXIS2 is already the shorter
+        // side and the result is identical to before.  Reading both ensures portrait-orientation
+        // or square images are also handled correctly, and lets us log NAXIS1 for diagnostics.
+        // (Hardcoded -fov 0 caused ASTAP to try all FOV values from 9.5° down, producing
+        // spurious 3-quad solutions with completely wrong CD matrices on small images.)
+        string fovArg = "0";
+        if (config.PixelScaleArcsec > 0)
+        {
+            int? naxis1  = ReadFitsHeaderInt(fitsPath, "NAXIS1");
+            int? naxis2  = ReadFitsHeaderInt(fitsPath, "NAXIS2");
+            int? bitpix  = ReadFitsHeaderInt(fitsPath, "BITPIX");
+
+            int? shortSide = (naxis1.HasValue && naxis2.HasValue)
+                ? Math.Min(naxis1.Value, naxis2.Value)
+                : (naxis2 ?? naxis1);
+
+            if (shortSide is > 0)
+            {
+                double fovDeg = shortSide.Value * config.PixelScaleArcsec / 3600.0;
+                fovArg = fovDeg.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
+                SessionLogService.Write(
+                    $"[PlateSolve/ASTAP] FOV = {fovArg}°  " +
+                    $"(NAXIS1={naxis1?.ToString() ?? "?"}, NAXIS2={naxis2?.ToString() ?? "?"}, " +
+                    $"shorter={shortSide}, scale={config.PixelScaleArcsec}\"/px, " +
+                    $"BITPIX={bitpix?.ToString() ?? "?"})");
+            }
+        }
+        psi.ArgumentList.Add("-fov"); psi.ArgumentList.Add(fovArg);
         psi.ArgumentList.Add("-update");
 
-        // If a separate catalog directory is specified, tell ASTAP where to find it
+        // If a separate catalog directory is specified, tell ASTAP where to find it.
+        // -d <path>  sets the catalog search directory.
+        // -wcs (no argument) writes a .wcs output file — not the same flag.
         if (!string.IsNullOrWhiteSpace(config.CatalogDir) && Directory.Exists(config.CatalogDir))
         {
-            psi.ArgumentList.Add("-wcs");
+            psi.ArgumentList.Add("-d");
             psi.ArgumentList.Add(config.CatalogDir);
         }
 
@@ -228,6 +400,12 @@ else:
         var outputLines = allOutput.Split('\n')
             .Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
 
+        // Detect ASTAP's "Warning, small image dimensions!!" — emitted when pixel count is
+        // too low for reliable quad centroiding.  Captured here so it can be checked in both
+        // the failure path and the return value regardless of exit code.
+        bool smallImageWarning = outputLines.Any(l =>
+            l.Contains("small image", StringComparison.OrdinalIgnoreCase));
+
         // Log every output line ASTAP produced — includes star count, RA/Dec/scale on
         // success, or the full error trace on failure.
         foreach (var line in outputLines)
@@ -235,9 +413,73 @@ else:
 
         if (proc.ExitCode != 0)
         {
-            var detail = outputLines.LastOrDefault() ?? "no output";
+            // When ASTAP writes nothing to stdout/stderr but still fails, it almost always means
+            // it could not find its star catalog zone files for the target's sky region.
+            // (ASTAP prints star counts and a "Solution NOT found" line when it actually searches;
+            //  silent exit = catalog lookup failed before any search was attempted.)
+            string iniDetail = "";
+            try
+            {
+                var iniPath = Path.ChangeExtension(fitsPath, ".ini");
+                if (File.Exists(iniPath))
+                {
+                    var iniLines = File.ReadAllLines(iniPath);
+                    var relevant = iniLines
+                        .Where(l => l.StartsWith("PLTSOLVF", StringComparison.OrdinalIgnoreCase)
+                                 || l.Contains("WARNING", StringComparison.OrdinalIgnoreCase)
+                                 || l.Contains("ERROR",   StringComparison.OrdinalIgnoreCase)
+                                 || l.Contains("stars",   StringComparison.OrdinalIgnoreCase))
+                        .Take(4).ToList();
+                    if (relevant.Any())
+                        iniDetail = " | ASTAP ini: " + string.Join("; ", relevant);
+                }
+            }
+            catch { /* best-effort */ }
+
+            string detail;
+            if (outputLines.Count > 0)
+            {
+                detail = outputLines.Last() + iniDetail;
+            }
+            else
+            {
+                detail = "ASTAP produced no output" + iniDetail;
+                SessionLogService.Write(
+                    $"[PlateSolve/ASTAP] ⚠  No stdout/stderr from ASTAP — BITPIX was logged above; " +
+                    $"possible causes: (1) FITS format not supported by this ASTAP version — " +
+                    $"BITPIX=-32 (float) is not handled by all builds; " +
+                    $"(2) missing H18 zone file for this declination (does not apply to D80/W08 which are all-sky); " +
+                    $"(3) image dimensions or FOV hint too far from actual field; " +
+                    $"(4) very dense star field near galactic plane confusing ASTAP's quad matcher.");
+            }
+
+            // When ASTAP flagged the image as too small, override the generic "No solution found"
+            // detail with an actionable message.  At coarse pixel scales (e.g. 5"/px), star
+            // centroids span less than one pixel — quad geometry deviates past ASTAP's 0.007
+            // tolerance even though stars and quads are found in abundance.
+            if (smallImageWarning)
+            {
+                detail = $"image too small for ASTAP quad-matching at {config.PixelScaleArcsec}\"/px " +
+                         $"— switch to Astrometry.net";
+                SessionLogService.Write(
+                    $"[PlateSolve/ASTAP] ⚠  'Small image dimensions' — at {config.PixelScaleArcsec}\"/px " +
+                    $"star centroids are sub-pixel precise; quad geometry deviates past ASTAP's " +
+                    $"0.007 tolerance. Astrometry.net is the correct solver for this dataset.");
+            }
+
             SessionLogService.Write($"[PlateSolve/ASTAP] ✗  {Path.GetFileName(fitsPath)} — exit code {proc.ExitCode}");
-            return new Result(false, $"ASTAP solve failed — {detail}");
+            return new Result(false, $"ASTAP solve failed — {detail}", SmallImageWarning: smallImageWarning);
+        }
+
+        // Quad-count guard: ASTAP's minimum is 3 matched quads, but a 3-quad solution can
+        // produce a completely wrong CD matrix (wrong scale, wrong orientation).  Require ≥4.
+        int quadCount = ParseAstapQuadCount(allOutput);
+        if (quadCount >= 0 && quadCount < 4)
+        {
+            var quadMsg = $"solution rejected — only {quadCount} quad{(quadCount == 1 ? "" : "s")} matched " +
+                          "(minimum 4 required for a reliable plate solution)";
+            SessionLogService.Write($"[PlateSolve/ASTAP] ✗  {Path.GetFileName(fitsPath)} — {quadMsg}");
+            return new Result(false, $"ASTAP plate solve failed — {quadMsg}");
         }
 
         SessionLogService.Write($"[PlateSolve/ASTAP] ✓  {Path.GetFileName(fitsPath)} — WCS written.");
@@ -257,23 +499,123 @@ else:
 
         var files = Directory.GetFiles(dir, "*.fits", SearchOption.TopDirectoryOnly)
             .Concat(Directory.GetFiles(dir, "*.fit", SearchOption.TopDirectoryOnly))
+            .Concat(Directory.GetFiles(dir, "*.fts", SearchOption.TopDirectoryOnly))
+            .Concat(Directory.GetFiles(dir, "*.fz",  SearchOption.TopDirectoryOnly))
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase).ToArray();
         if (files.Length == 0) return new Result(false, "No FITS files found in directory.");
 
         SessionLogService.Write($"[PlateSolve/ASTAP] Starting all-frames solve in: {dir}  ({files.Length} files)");
         int solved = 0, failed = 0;
+        bool anySmallImageWarning = false;
+        string firstSolvedPath = "";
         for (int i = 0; i < files.Length; i++)
         {
             ct.ThrowIfCancellationRequested();
-            progress?.Report($"Solving {i + 1}/{files.Length}: {Path.GetFileName(files[i])}…");
+            // A running counter, not the failing filename — individual frame failures are
+            // routine (especially on MObs data, where ASTAP fails most frames outright due to
+            // its small-image-dimensions limitation) and previously looked identical to a
+            // final "solve failed" result, since both used the same ✗-prefixed status text.
+            // A live progress line stays ⟳ (neutral/in-progress) no matter how many frames
+            // have failed so far — only the true final result below gets a ✓/⚠/✗ verdict.
+            progress?.Report($"⟳  Solving {i + 1}/{files.Length}…  ({solved} solved, {failed} failed so far)");
             var r = await SolveWithAstapAsync(files[i], config, null, ct);
-            if (r.Success) solved++;
-            else { failed++; progress?.Report($"  ✗ {Path.GetFileName(files[i])}: {r.Message}"); }
+            if (r.SmallImageWarning) anySmallImageWarning = true;
+            if (r.Success)
+            {
+                solved++;
+                // Track the first successfully-solved file so callers can use a file that
+                // actually has WCS (the first file in the directory may be a bad/dark frame
+                // that is never solvable and therefore never receives a plate solution).
+                if (firstSolvedPath.Length == 0) firstSolvedPath = files[i];
+            }
+            else
+            {
+                failed++;
+                SessionLogService.Write($"[PlateSolve/ASTAP] ✗  {Path.GetFileName(files[i])} — {r.Message}");
+            }
         }
-        var summary = $"All-frames solve complete — {solved} solved, {failed} failed.";
-        SessionLogService.Write($"[PlateSolve/ASTAP] {summary}");
+
+        bool partial = solved > 0 && failed > 0;
+        string summary = (solved, failed) switch
+        {
+            (_, 0)      => $"All {solved} frame{(solved == 1 ? "" : "s")} solved — no errors.",
+            (0, _)      => $"Plate solve failed — 0/{files.Length} solved. EXOTIC cannot run without at least one solved frame.",
+            _           => $"{solved} solved, {failed} failed — usable (EXOTIC only needs one solved reference frame), but check the excluded/failed frames.",
+        };
+        SessionLogService.Write($"[PlateSolve/ASTAP] All-frames solve complete — {solved} solved, {failed} failed.");
+
+        if (solved == 0 && anySmallImageWarning)
+        {
+            // All frames failed because of image size — give a specific, actionable summary
+            // rather than the generic diagnostic (which covers BITPIX/catalog/galactic-plane issues).
+            summary = $"ASTAP: image dimensions too small for quad-matching — " +
+                      $"0/{files.Length} solved. Switch to Astrometry.net.";
+            SessionLogService.Write(
+                $"[PlateSolve/ASTAP] ⚠  All frames failed with 'small image dimensions'. " +
+                $"At this pixel scale, star centroids are sub-pixel precise and ASTAP's " +
+                $"quad geometry cannot converge. " +
+                $"Switch to Astrometry.net (Tools → Plate Solve Setup).");
+        }
+        else if (solved == 0)
+        {
+            SessionLogService.Write(
+                $"[PlateSolve/ASTAP] ⚠  Zero frames solved.  " +
+                $"Check the per-frame lines above for BITPIX and NAXIS values.  " +
+                $"If ASTAP produced no output for any frame, likely causes: " +
+                $"BITPIX=-32 (float FITS — not supported by all ASTAP builds); " +
+                $"missing H18 zone for this Dec (H18 only — D80/W08 are all-sky); " +
+                $"or extreme star density near the galactic plane.  " +
+                $"Fallback: switch to Astrometry.net in Tools → Plate Solve Setup.");
+        }
+
         // Succeed if at least one frame solved; individual frame failures (bad/excluded frames) are expected.
-        return new Result(solved > 0, summary);
+        return new Result(solved > 0, summary, SmallImageWarning: anySmallImageWarning,
+            FirstSolvedPath: firstSolvedPath, IsPartialSuccess: partial);
+    }
+
+    /// <summary>
+    /// Reads a single integer FITS header keyword from the first 5 blocks of a file
+    /// without loading the entire file into memory.
+    /// </summary>
+    private static int? ReadFitsHeaderInt(string fitsPath, string keyword)
+    {
+        try
+        {
+            using var fs = File.OpenRead(fitsPath);
+            int maxBytes = (int)Math.Min(fs.Length, 2880L * 5);
+            var buf  = new byte[maxBytes];
+            int read = fs.Read(buf, 0, maxBytes);
+            var cards = ParseFitsHeaderCards(buf[..read]);
+            var card  = cards.FirstOrDefault(c =>
+                c.Keyword.Equals(keyword, StringComparison.OrdinalIgnoreCase));
+            if (card is null) return null;
+            // FITS value field: characters 10-29 (0-indexed), followed by optional '/' comment
+            var raw        = card.Raw80;
+            var valueField = (raw.Length >= 30 ? raw[10..30] : raw[Math.Min(10, raw.Length)..])
+                             .Split('/')[0].Trim();
+            return int.TryParse(valueField, out var n) ? n : null;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Parses the number of matched quads from ASTAP's console output.
+    /// ASTAP prints: "N of N quads selected matching within 0.007 tolerance"
+    /// Returns -1 if the line is absent (not all ASTAP versions print it).
+    /// </summary>
+    private static int ParseAstapQuadCount(string output)
+    {
+        foreach (var line in output.Split('\n'))
+        {
+            var t   = line.Trim();
+            var idx = t.IndexOf("quads selected matching", StringComparison.OrdinalIgnoreCase);
+            if (idx < 0) continue;
+            // The match count is the first token before "of N quads …"
+            var tokens = t[..idx].Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length >= 1 && int.TryParse(tokens[0], out var n))
+                return n;
+        }
+        return -1;   // line not found
     }
 
     /// <summary>
@@ -387,6 +729,58 @@ else:
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Derives the pixel scale (arcsec/px) from a WCS FITS byte array.
+    /// Tries CDELT1 first (simple WCS), then the CD matrix.
+    /// Returns 0 if the scale cannot be determined.
+    /// </summary>
+    private static double ReadActualPixelScale(byte[] wcsBytes)
+    {
+        try
+        {
+            var cards = ParseFitsHeaderCards(wcsBytes);
+
+            // Simple WCS: CDELT1 is degrees/pixel (negative for RA axis)
+            var cdelt1Card = cards.FirstOrDefault(c =>
+                c.Keyword.Equals("CDELT1", StringComparison.OrdinalIgnoreCase));
+            if (cdelt1Card is not null)
+            {
+                var raw = cdelt1Card.Raw80;
+                var valueField = (raw.Length >= 30 ? raw[10..30] : raw[Math.Min(10, raw.Length)..])
+                                 .Split('/')[0].Trim();
+                if (double.TryParse(valueField,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out double d) && d != 0)
+                    return Math.Abs(d) * 3600.0; // deg/px → arcsec/px
+            }
+
+            // CD matrix WCS: scale = sqrt(CD1_1² + CD1_2²) in deg/px
+            var cd11Card = cards.FirstOrDefault(c =>
+                c.Keyword.Equals("CD1_1", StringComparison.OrdinalIgnoreCase));
+            var cd12Card = cards.FirstOrDefault(c =>
+                c.Keyword.Equals("CD1_2", StringComparison.OrdinalIgnoreCase));
+            if (cd11Card is not null && cd12Card is not null)
+            {
+                static double Parse(FitsCard card)
+                {
+                    var raw = card.Raw80;
+                    var vf = (raw.Length >= 30 ? raw[10..30] : raw[Math.Min(10, raw.Length)..])
+                             .Split('/')[0].Trim();
+                    return double.TryParse(vf,
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out double v) ? v : 0;
+                }
+                double a = Parse(cd11Card), b = Parse(cd12Card);
+                if (a != 0 || b != 0)
+                    return Math.Sqrt(a * a + b * b) * 3600.0;
+            }
+        }
+        catch { /* best-effort */ }
+        return 0;
+    }
 
     private static string? DerivePythonExe(string exoticExePath)
     {

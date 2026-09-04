@@ -1,0 +1,117 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TransitLab.ViewModels"
+             x:DataType="vm:AdvancedSettingsViewModel"
+             x:Class="TransitLab.Views.AdvancedSettingsView">
+
+    <StackPanel Margin="28,24,28,20" Spacing="16" MinWidth="440">
+
+        <TextBlock Text="{Binding PrereleaseOnlyNote}"
+                    Classes="hint"
+                    TextWrapping="Wrap"/>
+
+        <Rectangle Height="1" Fill="{StaticResource BrushSep}"/>
+
+        <!-- Non-interactive run -->
+        <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Non-interactive run" VerticalAlignment="Center"/>
+                <Button Content="[?]" FontSize="12" Padding="3,0"
+                        VerticalAlignment="Center" Click="OnHelpNonInteractive_Click"/>
+            </StackPanel>
+            <ToggleSwitch Grid.Column="2"
+                          IsChecked="{Binding NonInteractiveRun}"
+                          OnContent="On" OffContent="Off"
+                          VerticalAlignment="Center"
+                          ToolTip.Tip="Avoids interactive prompts for invalid RA/Dec and unrecognized limb-darkening filters during a run. Pixel-coordinate mismatches are already handled separately by TransitLab."/>
+        </Grid>
+
+        <!-- NextAstro variability server -->
+        <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="NextAstro variability server" VerticalAlignment="Center"/>
+                <Button Content="[?]" FontSize="12" Padding="3,0"
+                        VerticalAlignment="Center" Click="OnHelpVariabilityServer_Click"/>
+            </StackPanel>
+            <ToggleSwitch Grid.Column="2"
+                          IsChecked="{Binding UseNextAstroVariabilityServer}"
+                          OnContent="On" OffContent="Off"
+                          VerticalAlignment="Center"
+                          ToolTip.Tip="Checks all comparison stars for variability in one batch request to NextAstro instead of querying VSX one star at a time. Falls back to VSX automatically if the server errors."/>
+        </Grid>
+
+        <!-- Use ensemble photometry -->
+        <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Use ensemble photometry" VerticalAlignment="Center"/>
+                <Button Content="[?]" FontSize="12" Padding="3,0"
+                        VerticalAlignment="Center" Click="OnHelpEnsemble_Click"/>
+            </StackPanel>
+            <ToggleSwitch Grid.Column="2"
+                          IsChecked="{Binding UseEnsemblePhotometry}"
+                          OnContent="On" OffContent="Off"
+                          VerticalAlignment="Center"
+                          ToolTip.Tip="Combines multiple comparison stars into one median-normalized reference instead of EXOTIC picking a single best-fitting comp star. Default: On."/>
+        </Grid>
+
+        <!-- Use exactly the comps provided -->
+        <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Use exactly the comps provided" VerticalAlignment="Center"/>
+                <Button Content="[?]" FontSize="12" Padding="3,0"
+                        VerticalAlignment="Center" Click="OnHelpExactComps_Click"/>
+            </StackPanel>
+            <ToggleSwitch Grid.Column="2"
+                          IsChecked="{Binding UseExactlyTheCompsProvided}"
+                          OnContent="On" OffContent="Off"
+                          VerticalAlignment="Center"
+                          ToolTip.Tip="Only meaningful with ensemble photometry on. Uses every comp star TransitLab supplies, rather than EXOTIC re-ranking and capping to its own top 5. Default: On."/>
+        </Grid>
+
+        <!-- Multiprocessing -->
+        <StackPanel Spacing="10">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="Multiprocessing (advanced)" VerticalAlignment="Center"/>
+                <Button Content="[?]" FontSize="12" Padding="3,0"
+                        VerticalAlignment="Center" Click="OnHelpMultiprocessing_Click"/>
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,8,Auto,12,120">
+                <TextBlock Grid.Column="0" Text="Frame alignment — process count" VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Content="[?]" FontSize="12" Padding="3,0"
+                        VerticalAlignment="Center" Click="OnHelpFrameAlignmentCount_Click"/>
+                <TextBox Grid.Column="4"
+                         Text="{Binding MultiprocessTransformationsText}"
+                         Watermark="blank = off"
+                         ToolTip.Tip="Number of processes to use for frame alignment / fallback image transformations. Leave blank to use TransitLab's normal single-process behavior."/>
+            </Grid>
+
+            <Grid ColumnDefinitions="*,8,Auto,12,120">
+                <TextBlock Grid.Column="0" Text="Light-curve fits — process count" VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Content="[?]" FontSize="12" Padding="3,0"
+                        VerticalAlignment="Center" Click="OnHelpLightcurveFitsCount_Click"/>
+                <TextBox Grid.Column="4"
+                         Text="{Binding MultiprocessLightcurveFitsText}"
+                         Watermark="blank = off"
+                         ToolTip.Tip="Number of processes to use while evaluating candidate light-curve fits. Leave blank to use TransitLab's normal single-process behavior."/>
+            </Grid>
+        </StackPanel>
+
+        <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="0,4,0,0"/>
+
+        <!-- Buttons -->
+        <StackPanel Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="10">
+            <Button Content="Cancel"
+                    Command="{Binding CancelCommand}"
+                    MinWidth="80"/>
+            <Button Content="Save"
+                    Classes="primary"
+                    Command="{Binding SaveCommand}"
+                    MinWidth="80"/>
+        </StackPanel>
+
+    </StackPanel>
+
+</UserControl>

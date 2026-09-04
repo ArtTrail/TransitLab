@@ -7,7 +7,7 @@
         mc:Ignorable="d" d:DesignWidth="1400" d:DesignHeight="960"
         x:Class="TransitLab.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/Assets/TransitLab.ico"
         Title="{Binding Title}"
         Width="1400" Height="960"
         MinWidth="1280" MinHeight="760">
@@ -26,6 +26,9 @@
                 <MenuItem Header="Save inits.json Only"
                           Command="{Binding SaveInitsOnlyCommand}"/>
                 <Separator/>
+                <MenuItem Header="Import AAVSO Report (-pre)…"
+                          Command="{Binding ImportAavsoReportCommand}"/>
+                <Separator/>
                 <MenuItem Header="Recent Sessions"
                           x:Name="MenuRecentSessions"
                           Click="OnRecentSessionsMenuClick"/>
@@ -42,9 +45,18 @@
                 <MenuItem Header="Settings">
                     <MenuItem Header="Notifications"
                               Click="OnNotificationsSettingsClick"/>
+                    <MenuItem Header="Comp Stars"
+                              Click="OnStoneSettingsClick"/>
                     <MenuItem Header="Automation"
                               Click="OnAutomationSettingsClick"/>
+                    <MenuItem Header="Advanced"
+                              Click="OnAdvancedSettingsClick"/>
                 </MenuItem>
+                <Separator/>
+                <MenuItem Header="Clear ldtk Cache"
+                          Command="{Binding ClearLdtkCacheCommand}"/>
+                <MenuItem Header="Download Full ldtk Library"
+                          Click="OnDownloadLdtkLibraryClick"/>
                 <Separator/>
                 <MenuItem Header="Diagnostics"
                           Click="OnDiagnosticsClick"/>
@@ -130,8 +142,15 @@
                         Spacing="6"
                         VerticalAlignment="Center">
                 <Button Classes="primary"
-                        Content="  Save &amp; Run EXOTIC  "
+                        Content="Save &amp; Run EXOTIC"
                         Command="{Binding SaveAndRunCommand}"/>
+                <Button Classes="toolbar"
+                        Content="Quick Look"
+                        Command="{Binding QuickLookCommand}"
+                        IsEnabled="{Binding CanQuickLook}"
+                        ToolTip.Tip="{Binding QuickLookTooltip}"/>
+                <Button Content="[?]" FontSize="12" Padding="3,0"
+                        VerticalAlignment="Center" Click="OnHelpQuickLook_Click"/>
                 <Button Classes="toolbar"
                         Content="⏹  Cancel"
                         Command="{Binding CancelExoticCommand}"
@@ -153,7 +172,7 @@
         <!-- ── Bottom attribution bar ───────────────────────────────────── -->
         <Border DockPanel.Dock="Bottom" Padding="0,2,10,4">
             <TextBlock Classes="hint"
-                       Text="© Art Trail 2026  ·  TransitLab v2.6.4  ·  Powered by EXOTIC (Zellem, Pearson, Blaser et al. 2020, PASP 132)"
+                       Text="{Binding Version, StringFormat='© Art Trail 2026  ·  TransitLab v{0}  ·  Powered by EXOTIC (Zellem, Pearson, Blaser et al. 2020, PASP 132)'}"
                        HorizontalAlignment="Right"/>
         </Border>
 

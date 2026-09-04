@@ -15,7 +15,7 @@
 
                 <!-- ── Read FITS Header ── -->
                 <StackPanel Orientation="Horizontal" Margin="4,10,4,6" Spacing="10">
-                    <Button Classes="primary" Content="  Read FITS Header  "
+                    <Button Classes="primary" Content="Read FITS Header"
                             Command="{Binding Observation.ReadFitsHeaderCommand}"/>
                     <TextBlock Classes="hint" Text="{Binding Observation.FitsHeaderStatus}"
                                Foreground="{Binding Observation.FitsHeaderStatus, Converter={StaticResource StatusBrushConverter}}"
@@ -72,7 +72,7 @@
                     <TextBlock Grid.Column="3" Text="Filter Max (nm):" VerticalAlignment="Center" Margin="0,0,8,0"/>
                     <TextBox Grid.Column="4" Text="{Binding EquipmentTarget.FilterMax}" Width="110" HorizontalAlignment="Left"/>
                 </Grid>
-                <TextBlock Classes="hint" Text="  Wavelengths auto-fill when a filter is selected above." Margin="4,0,0,4"/>
+                <TextBlock Classes="hint" TextWrapping="Wrap" Text="  Auto-filled with a typical value for the selected filter, not a measurement of your specific filter — confirm it matches your filter's actual bandpass before running EXOTIC." Margin="4,0,0,4"/>
 
                 <!-- Pixel Scale -->
                 <Grid Margin="4,3">
@@ -229,23 +229,28 @@
                             VerticalAlignment="Center" Click="OnHelpPlateSolve_Click"/>
                 </StackPanel>
                 <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
-                <StackPanel Orientation="Horizontal" Margin="4,2,4,2" Spacing="10">
-                    <Button Classes="toolbar" Content="Plate Solve"
+                <Grid Margin="4,2,4,2" ColumnDefinitions="Auto,*,Auto,Auto">
+                    <Button Grid.Column="0" Classes="toolbar" Content="Plate Solve"
+                            VerticalAlignment="Top"
                             Command="{Binding Observation.StartPlateSolveCommand}"/>
-                    <TextBlock Classes="hint" Text="{Binding EquipmentTarget.PlateSolveStatus}"
-                               Foreground="{Binding EquipmentTarget.PlateSolveStatus, Converter={StaticResource StatusBrushConverter}}"
-                               VerticalAlignment="Center"/>
-                    <TextBlock Classes="hint" Text="{Binding EquipmentTarget.ActiveSolverLabel}"
-                               Foreground="{StaticResource BrushHint}"
-                               FontSize="14" VerticalAlignment="Center"
-                               IsVisible="{Binding EquipmentTarget.PlateSolveStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                    <Button Classes="toolbar" Content="Cancel"
+                    <StackPanel Grid.Column="1" Margin="10,0,10,0" VerticalAlignment="Center">
+                        <TextBlock Classes="hint" Text="{Binding EquipmentTarget.PlateSolveStatus}"
+                                   Foreground="{Binding EquipmentTarget.PlateSolveStatus, Converter={StaticResource StatusBrushConverter}}"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock Classes="hint" Text="{Binding EquipmentTarget.ActiveSolverLabel}"
+                                   Foreground="{StaticResource BrushHint}"
+                                   FontSize="14"
+                                   IsVisible="{Binding EquipmentTarget.PlateSolveStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    </StackPanel>
+                    <Button Grid.Column="2" Classes="toolbar" Content="Cancel" Margin="0,0,10,0"
+                            VerticalAlignment="Top"
                             Command="{Binding EquipmentTarget.CancelPlateSolveCommand}"
                             IsVisible="{Binding EquipmentTarget.IsPsCancelVisible}"/>
-                    <Button Classes="toolbar" Content="Retry"
+                    <Button Grid.Column="3" Classes="toolbar" Content="Retry"
+                            VerticalAlignment="Top"
                             Command="{Binding EquipmentTarget.RetryPlateSolveCommand}"
                             IsVisible="{Binding EquipmentTarget.IsPsRetryEnabled}"/>
-                </StackPanel>
+                </Grid>
 
                 <!-- ── Star Selection ── -->
                 <StackPanel Orientation="Horizontal" Margin="4,12,0,2">
@@ -255,44 +260,80 @@
                 </StackPanel>
                 <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
 
-                <!-- Import NINA Star List (no preview textbox) -->
-                <StackPanel Orientation="Horizontal" Margin="4,3" Spacing="10">
-                    <TextBlock Text="Import NINA Star List:" VerticalAlignment="Center"/>
-                    <Button Classes="toolbar" Content="Browse CSV..."
-                            Command="{Binding EquipmentTarget.BrowseCsvCommand}"/>
-                    <TextBlock Classes="hint" Text="{Binding EquipmentTarget.CsvFileName}" VerticalAlignment="Center"/>
-                </StackPanel>
-
-                <!-- AAVSO comp fetch status -->
-                <StackPanel Orientation="Horizontal" Spacing="10" Margin="4,0">
-                    <TextBlock Classes="hint" Text="{Binding EquipmentTarget.AavsoCompStatus}"
-                               Foreground="{Binding EquipmentTarget.AavsoCompStatus, Converter={StaticResource StatusBrushConverter}}"
-                               FontWeight="Bold" VerticalAlignment="Center"/>
-                    <Button Classes="toolbar" Content="Retry Comps"
-                            Command="{Binding EquipmentTarget.RetryCompsCommand}"
-                            IsVisible="{Binding EquipmentTarget.IsCompsRetryEnabled}"/>
-                </StackPanel>
-
-                <!-- Target Star X,Y -->
-                <Grid Margin="4,3">
+                <!-- Comp star method selector -->
+                <Grid Margin="4,6,4,2">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="Target Star X,Y Pixel:" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.TargetXY}" Width="220" HorizontalAlignment="Left"/>
+                    <TextBlock Grid.Column="0" Text="Comp star method:"
+                               VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <ComboBox Grid.Column="1"
+                              ItemsSource="{Binding EquipmentTarget.CompMethods}"
+                              SelectedItem="{Binding EquipmentTarget.SelectedCompMethod}"
+                              Width="180"/>
                 </Grid>
-                <TextBlock Classes="hint" Text="  Format: [x, y]  (e.g. [1438, 884])" Margin="4,0,0,2"/>
+                <TextBlock Classes="hint"
+                           Text="{Binding EquipmentTarget.CompMethodDescription}"
+                           Margin="4,0,0,2" TextWrapping="Wrap"/>
 
-                <!-- Auto Select Target -->
-                <StackPanel Orientation="Horizontal" Margin="4,3" Spacing="10">
-                    <Button Classes="toolbar" Content="Auto Select Target"
-                            Command="{Binding EquipmentTarget.AutoSelectTargetCommand}"
-                            IsEnabled="{Binding EquipmentTarget.IsAutoTargetEnabled}"/>
-                    <TextBlock Classes="hint" Text="{Binding EquipmentTarget.AutoTargetStatus}"
-                               Foreground="{Binding EquipmentTarget.AutoTargetStatus, Converter={StaticResource StatusBrushConverter}}"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
+                <!-- Comp fetch buttons -->
+                <WrapPanel Orientation="Horizontal" Margin="4,2,4,0">
+                    <Button Classes="toolbar" Content="Fetch Comps"
+                            Command="{Binding EquipmentTarget.FetchCompsCommand}"
+                            Margin="0,0,10,2"/>
+                    <Button Classes="toolbar" Content="Cancel"
+                            Command="{Binding EquipmentTarget.CancelCompsCommand}"
+                            IsVisible="{Binding EquipmentTarget.IsCompQuerying}"
+                            Margin="0,0,10,2"/>
+                    <Button Classes="toolbar" Content="⊞ Comp Details"
+                            Command="{Binding EquipmentTarget.ShowCompStarDetailsCommand}"
+                            IsVisible="{Binding EquipmentTarget.HasCompStarDetails}"
+                            Margin="0,0,0,2"
+                            ToolTip.Tip="Show per-star magnitude, PSF, and catalog detail for the selected comp stars"/>
+                </WrapPanel>
+                <TextBlock Classes="hint" Text="{Binding EquipmentTarget.AavsoCompStatus}"
+                           Foreground="{Binding EquipmentTarget.AavsoCompStatus, Converter={StaticResource StatusBrushConverter}}"
+                           FontWeight="Bold" Margin="4,0,4,2" TextWrapping="Wrap"/>
+
+                <!-- Animated bar while comp stars are being queried -->
+                <ProgressBar IsIndeterminate="True"
+                             IsVisible="{Binding EquipmentTarget.IsCompQuerying}"
+                             Height="4"
+                             Margin="4,2,4,4"/>
+
+                <!-- Image quality summary — visible after a Stone comp query completes -->
+                <Border IsVisible="{Binding EquipmentTarget.HasImageQuality}"
+                        Background="{DynamicResource ThemeControlLowBrush}"
+                        BorderBrush="{DynamicResource ThemeControlMidBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4" Padding="8,6" Margin="4,2,4,4">
+                    <Grid ColumnDefinitions="*,*,*,*">
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock Text="FWHM" Classes="hint" FontSize="11"/>
+                            <TextBlock Text="{Binding EquipmentTarget.QualityFwhm}"
+                                       FontWeight="SemiBold" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Text="Color match" Classes="hint" FontSize="11"/>
+                            <TextBlock Text="{Binding EquipmentTarget.QualityColorMatch}"
+                                       FontWeight="SemiBold" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="2">
+                            <TextBlock Text="Precision" Classes="hint" FontSize="11"
+                                       ToolTip.Tip="Photon-limited photometric precision from target SNR (1000 / SNR)"/>
+                            <TextBlock Text="{Binding EquipmentTarget.QualityPrecision}"
+                                       FontWeight="SemiBold" FontSize="12"
+                                       ToolTip.Tip="Photon-limited photometric precision from target SNR (1000 / SNR)"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="3" Spacing="2">
+                            <TextBlock Text="PSF grade" Classes="hint" FontSize="11"/>
+                            <TextBlock Text="{Binding EquipmentTarget.QualityGrade}"
+                                       FontWeight="SemiBold" FontSize="12"
+                                       Foreground="{Binding EquipmentTarget.QualityGradeColor}"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
 
                 <!-- Comparison Stars X,Y -->
                 <Grid Margin="4,3">
@@ -306,21 +347,34 @@
                              AcceptsReturn="True" TextWrapping="Wrap"
                              Height="90" FontSize="20"/>
                 </Grid>
-                <TextBlock Classes="hint" Text="  Format: [[x1,y1],[x2,y2], ...]  (up to 10 stars)" Margin="4,0,0,2"/>
-
-                <!-- Auto Select Comps -->
-                <StackPanel Orientation="Horizontal" Margin="4,3" Spacing="10">
-                    <Button Classes="toolbar" Content="Auto Select Comps"
-                            Command="{Binding EquipmentTarget.AutoSelectCompsCommand}"
-                            IsEnabled="{Binding EquipmentTarget.IsAutoCompsEnabled}"/>
-                    <TextBlock Classes="hint"
-                               Text="Finds stars with similar ADU to the target — fills remaining comp slots"
-                               VerticalAlignment="Center" TextWrapping="Wrap"/>
-                </StackPanel>
+                <TextBlock Classes="hint"
+                           Text="{Binding EquipmentTarget.MaxCompStars, StringFormat='  Format: [[x1,y1],[x2,y2], ...]  (up to {0} stars)'}"
+                           Margin="4,0,0,2"/>
 
                 <TextBlock Classes="hint"
                            Text="Still need more comps?  Go to Image Analysis tab, scan files, select an image, enable Pick Comp Stars, click stars, then Send to Comp Stars."
                            Margin="4,0,0,6" TextWrapping="Wrap"/>
+
+                <!-- Auto Select Target -->
+                <StackPanel Orientation="Horizontal" Margin="4,3" Spacing="10">
+                    <Button Classes="toolbar" Content="Auto Select Target"
+                            Command="{Binding EquipmentTarget.AutoSelectTargetCommand}"
+                            IsEnabled="{Binding EquipmentTarget.IsAutoTargetEnabled}"/>
+                    <TextBlock Classes="hint" Text="{Binding EquipmentTarget.AutoTargetStatus}"
+                               Foreground="{Binding EquipmentTarget.AutoTargetStatus, Converter={StaticResource StatusBrushConverter}}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Target Star X,Y -->
+                <Grid Margin="4,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Target Star X,Y Pixel:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="1" Text="{Binding EquipmentTarget.TargetXY}" Width="220" HorizontalAlignment="Left"/>
+                </Grid>
+                <TextBlock Classes="hint" Text="  Format: [x, y]  (e.g. [1438, 884])" Margin="4,0,0,2"/>
 
             </StackPanel>
         </ScrollViewer>
@@ -340,6 +394,10 @@
                     <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
                             VerticalAlignment="Center" Click="OnHelpPlanetParameters_Click"/>
                 </StackPanel>
+                <CheckBox Content="Stellar Variability Only  (skip transit fit)"
+                          IsChecked="{Binding EquipmentTarget.StellarVariabilityOnly}"
+                          Margin="4,0,4,4"
+                          ToolTip.Tip="Runs EXOTIC's stellar-variability-only reduction instead of fitting a transit model. Requires the EXOTIC 4.3.2 pre-release dev build (build 80 or later)."/>
                 <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>
 
                 <!-- Planet name -->

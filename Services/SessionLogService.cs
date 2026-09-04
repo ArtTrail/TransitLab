@@ -5,7 +5,7 @@ using System.Linq;
 namespace TransitLab.Services;
 
 /// <summary>
-/// Writes a timestamped session log to %AppData%\TransitLab\logs\.
+/// Writes a timestamped session log to %AppData%\TransitLab\logs\ on Windows, ~/.config/TransitLab/logs/ on Mac/Linux.
 /// Keeps the five most recent sessions; older files are deleted at startup.
 /// All writes are best-effort — exceptions are silently swallowed.
 /// </summary>

@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -85,22 +86,32 @@ public partial class ResultsView : UserControl
             MaxWidth     = 440,
             FontSize     = 15,
         };
+        var scroll = new ScrollViewer
+        {
+            Content                       = tb,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility   = ScrollBarVisibility.Auto,
+        };
         var btn = new Button
         {
             Content             = "OK",
             HorizontalAlignment = HorizontalAlignment.Center,
-            MinWidth            = 80,
+            MinWidth            = 70,
             Margin              = new Thickness(0, 2, 0, 14),
         };
-        var layout = new StackPanel { Children = { tb, btn } };
+        var layout = new DockPanel();
+        DockPanel.SetDock(btn, Dock.Bottom);
+        layout.Children.Add(btn);
+        layout.Children.Add(scroll);
         var dialog = new Window
         {
             Title                 = title,
             Content               = layout,
             Width                 = 480,
+            MaxHeight             = 700,
             SizeToContent         = SizeToContent.Height,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            CanResize             = false,
+            CanResize             = true,
             ShowInTaskbar         = false,
         };
         btn.Click += (_, _) => dialog.Close();

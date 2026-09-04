@@ -14,49 +14,31 @@
                    TextWrapping="Wrap"
                    Margin="0,0,0,10"/>
 
-        <!-- ── Status rows ──────────────────────────────────────────────────── -->
+        <!-- ── Python status row (Stable's base interpreter only — Pre-release now has
+             its own independent Python 3.12+ row/buttons inside its card below, since
+             some branches require a newer Python than Stable's releases do) ── -->
         <Border DockPanel.Dock="Top"
                 BorderThickness="1"
                 BorderBrush="{StaticResource BrushSep}"
                 CornerRadius="4"
                 Padding="10,8"
                 Margin="0,0,0,10">
-            <StackPanel Spacing="6">
-
-                <!-- Python row -->
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="{Binding PythonStatusIcon}"
-                               Foreground="{Binding PythonStatusIcon, Converter={StaticResource StatusBrushConverter}}"
-                               FontWeight="Bold"
-                               Width="16"
-                               VerticalAlignment="Center"/>
-                    <TextBlock Text="Python:" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding PythonStatus}"
-                               Classes="hint"
-                               Foreground="{Binding PythonStatus, Converter={StaticResource StatusBrushConverter}}"
-                               VerticalAlignment="Center"
-                               TextWrapping="NoWrap"/>
-                </StackPanel>
-
-                <!-- EXOTIC row -->
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="{Binding ExoticStatusIcon}"
-                               Foreground="{Binding ExoticStatusIcon, Converter={StaticResource StatusBrushConverter}}"
-                               FontWeight="Bold"
-                               Width="16"
-                               VerticalAlignment="Center"/>
-                    <TextBlock Text="EXOTIC:" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <TextBlock Text="{Binding ExoticStatus}"
-                               Classes="hint"
-                               Foreground="{Binding ExoticStatus, Converter={StaticResource StatusBrushConverter}}"
-                               VerticalAlignment="Center"
-                               TextWrapping="NoWrap"/>
-                </StackPanel>
-
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{Binding PythonStatusIcon}"
+                           Foreground="{Binding PythonStatusIcon, Converter={StaticResource StatusBrushConverter}}"
+                           FontWeight="Bold"
+                           Width="16"
+                           VerticalAlignment="Center"/>
+                <TextBlock Text="Python (Stable):" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding PythonStatus}"
+                           Classes="hint"
+                           Foreground="{Binding PythonStatus, Converter={StaticResource StatusBrushConverter}}"
+                           VerticalAlignment="Center"
+                           TextWrapping="NoWrap"/>
             </StackPanel>
         </Border>
 
-        <!-- ── Button row ───────────────────────────────────────────────────── -->
+        <!-- ── Button row (Stable's Python-level actions only) ─────────────── -->
         <WrapPanel DockPanel.Dock="Top"
                    Orientation="Horizontal"
                    Margin="0,0,0,8">
@@ -69,14 +51,6 @@
                     Command="{Binding GetPythonCommand}"
                     IsEnabled="{Binding CanGetPython}"
                     IsVisible="{Binding IsNotLinux}"/>
-            <Button Classes="toolbar" Margin="0,0,8,4"
-                    Content="Install / Upgrade EXOTIC"
-                    Command="{Binding InstallExoticCommand}"
-                    IsEnabled="{Binding CanInstallExotic}"/>
-            <Button Classes="toolbar" Margin="0,0,8,4"
-                    Content="Uninstall EXOTIC"
-                    Command="{Binding UninstallExoticCommand}"
-                    IsEnabled="{Binding CanUninstallExotic}"/>
             <Button Classes="toolbar" Margin="0,0,0,4"
                     Content="Cancel"
                     Command="{Binding CancelCommand}"
@@ -84,38 +58,181 @@
                     Foreground="{StaticResource BrushErr}"/>
         </WrapPanel>
 
-        <!-- ── Pre-release / branch install ────────────────────────────────── -->
-        <Border DockPanel.Dock="Top"
-                BorderThickness="1"
-                BorderBrush="{StaticResource BrushWarn}"
-                CornerRadius="4"
-                Padding="10,8"
-                Margin="0,0,0,8">
-            <StackPanel Spacing="6">
+        <!-- ── EXOTIC environments: Stable and Pre-release side by side ────────
+             Each is an isolated install (its own Python venv) so both can stay
+             installed at once — switching is just picking which one runs next. -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,4">
+            <TextBlock Text="EXOTIC Environments"
+                       FontWeight="SemiBold"/>
+            <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
+                    VerticalAlignment="Center" Click="OnHelpEnvironments_Click"/>
+        </StackPanel>
+        <TextBlock DockPanel.Dock="Top"
+                   TextWrapping="Wrap"
+                   Classes="hint"
+                   Text="The active environment (●) is what runs when you click Save &amp; Run. Install, reinstall, or remove either one independently — no need to uninstall one to use the other."
+                   Margin="0,0,0,8"/>
 
-                <TextBlock Text="Pre-release / Development Build"
-                           FontWeight="SemiBold"/>
-                <TextBlock TextWrapping="Wrap"
-                           Classes="hint"
-                           Text="Install EXOTIC directly from a GitHub branch. Use this only when directed by the EXOTIC developers to test a specific branch. Pre-release builds are not officially supported and may produce unexpected results."/>
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBox Grid.Column="0"
-                             Text="{Binding BranchUrl}"
-                             Watermark="https://github.com/rzellem/EXOTIC.git@branch-name"
-                             Margin="0,0,8,0"/>
-                    <Button Grid.Column="1"
-                            Classes="toolbar"
-                            Content="Install Pre-release"
-                            Command="{Binding InstallBranchCommand}"
-                            IsEnabled="{Binding CanInstallBranch}"/>
-                </Grid>
-                <TextBlock TextWrapping="Wrap"
-                           Classes="hint"
-                           Foreground="{StaticResource BrushWarn}"
-                           Text="⚠  This replaces your current EXOTIC installation.  Git will be installed automatically if needed.  To return to the stable release, click Install EXOTIC above."/>
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,10,*" Margin="0,0,0,8">
 
-            </StackPanel>
-        </Border>
+            <!-- Stable card -->
+            <Border Grid.Column="0"
+                    BorderThickness="1"
+                    BorderBrush="{StaticResource BrushSep}"
+                    CornerRadius="4"
+                    Padding="10,8">
+                <StackPanel Spacing="6">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <RadioButton IsChecked="{Binding StableIsActive}"
+                                     VerticalAlignment="Center"
+                                     ToolTip.Tip="Use Stable for the next run"/>
+                        <TextBlock Text="Stable" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Grid ColumnDefinitions="16,*" ColumnSpacing="8">
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding StableStatusIcon}"
+                                   Foreground="{Binding StableStatusIcon, Converter={StaticResource StatusBrushConverter}}"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding StableStatusText}"
+                                   Classes="hint"
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center"/>
+                    </Grid>
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Classes="toolbar" Margin="0,0,8,4"
+                                Content="Install / Reinstall"
+                                Command="{Binding InstallStableCommand}"
+                                IsEnabled="{Binding StableCanInstall}"
+                                ToolTip.Tip="Creates this environment if needed, then installs or reinstalls EXOTIC into it. Safe to click even if already installed — updates it in place."/>
+                        <Button Classes="toolbar" Margin="0,0,8,4"
+                                Content="Uninstall"
+                                Command="{Binding UninstallStableCommand}"
+                                IsEnabled="{Binding StableCanUninstall}"
+                                ToolTip.Tip="Removes only the EXOTIC package. The environment itself is kept, so a later Install/Reinstall is quick."/>
+                        <Button Classes="toolbar" Margin="0,0,0,4"
+                                Content="Remove"
+                                Command="{Binding RemoveStableCommand}"
+                                IsEnabled="{Binding StableCanRemove}"
+                                Foreground="{StaticResource BrushErr}"
+                                ToolTip.Tip="Deletes this entire environment — EXOTIC and Python itself. A later Install/Reinstall has to rebuild it from scratch."/>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Pre-release card -->
+            <Border Grid.Column="2"
+                    BorderThickness="1"
+                    BorderBrush="{StaticResource BrushWarn}"
+                    CornerRadius="4"
+                    Padding="10,8">
+                <StackPanel Spacing="6">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <RadioButton IsChecked="{Binding PrereleaseIsActive}"
+                                     VerticalAlignment="Center"
+                                     ToolTip.Tip="Use Pre-release for the next run"/>
+                        <TextBlock Text="Pre-release / Development Build" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Grid ColumnDefinitions="16,*" ColumnSpacing="8">
+                        <TextBlock Grid.Column="0"
+                                   Text="{Binding PrereleaseStatusIcon}"
+                                   Foreground="{Binding PrereleaseStatusIcon, Converter={StaticResource StatusBrushConverter}}"
+                                   FontWeight="Bold"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding PrereleaseStatusText}"
+                                   Classes="hint"
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center"/>
+                    </Grid>
+                    <TextBlock TextWrapping="Wrap"
+                               Classes="hint"
+                               Text="Install directly from a GitHub branch. Use only when directed by the EXOTIC developers to test a specific branch — not officially supported and may produce unexpected results."/>
+
+                    <!-- Pre-release's own base Python (independent of Stable's, above — some
+                         branches require a newer Python than Stable's releases do). -->
+                    <Border BorderThickness="1"
+                            BorderBrush="{StaticResource BrushSep}"
+                            CornerRadius="4"
+                            Padding="8,6">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="16,Auto,*" ColumnSpacing="8">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding PrereleasePythonStatusIcon}"
+                                           Foreground="{Binding PrereleasePythonStatusIcon, Converter={StaticResource StatusBrushConverter}}"
+                                           FontWeight="Bold"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="Python:" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding PrereleasePythonStatus}"
+                                           Classes="hint"
+                                           Foreground="{Binding PrereleasePythonStatus, Converter={StaticResource StatusBrushConverter}}"
+                                           VerticalAlignment="Center"
+                                           TextWrapping="Wrap"/>
+                            </Grid>
+                            <WrapPanel Orientation="Horizontal">
+                                <Button Classes="toolbar" Margin="0,0,8,4"
+                                        Content="Check System"
+                                        Command="{Binding CheckPrereleasePythonCommand}"
+                                        IsEnabled="{Binding CanCheck}"
+                                        ToolTip.Tip="Searches for a Python 3.12+ interpreter, used only to create this environment — independent of Stable's Python above."/>
+                                <Button Classes="toolbar" Margin="0,0,0,4"
+                                        Content="{Binding PrereleaseGetPythonLabel}"
+                                        Command="{Binding GetPrereleasePythonCommand}"
+                                        IsEnabled="{Binding PrereleaseCanGetPython}"
+                                        IsVisible="{Binding IsNotLinux}"/>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <ComboBox Grid.Column="0"
+                                  ItemsSource="{Binding BranchUrls}"
+                                  Text="{Binding BranchUrl}"
+                                  IsEditable="True"
+                                  HorizontalAlignment="Stretch"
+                                  Margin="0,0,8,0"/>
+                        <Button Grid.Column="1"
+                                Classes="toolbar"
+                                Content="Remove URL"
+                                Command="{Binding RemoveBranchUrlCommand}"/>
+                    </Grid>
+                    <TextBlock TextWrapping="Wrap"
+                               Classes="hint"
+                               Text="e.g. https://github.com/rzellem/EXOTIC.git@branch-name — remembered in the dropdown above."/>
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Classes="toolbar" Margin="0,0,8,4"
+                                Content="Check Version"
+                                Command="{Binding CheckPrereleaseVersionCommand}"
+                                IsEnabled="{Binding CanCheckPrereleaseVersion}"
+                                ToolTip.Tip="Checks the branch's latest commit against what's installed, without reinstalling. Requires Pre-release to be the selected environment (●) above and a branch URL entered."/>
+                        <Button Classes="toolbar" Margin="0,0,8,4"
+                                Content="Install / Reinstall"
+                                Command="{Binding InstallBranchCommand}"
+                                IsEnabled="{Binding CanInstallBranch}"
+                                ToolTip.Tip="Creates this environment if needed, then installs or reinstalls EXOTIC from the branch URL above. Safe to click even if already installed — this is how you pull in the branch's latest commit without uninstalling first."/>
+                        <Button Classes="toolbar" Margin="0,0,8,4"
+                                Content="Uninstall"
+                                Command="{Binding UninstallPrereleaseCommand}"
+                                IsEnabled="{Binding PrereleaseCanUninstall}"
+                                ToolTip.Tip="Removes only the EXOTIC package. The environment itself is kept, so a later Install/Reinstall is quick."/>
+                        <Button Classes="toolbar" Margin="0,0,0,4"
+                                Content="Remove"
+                                Command="{Binding RemovePrereleaseCommand}"
+                                IsEnabled="{Binding PrereleaseCanRemove}"
+                                Foreground="{StaticResource BrushErr}"
+                                ToolTip.Tip="Deletes this entire environment — EXOTIC and Python itself. A later Install/Reinstall has to rebuild it from scratch."/>
+                    </WrapPanel>
+                    <TextBlock TextWrapping="Wrap"
+                               Classes="hint"
+                               IsVisible="{Binding PrereleaseVersionCheckStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               Text="{Binding PrereleaseVersionCheckStatus}"
+                               Foreground="{Binding PrereleaseVersionCheckStatus, Converter={StaticResource StatusBrushConverter}}"
+                               Margin="0,2,0,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
 
         <!-- ── Progress bar ─────────────────────────────────────────────────── -->
         <Border DockPanel.Dock="Top"

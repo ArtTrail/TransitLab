@@ -1,0 +1,137 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="TransitLab.Views.CompStarDetailsWindow"
+        x:CompileBindings="False"
+        Title="Comp Star Details"
+        Width="880" MinWidth="680"
+        Height="440" MinHeight="280"
+        CanResize="True"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+
+    <DockPanel>
+
+        <!-- ── Column header row ─────────────────────────────────────────── -->
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource BrushBg2}"
+                BorderThickness="0,0,0,1"
+                BorderBrush="{StaticResource BrushSep}"
+                Padding="8,6,8,4">
+            <!-- No [?] button here — keeping this Grid identical in available
+                 width to the data row Grids below so all columns align. -->
+            <Grid ColumnDefinitions="28,*,100,74,60,48,62,50,58">
+                <TextBlock Grid.Column="0" Text="#"
+                           FontWeight="SemiBold" TextAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Name" Margin="8,0,8,0"
+                           FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="2" Text="Magnitude"
+                           FontWeight="SemiBold" Margin="0,0,8,0"/>
+                <TextBlock Grid.Column="3" Text="Source"
+                           FontWeight="SemiBold" TextAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Grid.Column="4" Text="FWHM"
+                           FontWeight="SemiBold" TextAlignment="Right" Margin="0,0,8,0"/>
+                <TextBlock Grid.Column="5" Text="SNR"
+                           FontWeight="SemiBold" TextAlignment="Right" Margin="0,0,8,0"/>
+                <TextBlock Grid.Column="6" Text="Sep ″"
+                           FontWeight="SemiBold" TextAlignment="Right" Margin="0,0,8,0"/>
+                <TextBlock Grid.Column="7" Text="Cat."
+                           FontWeight="SemiBold" TextAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Grid.Column="8" Text="PSF"
+                           FontWeight="SemiBold" TextAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- ── Footer: Close + [?] help ─────────────────────────────────── -->
+        <Border DockPanel.Dock="Bottom"
+                BorderThickness="0,1,0,0"
+                BorderBrush="{StaticResource BrushSep}"
+                Padding="8,8">
+            <DockPanel>
+                <Button DockPanel.Dock="Left"
+                        Content="[?]" FontSize="12" Padding="6,2"
+                        Click="OnHelp_Click"
+                        ToolTip.Tip="Column reference"/>
+                <Button Content="Close" HorizontalAlignment="Right"
+                        MinWidth="80" Click="OnClose_Click"/>
+            </DockPanel>
+        </Border>
+
+        <!-- ── Data rows ─────────────────────────────────────────────────── -->
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Rows}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border BorderThickness="0,0,0,1"
+                                BorderBrush="{StaticResource BrushSep}"
+                                Padding="8,5">
+                            <Grid ColumnDefinitions="28,*,100,74,60,48,62,50,58">
+
+                                <!-- # -->
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding Num}"
+                                           TextAlignment="Center"
+                                           Foreground="{StaticResource BrushHint}"/>
+
+                                <!-- Name — VSX designation, else full "Gaia <source ID>", else "—" -->
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding Name}"
+                                           Margin="8,0,8,0"
+                                           TextTrimming="CharacterEllipsis"
+                                           FontFamily="Courier New, Consolas, monospace"/>
+
+                                <!-- Magnitude  (e.g. "14.23 ± 0.012") -->
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding MagDisplay}"
+                                           Margin="0,0,8,0"
+                                           FontFamily="Courier New, Consolas, monospace"/>
+
+                                <!-- Mag source (GSPC / APASS / G→V / VSP) -->
+                                <TextBlock Grid.Column="3"
+                                           Text="{Binding Source}"
+                                           TextAlignment="Center"
+                                           Margin="0,0,8,0"
+                                           Foreground="{StaticResource BrushAccent}"/>
+
+                                <!-- FWHM -->
+                                <TextBlock Grid.Column="4"
+                                           Text="{Binding Fwhm}"
+                                           TextAlignment="Right"
+                                           Margin="0,0,8,0"/>
+
+                                <!-- SNR -->
+                                <TextBlock Grid.Column="5"
+                                           Text="{Binding Snr}"
+                                           TextAlignment="Right"
+                                           Margin="0,0,8,0"/>
+
+                                <!-- Separation arcsec -->
+                                <TextBlock Grid.Column="6"
+                                           Text="{Binding Sep}"
+                                           TextAlignment="Right"
+                                           Margin="0,0,8,0"/>
+
+                                <!-- Catalog origin -->
+                                <TextBlock Grid.Column="7"
+                                           Text="{Binding Catalog}"
+                                           TextAlignment="Center"
+                                           Margin="0,0,8,0"
+                                           Foreground="{StaticResource BrushHint}"/>
+
+                                <!-- PSF status  ✓ / ⚠ Sat. / ⚠ PSF -->
+                                <TextBlock Grid.Column="8"
+                                           Text="{Binding Status}"
+                                           TextAlignment="Center"
+                                           FontWeight="SemiBold"
+                                           Foreground="{Binding Status, Converter={StaticResource StatusBrushConverter}}"/>
+
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+    </DockPanel>
+
+</Window>

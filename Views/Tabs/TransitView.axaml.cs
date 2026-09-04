@@ -1,10 +1,12 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using TransitLab.Services;
 using TransitLab.ViewModels;
 using System;
 using System.Diagnostics;
@@ -140,22 +142,32 @@ public partial class TransitView : UserControl
             MaxWidth     = 440,
             FontSize     = 15,
         };
+        var scroll = new ScrollViewer
+        {
+            Content                       = tb,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility   = ScrollBarVisibility.Auto,
+        };
         var btn = new Button
         {
             Content             = "OK",
             HorizontalAlignment = HorizontalAlignment.Center,
-            MinWidth            = 80,
+            MinWidth            = 70,
             Margin              = new Thickness(0, 2, 0, 14),
         };
-        var layout = new StackPanel { Children = { tb, btn } };
+        var layout = new DockPanel();
+        DockPanel.SetDock(btn, Dock.Bottom);
+        layout.Children.Add(btn);
+        layout.Children.Add(scroll);
         var dialog = new Window
         {
             Title                 = title,
             Content               = layout,
             Width                 = 480,
+            MaxHeight             = 700,
             SizeToContent         = SizeToContent.Height,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            CanResize             = false,
+            CanResize             = true,
             ShowInTaskbar         = false,
         };
         btn.Click += (_, _) => dialog.Close();
@@ -197,7 +209,7 @@ public partial class TransitView : UserControl
                     if (kv.StartsWith("Tc=", StringComparison.OrdinalIgnoreCase))
                     {
                         var val = kv.Substring(3).Split('+')[0].Trim();
-                        double.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out tc);
+                        NumericParseService.TryParse(val, out tc);
                     }
                 }
             }
@@ -211,7 +223,7 @@ public partial class TransitView : UserControl
                     if (kv.StartsWith("Period=", StringComparison.OrdinalIgnoreCase))
                     {
                         var val = kv.Substring(7).Split('+')[0].Trim();
-                        double.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out period);
+                        NumericParseService.TryParse(val, out period);
                     }
                 }
             }
@@ -242,8 +254,8 @@ public partial class TransitView : UserControl
                 var parts = line.Split(delim);
                 if (dateCol >= parts.Length || diffCol >= parts.Length) continue;
 
-                if (double.TryParse(parts[dateCol].Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out var bjd) &&
-                    float.TryParse(parts[diffCol].Trim(),  NumberStyles.Any, CultureInfo.InvariantCulture, out var fl))
+                if (NumericParseService.TryParse(parts[dateCol].Trim(), out var bjd) &&
+                    NumericParseService.TryParseFloat(parts[diffCol].Trim(), out var fl))
                 {
                     phases.Add(0.5 + (bjd - tc) / period);
                     fluxes.Add(fl);
@@ -290,8 +302,8 @@ public partial class TransitView : UserControl
                 }
 
                 if (phaseCol < parts.Length && fluxCol < parts.Length &&
-                    double.TryParse(parts[phaseCol], NumberStyles.Any, CultureInfo.InvariantCulture, out var ph) &&
-                    float.TryParse(parts[fluxCol],   NumberStyles.Any, CultureInfo.InvariantCulture, out var fl))
+                    NumericParseService.TryParse(parts[phaseCol], out var ph) &&
+                    NumericParseService.TryParseFloat(parts[fluxCol], out var fl))
                 {
                     phases.Add(ph);
                     fluxes.Add(fl);

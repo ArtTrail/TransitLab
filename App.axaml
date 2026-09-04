@@ -91,6 +91,16 @@
             <Setter Property="FontSize"   Value="20"/>
         </Style>
 
+        <!-- ── Buttons: center content by default ─────────────────────────── -->
+        <!-- Avalonia's Button defaults HorizontalContentAlignment to Stretch, not Center —
+             a plain string doesn't self-center within stretched space, so any button wider
+             than its natural text (MinWidth, or stretched across a Grid column) renders its
+             label left-aligned instead of centered. This applies to every Button in the app. -->
+        <Style Selector="Button">
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment"   Value="Center"/>
+        </Style>
+
         <!-- ── Toolbar buttons ────────────────────────────────────────────── -->
         <Style Selector="Button.toolbar">
             <Setter Property="Background"  Value="{StaticResource BrushBtn}"/>

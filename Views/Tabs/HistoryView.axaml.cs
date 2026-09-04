@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -28,8 +29,8 @@ public partial class HistoryView : UserControl
             "  • Obs — AAVSO observer code\n" +
             "  • Obs Date — calendar date of the observation\n" +
             "  • Submitted — date the result was submitted to AAVSO (dd-MMM-yyyy)\n" +
-            "  • Tmid (BJD_TDB) — fitted mid-transit time and its 1σ uncertainty\n" +
-            "  • (Rp/R*)² — fitted transit depth and uncertainty\n" +
+            "  • Tmid (BJD_TDB) / ±Tmid — fitted mid-transit time and its 1σ uncertainty (separate, independently sortable columns)\n" +
+            "  • (Rp/R*)² / ±(Rp/R*)² — fitted transit depth and its uncertainty (separate, independently sortable columns)\n" +
             "  • SNR — signal-to-noise ratio of the transit detection\n" +
             "  • Depth % — transit depth as a percentage\n" +
             "  • Inc ° — fitted orbital inclination\n" +
@@ -49,22 +50,32 @@ public partial class HistoryView : UserControl
             MaxWidth     = 440,
             FontSize     = 15,
         };
+        var scroll = new ScrollViewer
+        {
+            Content                       = tb,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility   = ScrollBarVisibility.Auto,
+        };
         var btn = new Button
         {
             Content             = "OK",
             HorizontalAlignment = HorizontalAlignment.Center,
-            MinWidth            = 80,
+            MinWidth            = 70,
             Margin              = new Thickness(0, 2, 0, 14),
         };
-        var layout = new StackPanel { Children = { tb, btn } };
+        var layout = new DockPanel();
+        DockPanel.SetDock(btn, Dock.Bottom);
+        layout.Children.Add(btn);
+        layout.Children.Add(scroll);
         var dialog = new Window
         {
             Title                 = title,
             Content               = layout,
             Width                 = 480,
+            MaxHeight             = 700,
             SizeToContent         = SizeToContent.Height,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            CanResize             = false,
+            CanResize             = true,
             ShowInTaskbar         = false,
         };
         btn.Click += (_, _) => dialog.Close();

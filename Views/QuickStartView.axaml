@@ -15,21 +15,30 @@
             <!-- Step 1 -->
             <TextBlock Classes="h2" Text="Step 1 — Set your FITS directory  (Data tab)" Margin="0,0,0,6"/>
             <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
-                       Text="On the Data tab, click Browse next to FITS Files Directory and select the folder containing your science images."/>
+                       Text="On the Data tab, click Browse next to Lights Directory and select the folder containing your science images."/>
             <TextBlock TextWrapping="Wrap" Margin="16,4,0,12" Classes="hint"
                        Text="Save Plots, Darks, Flats, and Biases directories are detected automatically. You can override them by browsing manually."/>
 
             <!-- Step 2 -->
-            <TextBlock Classes="h2" Text="Step 2 — Read the FITS header  (Parameters tab)" Margin="0,0,0,6"/>
+            <TextBlock Classes="h2" Text="Step 2 — Check frames  (Image Analysis tab)" Margin="0,0,0,6"/>
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
+                       Text="Go to the Image Analysis tab. Click Scan Files to measure background levels and flag any frames with unusually high background (clouds, moon, etc.)."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,4,0,0"
+                       Text="Flagged frames are shown with 'Flagged' in the Status column but are NOT automatically excluded. To exclude them, click Exclude Flagged — or check individual Excl boxes manually. Restore Excluded un-checks them all if you change your mind."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,4,0,12" Classes="hint"
+                       Text="Tip: adjust the σ threshold (default 3.0) to control how aggressively frames are flagged."/>
+
+            <!-- Step 3 -->
+            <TextBlock Classes="h2" Text="Step 3 — Read the FITS header  (Parameters tab)" Margin="0,0,0,6"/>
             <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
                        Text="Go to the Parameters tab and click Read FITS Header. This reads the first image in the directory and automatically fills in:"/>
             <TextBlock TextWrapping="Wrap" Margin="32,4,0,2" Text="• Observation date, site latitude/longitude, and elevation"/>
             <TextBlock TextWrapping="Wrap" Margin="32,0,0,2" Text="• Camera filter, pixel binning, and pixel scale"/>
             <TextBlock TextWrapping="Wrap" Margin="32,0,0,2" Text="• Planet name (from the OBJECT header keyword)"/>
-            <TextBlock TextWrapping="Wrap" Margin="32,0,0,12" Text="• Plate solve (runs in the background — look for the ✓ status under Plate Solve)"/>
+            <TextBlock TextWrapping="Wrap" Margin="32,0,0,12" Text="• Plate solve (runs in the background — look for the status under Plate Solve: ✓ green means fully solved, ⚠ yellow means partially solved but still usable, ✗ red means it failed and needs attention)"/>
 
-            <!-- Step 3 -->
-            <TextBlock Classes="h2" Text="Step 3 — Fetch planet parameters  (Parameters tab)" Margin="0,0,0,6"/>
+            <!-- Step 4 -->
+            <TextBlock Classes="h2" Text="Step 4 — Fetch planet parameters  (Parameters tab)" Margin="0,0,0,6"/>
             <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
                        Text="The planet name found in the FITS header triggers an automatic NASA Exoplanet Archive (NEA) fetch. Wait for the ✓ status to appear next to Fetch from NEA on the right side of the Parameters tab."/>
             <TextBlock TextWrapping="Wrap" Margin="16,4,0,0" Classes="hint"
@@ -37,32 +46,25 @@
             <TextBlock TextWrapping="Wrap" Margin="16,4,0,12" Classes="hint"
                        Text="Review the filled-in values — especially Rp/Rs, Teff, and Metallicity — before running."/>
 
-            <!-- Step 4 -->
-            <TextBlock Classes="h2" Text="Step 4 — Check frames  (Image Analysis tab)" Margin="0,0,0,6"/>
-            <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
-                       Text="Go to the Image Analysis tab. Click Scan Files to measure background levels and flag any frames with unusually high background (clouds, moon, etc.)."/>
-            <TextBlock TextWrapping="Wrap" Margin="16,4,0,0"
-                       Text="Flagged frames are shown with 'Flagged' in the Status column but are NOT automatically excluded. To exclude them, click Auto-exclude Flagged — or check individual Excl boxes manually."/>
-            <TextBlock TextWrapping="Wrap" Margin="16,4,0,12" Classes="hint"
-                       Text="Tip: adjust the σ threshold (default 3.0) to control how aggressively frames are flagged."/>
-
             <!-- Step 5 -->
-            <TextBlock Classes="h2" Text="Step 5 — Set target and comparison stars  (Parameters tab)" Margin="0,0,0,6"/>
+            <TextBlock Classes="h2" Text="Step 5 — Select comparison and target stars  (Parameters tab)" Margin="0,0,0,6"/>
             <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
-                       Text="Return to the Parameters tab. Under Star Selection, AAVSO comparison stars are fetched automatically once a plate solution is available."/>
+                       Text="Return to the Parameters tab. Under Star Selection, choose a Comp star method — AAVSO VSP (fast, uses the published AAVSO sequence, default), VSP + Stone (recommended: full Gaia/APASS/GSPC pipeline with VSP priority fill), or Stone (same pipeline without VSP) — then click Fetch Comps."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,4,0,2" Classes="hint"
+                       Text="Stone methods run PSF validation and show an Image Quality summary (FWHM, color match, precision, PSF grade) when the fetch completes. Click ⊞ Comp Details for a full per-star breakdown."/>
+            <TextBlock TextWrapping="Wrap" Margin="16,4,0,2"
+                       Text="Still need more comps? Go to Image Analysis, enable Pick Comp Stars, click stars in the image, then Send to Comp Stars."/>
             <TextBlock TextWrapping="Wrap" Margin="16,4,0,2"
                        Text="To set the target position, click Auto Select Target (requires a plate solution and planet RA/Dec to be filled in)."/>
-            <TextBlock TextWrapping="Wrap" Margin="16,0,0,2"
+            <TextBlock TextWrapping="Wrap" Margin="16,0,0,12"
                        Text="If that is unavailable, go to Image Analysis, click Pick Target Star, click the star in the image, then click Send to Target Star."/>
-            <TextBlock TextWrapping="Wrap" Margin="16,0,0,12" Classes="hint"
-                       Text="You can also import a star list from the NINA Exoplanet Plugin (Import NINA Star List) to fill both target and comp positions in one step."/>
 
             <!-- Step 6 -->
             <TextBlock Classes="h2" Text="Step 6 — Confirm observer details  (Parameters tab)" Margin="0,0,0,6"/>
             <TextBlock TextWrapping="Wrap" Margin="16,0,0,0"
                        Text="Under Observer Information, confirm your AAVSO Observer Code is entered. Under Observatory / Location, confirm latitude, longitude, and elevation."/>
             <TextBlock TextWrapping="Wrap" Margin="16,4,0,12" Classes="hint"
-                       Text="Use Select Observatory to save your location so it auto-fills in future sessions."/>
+                       Text="Select Observatory auto-fills lat/lon/elevation from a location you've saved before. First time at a new site? Fill in the coordinates, then click Save current as to name and store it for future sessions."/>
 
             <!-- Step 7 -->
             <TextBlock Classes="h2" Text="Step 7 — Run EXOTIC" Margin="0,0,0,6"/>
@@ -79,7 +81,7 @@
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"
                        Text="• If the plate solve fails, try Retry under Plate Solve on the Parameters tab, or switch to ASTAP in Tools → Plate Solve Setup for faster local solving."/>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"
-                       Text="• EXOTIC Setup (Tools menu) lets you locate or install the EXOTIC Python package if it is not found automatically."/>
+                       Text="• Python &amp; EXOTIC Setup (Tools menu) lets you locate or install Python and EXOTIC if they are not found automatically — including separate Stable and Pre-release environments."/>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"
                        Text="• Use File → Recent Sessions to reload the inits.json from a previous run and re-run with the same settings."/>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"

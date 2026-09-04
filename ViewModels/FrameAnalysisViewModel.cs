@@ -32,6 +32,11 @@ public partial class FrameAnalysisViewModel : ViewModelBase
     // ── VSP controls ──────────────────────────────────────────────────────────
     [ObservableProperty] private decimal _vspFov        = 60m;
     [ObservableProperty] private decimal _vspMag        = 14.0m;
+    [ObservableProperty] private string  _vspNorth      = "up";
+    [ObservableProperty] private string  _vspEast       = "left";
+
+    public string[] VspNorthOptions { get; } = ["up", "down"];
+    public string[] VspEastOptions  { get; } = ["left", "right"];
 
     // ── Image viewer — stretch ────────────────────────────────────────────────
     [ObservableProperty] private double  _blackValue    = 0.0;
@@ -419,7 +424,9 @@ public partial class FrameAnalysisViewModel : ViewModelBase
         {
             var files = Directory.GetFiles(dir, "*.*", SearchOption.TopDirectoryOnly)
                 .Where(f => f.EndsWith(".fits", StringComparison.OrdinalIgnoreCase) ||
-                            f.EndsWith(".fit",  StringComparison.OrdinalIgnoreCase))
+                            f.EndsWith(".fit",  StringComparison.OrdinalIgnoreCase) ||
+                            f.EndsWith(".fts",  StringComparison.OrdinalIgnoreCase) ||
+                            f.EndsWith(".fz",   StringComparison.OrdinalIgnoreCase))
                 .OrderBy(f => f)
                 .ToList();
 
@@ -457,6 +464,16 @@ public partial class FrameAnalysisViewModel : ViewModelBase
                     ScanStatus = $"⟳  Scanning {idx + 1} / {files.Count}…");
             }
 
+            // Read OBJECT keyword from the first file — used as VSP Star fallback when
+            // no target has been loaded yet (e.g. new data loaded before Read FITS Header).
+            string objectKeyword = "";
+            try
+            {
+                var hdr = FitsHeaderService.Read(files[0]);
+                objectKeyword = hdr.Get("OBJECT").Trim();
+            }
+            catch { }
+
             var valid = backgrounds.Where(b => !double.IsNaN(b)).OrderBy(b => b).ToArray();
             double median = 0, sigma = 1;
             if (valid.Length > 0)
@@ -490,6 +507,15 @@ public partial class FrameAnalysisViewModel : ViewModelBase
                     ? "0 images flagged"
                     : $"⚠  {flagged} image{(flagged == 1 ? "" : "s")} flagged";
                 IsScanRunning = false;
+
+                // Auto-fill VSP Star: prefer the loaded target name; fall back to the
+                // OBJECT keyword read from the first FITS file (covers the case where the
+                // user scans before reading the FITS header for a fresh target).
+                var targetName = TargetNameFunc?.Invoke() ?? "";
+                if (string.IsNullOrWhiteSpace(targetName))
+                    targetName = objectKeyword;
+                if (!string.IsNullOrWhiteSpace(targetName))
+                    VspStar = targetName;
             });
         });
     }
@@ -549,11 +575,14 @@ public partial class FrameAnalysisViewModel : ViewModelBase
 
         var raw  = VspStar.Trim();
         var star = Regex.Replace(raw, @"\s+[a-z]$", "").Trim();
-        int    fov = (int)VspFov;
-        double mag = (double)VspMag;
+        int    fov   = (int)VspFov;
+        double mag   = (double)VspMag;
+        string north = VspNorth;   // "up" or "down"
+        string east  = VspEast;    // "left" or "right"
         var pngUrl = "https://www.aavso.org/apps/vsp/chart/" +
                      $"?star={Uri.EscapeDataString(star)}" +
-                     $"&fov={fov}&maglimit={mag:0.0}&orientation=ccd&format=png";
+                     $"&fov={fov}&maglimit={mag:0.0}&orientation=ccd" +
+                     $"&north={north}&east={east}&format=png";
 
         _vspCts    = new CancellationTokenSource();
         IsVspLoading = true;
@@ -568,7 +597,8 @@ public partial class FrameAnalysisViewModel : ViewModelBase
             // Fallback: open browser (no &format=png)
             var webUrl = "https://www.aavso.org/apps/vsp/chart/" +
                          $"?star={Uri.EscapeDataString(star)}" +
-                         $"&fov={fov}&maglimit={mag:0.0}&orientation=ccd";
+                         $"&fov={fov}&maglimit={mag:0.0}&orientation=ccd" +
+                         $"&north={north}&east={east}";
             try { Process.Start(new ProcessStartInfo(webUrl) { UseShellExecute = true }); }
             catch (Exception ex) { ScanStatus = $"✗  Could not open browser: {ex.Message}"; }
         }
@@ -963,6 +993,8 @@ public partial class FrameAnalysisViewModel : ViewModelBase
 
         var darkFiles = Directory.GetFiles(dir, "*.fits", SearchOption.TopDirectoryOnly)
             .Concat(Directory.GetFiles(dir, "*.fit", SearchOption.TopDirectoryOnly))
+            .Concat(Directory.GetFiles(dir, "*.fts", SearchOption.TopDirectoryOnly))
+            .Concat(Directory.GetFiles(dir, "*.fz",  SearchOption.TopDirectoryOnly))
             .ToArray();
         if (darkFiles.Length == 0) return;
 

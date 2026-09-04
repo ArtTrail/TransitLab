@@ -19,7 +19,7 @@ public static class TipService
         // 7
         "Auto prompts (Results tab) silences known EXOTIC interactive questions so runs complete without interruption. Turn it off temporarily if EXOTIC is behaving unexpectedly and you want to see every prompt.",
         // 8
-        "If Auto Select Comps doesn't find enough stars, go to the Image Analysis tab, scan files, select a frame, enable Pick Comp Stars, click stars manually, then click Send to Comp Stars.",
+        "If Fetch Comps doesn't find enough stars, go to the Image Analysis tab, scan files, select a frame, enable Pick Comp Stars, click stars manually, then click Send to Comp Stars.",
         // 9
         "Pixel scale values you save on the Parameters tab persist across sessions. If you use the same telescope setup regularly, save it once and select it from the dropdown each time.",
         // 10
@@ -53,7 +53,7 @@ public static class TipService
         // 24
         "Filter wavelength fields auto-fill when you select a filter from the dropdown. Only enter them manually if using a custom or unlisted filter.",
         // 25
-        "Export your History to CSV or XLSX regularly as a backup. The history file lives in %AppData%\\TransitLab and is not affected by app updates, but a manual export is a safe secondary copy.",
+        "Export your History to CSV or XLSX regularly as a backup. The history file lives in %AppData%\\TransitLab on Windows (~/.config/TransitLab on Mac/Linux) and is not affected by app updates, but a manual export is a safe secondary copy.",
         // 26
         "The Stellar Density shown in the Visualizer is derived from a/Rs and the orbital period alone — no mass measurement needed. Compare it to the published value as a quick check that your NEA parameters are reasonable.",
         // 27
@@ -63,7 +63,7 @@ public static class TipService
         // 29
         "The Spectral Type in the Visualizer is estimated from Teff. Compare it to the published host star type as a quick check that your NEA parameters are reasonable.",
         // 30
-        "Comparison star positions from AAVSO are fetched automatically after the plate solve. Auto Select Comps then matches those catalog positions to pixel coordinates in your image.",
+        "The Stone comp star method (Tools → Settings → Comp Stars) scores candidates by color similarity, magnitude match, flux SNR, RUWE astrometric quality, and field centrality — click Fetch Comps on the Parameters tab to run it.",
         // 31
         "Submit Feedback (Help → Submit Feedback) lets you file a bug report or feature request directly to the TransitLab GitHub repository without leaving the app. Your version number and operating system are attached automatically.",
         // 32
@@ -95,7 +95,7 @@ public static class TipService
         // 45
         "The AAVSO Exoplanet Upload button activates as soon as a valid EXOTIC report file is found in the Save Plots directory — even if you've restarted the app since the run completed.",
         // 46
-        "TransitLab automatically keeps only the five most recent diagnostics logs in %AppData%\\TransitLab\\logs\\, so the folder never grows unbounded. Use Tools → Diagnostics → Save Log to archive any session permanently.",
+        "TransitLab automatically keeps only the five most recent diagnostics logs (%AppData%\\TransitLab\\logs\\ on Windows, ~/.config/TransitLab/logs/ on Mac/Linux), so the folder never grows unbounded. Use Tools → Diagnostics → Save Log to archive any session permanently.",
         // 47
         "After a successful AAVSO submission, a record is added automatically to the History tab with the fitted parameters from that run. Export to CSV or XLSX regularly as a backup copy of your observation history.",
     ];

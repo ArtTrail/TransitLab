@@ -1,6 +1,8 @@
 ﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="TransitLab.Views.AboutView">
+             xmlns:views="using:TransitLab.Views"
+             x:Class="TransitLab.Views.AboutView"
+             x:DataType="views:AboutView">
 
     <Border Padding="36,28,36,28">
         <StackPanel Spacing="0">
@@ -10,7 +12,7 @@
                        Text="TransitLab"
                        HorizontalAlignment="Center"/>
             <TextBlock Classes="hint"
-                       Text="Version 2.6.4"
+                       Text="{Binding Version, StringFormat='Version {0}'}"
                        HorizontalAlignment="Center"
                        Margin="0,4,0,0"/>
 
@@ -23,6 +25,13 @@
                        Text="Released under the MIT License"
                        HorizontalAlignment="Center"
                        Margin="0,2,0,0"/>
+
+            <!-- GitHub -->
+            <HyperlinkButton NavigateUri="https://github.com/ArtTrail/TransitLab"
+                             HorizontalAlignment="Center"
+                             Padding="0" Margin="0,4,0,0">
+                github.com/ArtTrail/TransitLab
+            </HyperlinkButton>
 
             <!-- Separator -->
             <Rectangle Height="1"
@@ -95,6 +104,18 @@
                        TextAlignment="Center"
                        Margin="0,2,0,10"
                        Text="MObs tab Python code and testing assistance"/>
+
+            <!-- Michael Fitzgerald -->
+            <TextBlock TextWrapping="Wrap"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Text="Michael Fitzgerald"/>
+            <TextBlock TextWrapping="Wrap"
+                       Classes="hint"
+                       HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       Margin="0,2,0,10"
+                       Text="EXOTIC ldtk HTTPS fallback &amp; NextAstro plate-solving integration&#x0a;NextAstronomy · Melbourne, Australia"/>
 
             <!-- MicroObservatory -->
             <TextBlock TextWrapping="Wrap"

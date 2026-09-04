@@ -6,16 +6,14 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>Assets\TransitLab.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
     <None Include="README.txt" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
-    <None Include="..\EXOTIC\wheelhouse\ultranest-4.5.0-cp31*-cp31*-win_amd64.whl"
-          Link="wheelhouse\%(Filename)%(Extension)"
-          CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" />
+    <None Include="LICENSE" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
   </ItemGroup>
 
   <ItemGroup>
@@ -33,5 +31,6 @@
     <PackageReference Include="HtmlAgilityPack" Version="1.11.71" />
     <PackageReference Include="ClosedXML" Version="0.102.3" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="PdfSharpCore" Version="1.3.62" />
   </ItemGroup>
 </Project>

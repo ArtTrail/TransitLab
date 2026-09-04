@@ -14,6 +14,15 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
     // ── Solver choice ─────────────────────────────────────────────────────────
     [ObservableProperty] private bool _useAstrometryNet = true;
     [ObservableProperty] private bool _useAstap         = false;
+    [ObservableProperty] private bool _useNextAstro      = false;
+
+    // NextAstroPlateSolution only exists in the EXOTIC pre-release dev build built off the
+    // 4.3.2 tag — reported by pip/setuptools_scm as "4.3.2.dev<N>+g<hash>.d<date>", not a
+    // clean "4.3.2". Defaults to false (grayed out) until CheckNextAstroSupportAsync confirms it.
+    [ObservableProperty] private bool _isNextAstroSupported = false;
+
+    public string NextAstroRequirementNote { get; } =
+        "⚠  Requires the EXOTIC 4.3.2 pre-release dev build — install via Tools → Python & EXOTIC Setup → Pre-release / Development Build.";
 
     // ── ASTAP settings ────────────────────────────────────────────────────────
     [ObservableProperty] private string _astapExePath    = "";
@@ -32,16 +41,49 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
     public Func<Task<string?>>?  BrowseCatalogDirFunc  { get; set; }
     public Action<string, string, string, int, int, bool>? SaveCallback { get; set; }
     public Action? CloseCallback { get; set; }
+    public Func<string, string, Task>? ShowInfoFunc { get; set; }
 
     // ── Radio button change handlers ──────────────────────────────────────────
     partial void OnUseAstapChanged(bool value)
     {
-        if (value) UseAstrometryNet = false;
+        if (value) { UseAstrometryNet = false; UseNextAstro = false; }
     }
 
     partial void OnUseAstrometryNetChanged(bool value)
     {
-        if (value) UseAstap = false;
+        if (value)
+        {
+            UseAstap = false;
+            UseNextAstro = false;
+            CheckOnlineSolveAllWarning();
+        }
+    }
+
+    partial void OnUseNextAstroChanged(bool value)
+    {
+        if (value)
+        {
+            UseAstap = false;
+            UseAstrometryNet = false;
+            CheckOnlineSolveAllWarning();
+        }
+    }
+
+    partial void OnSolveAllFramesChanged(bool value) => CheckOnlineSolveAllWarning();
+
+    // Astrometry.net/NextAstro solve one frame per network round-trip to a hosted service —
+    // solving every frame in a directory can take a while, unlike ASTAP's instant local solve.
+    // Warn whenever the combination (online solver + Solve All Frames) becomes active, whichever
+    // of the two settings changed to cause it.
+    private void CheckOnlineSolveAllWarning()
+    {
+        if (!SolveAllFrames || UseAstap || ShowInfoFunc is null) return;
+        var solverName = UseNextAstro ? "NextAstro" : "Astrometry.net";
+        _ = ShowInfoFunc("Solving All Frames May Take a While",
+            $"{solverName} solves each frame with its own network round-trip to a hosted service, " +
+            "unlike ASTAP's instant local solve. Solving every frame in a large directory can take " +
+            "significantly longer — the solve will still run, just expect it to take a while for " +
+            "a full night's worth of frames.");
     }
 
     partial void OnAstapExePathChanged(string value)
@@ -143,7 +185,7 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
     [RelayCommand]
     private void Save()
     {
-        var solver = UseAstap ? "ASTAP" : "AstrometryNet";
+        var solver = UseAstap ? "ASTAP" : UseNextAstro ? "NextAstro" : "AstrometryNet";
         SaveCallback?.Invoke(solver, AstapExePath, AstapCatalogDir, SearchRadius, Downsample, SolveAllFrames);
         CloseCallback?.Invoke();
     }
@@ -177,12 +219,53 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
     public void LoadFromConfig(string solver, string astapPath, string catalogDir, int searchRadius, int downsample, bool solveAllFrames = false)
     {
         UseAstap         = solver == "ASTAP";
-        UseAstrometryNet = !UseAstap;
+        UseNextAstro     = solver == "NextAstro";
+        UseAstrometryNet = !UseAstap && !UseNextAstro;
         AstapExePath     = astapPath;
         AstapCatalogDir  = catalogDir;
         SearchRadius     = searchRadius;
         Downsample       = downsample;
         SolveAllFrames   = solveAllFrames;
         RefreshCatalogStatus();
+    }
+
+    /// <summary>
+    /// Detects whether the installed EXOTIC is the pre-release dev build that contains
+    /// NextAstroPlateSolution, and enables/disables the NextAstro option accordingly. If a
+    /// previously-saved config had NextAstro selected but it's no longer supported (e.g. the
+    /// user reinstalled stable EXOTIC since last saving), falls back to Astrometry.net rather
+    /// than leaving an unusable solver selected.
+    /// </summary>
+    /// <param name="activeEnvironmentPythonExePath">
+    /// The python.exe of whichever environment (Stable or Pre-release) is currently active
+    /// in Setup, per <c>ExoticSetupViewModel.ActiveEnvironmentName</c>. NextAstro only exists
+    /// in the Pre-release build, so this must reflect the actual selected environment rather
+    /// than whatever generic Python <see cref="ExoticInstallService.FindPythonAsync"/> happens
+    /// to find on the system (v2.8.0's multi-environment install means that's frequently the
+    /// Stable environment even while Pre-release is the one selected/in use). Falls back to
+    /// FindPythonAsync only when no active-environment path is available (e.g. pre-2.8.0 config).
+    /// </param>
+    public async Task CheckNextAstroSupportAsync(string? activeEnvironmentPythonExePath = null)
+    {
+        try
+        {
+            var pythonExe = !string.IsNullOrWhiteSpace(activeEnvironmentPythonExePath)
+                ? activeEnvironmentPythonExePath
+                : (await ExoticInstallService.FindPythonAsync())?.ExePath;
+            var version = pythonExe is not null
+                ? await ExoticInstallService.GetExoticVersionAsync(pythonExe)
+                : null;
+            IsNextAstroSupported = version?.StartsWith("4.3.2.dev", StringComparison.OrdinalIgnoreCase) == true;
+        }
+        catch
+        {
+            IsNextAstroSupported = false;
+        }
+
+        if (!IsNextAstroSupported && UseNextAstro)
+        {
+            UseNextAstro     = false;
+            UseAstrometryNet = true;
+        }
     }
 }

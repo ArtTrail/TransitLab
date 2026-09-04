@@ -19,6 +19,20 @@
                 <RadioButton Content="ASTAP  (local, fast, no internet required)"
                              IsChecked="{Binding UseAstap}"
                              FontSize="18"/>
+                <RadioButton IsChecked="{Binding UseNextAstro}"
+                             IsEnabled="{Binding IsNextAstroSupported}"
+                             FontSize="18">
+                    <TextBlock Text="NextAstro  (online, via NextAstronomy — experimental, requires EXOTIC 4.3.2 pre-release dev build)"
+                               TextWrapping="Wrap"
+                               MaxWidth="560"/>
+                </RadioButton>
+                <TextBlock Text="{Binding NextAstroRequirementNote}"
+                           IsVisible="{Binding !IsNextAstroSupported}"
+                           TextWrapping="Wrap"
+                           MaxWidth="560"
+                           Margin="28,0,0,0"
+                           FontSize="14"
+                           Foreground="{StaticResource BrushWarn}"/>
             </StackPanel>
 
             <!-- ── ASTAP settings (visible when ASTAP selected) ───────────── -->
@@ -125,16 +139,20 @@
                     <TextBlock Classes="hint" FontSize="14" TextWrapping="Wrap"
                                Text="Search radius: arcminutes of sky to search around the image center (10ʹ–600ʹ). Typical values: 30–60ʹ for known fields, 120–300ʹ for blind solves. Downsample: reduce image resolution before solving — use 0 (auto) for most cameras, 2–4 for very wide-field or high-resolution images."/>
 
-                    <!-- Separator -->
-                    <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="0,4"/>
+                </StackPanel>
+            </Border>
 
-                    <!-- Solve scope -->
+            <!-- ── Solve scope — shared by all three solvers, not ASTAP-specific ──── -->
+            <Border BorderBrush="{StaticResource BrushSep}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="16,14,16,16">
+                <StackPanel Spacing="12">
                     <TextBlock Text="Solve scope" FontWeight="SemiBold"/>
                     <CheckBox Content="Solve ALL images in the FITS folder (not just the first one)"
                               IsChecked="{Binding SolveAllFrames}"/>
                     <TextBlock Classes="hint" FontSize="14" TextWrapping="Wrap"
-                               Text="When checked, clicking Plate Solve runs ASTAP on every FITS file in your FITS directory. Useful when WCS coordinates are needed on all frames. When unchecked (default), only the first non-excluded image is solved."/>
-
+                               Text="When checked, clicking Plate Solve runs the selected solver on every FITS file in your FITS directory. Useful when WCS coordinates are needed on all frames. When unchecked (default), only the first non-excluded image is solved. With Astrometry.net or NextAstro, each frame is a separate network round-trip, so a full directory can take noticeably longer than ASTAP's instant local solve."/>
                 </StackPanel>
             </Border>
 

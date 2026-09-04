@@ -1,10 +1,11 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Platform.Storage;
+using TransitLab.Services;
 using TransitLab.ViewModels;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -20,28 +21,18 @@ public partial class EquipmentTargetView : UserControl
         {
             if (DataContext is MainWindowViewModel vm)
             {
-                vm.EquipmentTarget.FilePickerFunc = PickFileAsync;
-                vm.Observation.NameDialogFunc     = ShowNameDialogAsync;
+                vm.EquipmentTarget.ShowCompStarDetailsFunc = ShowCompStarDetailsAsync;
+                vm.Observation.NameDialogFunc              = ShowNameDialogAsync;
             }
         };
     }
 
-    private async Task<string?> PickFileAsync(string title)
+    private async Task ShowCompStarDetailsAsync(List<GaiaCompService.CompStarInfo> stars)
     {
-        var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel is null) return null;
-        var results = await topLevel.StorageProvider.OpenFilePickerAsync(
-            new FilePickerOpenOptions
-            {
-                Title         = title,
-                AllowMultiple = false,
-                FileTypeFilter = new List<FilePickerFileType>
-                {
-                    new("CSV files") { Patterns = ["*.csv"] },
-                    new("All files") { Patterns = ["*"]     },
-                }
-            });
-        return results.Count > 0 ? results[0].Path.LocalPath : null;
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner is null) return;
+        var win = new CompStarDetailsWindow(stars);
+        await win.ShowDialog(owner);
     }
 
     private async Task<string?> ShowNameDialogAsync(string defaultName)
@@ -130,18 +121,68 @@ public partial class EquipmentTargetView : UserControl
     private void OnHelpPlateSolve_Click(object? sender, RoutedEventArgs e) =>
         ShowHelpPopup("Plate Solve",
             "Plate solving matches your FITS image against a star catalog (Gaia / 2MASS) to determine the precise sky coordinates of every pixel.\n\n" +
-            "This step is required before using Auto Select Target or Auto Select Comps, and ensures that the star positions passed to EXOTIC are accurate.\n\n" +
+            "This step is required before using Auto Select Target, and ensures that the star positions passed to EXOTIC are accurate.\n\n" +
             "Plate solve starts automatically when you click 'Read FITS Header' — you do not need to click 'Plate Solve' separately unless you want to re-solve or the automatic solve failed.\n\n" +
-            "The active solver (Astrometry.net or ASTAP) is shown to the right of the status. Configure solvers via the Tools menu.");
+            "The active solver (Astrometry.net, ASTAP, or NextAstro) is shown to the right of the status. Configure solvers via the Tools menu.");
 
     private void OnHelpStarSelection_Click(object? sender, RoutedEventArgs e) =>
         ShowHelpPopup("Star Selection",
-            "Defines which pixel positions in your images contain the target star and comparison (comp) stars.\n\n" +
-            "Target Star X,Y — pixel coordinate of the exoplanet host star (e.g. [1438, 884]).\n\n" +
-            "Comparison Stars X,Y — up to 10 comp stars used to correct for atmospheric and instrumental variations. Format: [[x1,y1],[x2,y2], ...]\n\n" +
-            "AAVSO comp stars are queried automatically and added to the Comparison Stars list when you click 'Read FITS Header'. No manual fetch is needed in normal use.\n\n" +
-            "Auto Select Target / Auto Select Comps — automatically identify stars using the plate solve result and NEA coordinates. Both buttons become available once 'Read FITS Header' has completed, which triggers the plate solve, NEA fetch, and AAVSO comp query automatically. Comp auto-selection finds stars with similar brightness to the target.\n\n" +
-            "Import NINA Star List — loads a CSV from N.I.N.A. to populate comp star positions directly.\n\n" +
+            "Defines which pixel positions contain the target star and comparison (comp) stars.\n\n" +
+
+            "── Comp Star Methods ──────────────────────────\n\n" +
+
+            "AAVSO VSP — queries the AAVSO Variable Star Plotter directly. Returns stars that AAVSO has vetted for this target. Fast and reliable when an AAVSO sequence exists for the field. No PSF validation is performed.\n\n" +
+
+            "VSP + Stone — the full pipeline (named after Geoffrey Stone, author of CompStarSelector). Queries Gaia DR3, APASS DR9, Gaia GSPC synthetic photometry, and AAVSO VSP. VSP stars are given priority — they fill the first available slots; the Stone pipeline (Gaia + APASS) fills remaining slots up to the configured maximum (Tools → Settings → Comp Stars). Includes PSF validation. Recommended for most targets.\n\n" +
+
+            "Stone — same full Gaia + APASS + GSPC pipeline without the VSP query. Includes PSF validation. Useful when no AAVSO sequence exists or you prefer a purely catalog-driven selection.\n\n" +
+
+            "── Candidate Quality Gates (Stone methods) ─────\n\n" +
+
+            "Before scoring, Gaia candidates must pass: a tiered RUWE astrometric-quality cut (tries < 1.1 first, relaxing to < 1.2 then < 1.4 only if too few candidates survive the stricter tier), Gaia flux-over-error > 200, not flagged as a Gaia variable, and no match within 5″ of a known AAVSO VSX variable (a separate cross-check, since a star can be missing Gaia's own variability flag but still be a documented variable in VSX).\n\n" +
+
+            "── Scoring (Stone methods) ─────────────────────\n\n" +
+
+            "Candidates are scored on 5 criteria. Weights when target color is known:\n" +
+            "  Color similarity (BP-RP)  30%\n" +
+            "  Magnitude match           25%\n" +
+            "  Flux SNR quality          15%\n" +
+            "  RUWE astrometric quality  10%\n" +
+            "  Field centrality          20%\n" +
+            "  VSP bonus                +10 pts\n\n" +
+            "Color matching requires the target's Gaia BP-RP index. If the target is too bright for Gaia or not found in the catalog, color scoring is disabled and the weights redistribute to magnitude, flux, RUWE, and centrality.\n\n" +
+
+            "── Magnitude Sources ──────────────────────────\n\n" +
+
+            "The Stone pipeline assigns the best available magnitude to each comp star using this priority chain:\n" +
+            "  1. GSPC   — Gaia synthetic photometry (~0.01 mag accuracy)\n" +
+            "  2. APASS  — APASS DR9 catalog (~0.03 mag accuracy)\n" +
+            "  3. G→V    — Gaia G-band polynomial, Evans et al. 2018\n" +
+            "  4. VSP    — AAVSO catalog magnitude (fallback)\n\n" +
+
+            "── PSF Validation (Stone methods only) ────────\n\n" +
+
+            "After selecting candidates, Stone measures each star's PSF directly from the FITS image. Stars that are saturated, have low SNR (< 75), an elongated PSF, or an outlier FWHM are rejected and replaced from a ranked backfill pool. Up to 3 passes are run. In VSP + Stone mode, a rejected slot is refilled from a VSP candidate first if one is available, so VSP stars stay ahead of Stone stars even after backfill. The target star's PSF is also measured to estimate photon-limited precision.\n\n" +
+
+            "Click ⊞ Comp Details after a Stone fetch to see the magnitude source, PSF quality, and catalog origin for each selected comp star.\n\n" +
+
+            "── Image Quality Panel ─────────────────────────\n\n" +
+
+            "After a Stone query, a panel appears below the status bar:\n" +
+            "  FWHM       — mean FWHM across comps (uniform / mild / significant)\n" +
+            "  Color match — active when target BP-RP was found in Gaia\n" +
+            "  Precision  — photon-limited mmag from target SNR (1000 / SNR)\n" +
+            "  PSF grade  — good / acceptable / marginal / poor\n\n" +
+
+            "── Results Log ────────────────────────────────\n\n" +
+
+            "During a Stone query the Results tab log streams a verbose 8-stage pipeline report: Gaia query results, VSP enrichment, APASS query, frame projection and isolation counts, top-N scored candidates, GSPC match counts, per-star PSF pass/fail for each validation pass, and the target PSF with precision estimate.\n\n" +
+
+            "── Other Controls ─────────────────────────────\n\n" +
+
+            "Target Star X,Y — pixel coordinate of the host star (e.g. [1438, 884]).\n\n" +
+            "Auto Select Target — places the target using the plate solve and NEA coordinates.\n\n" +
+            "Comparison Stars X,Y — up to the configured maximum comp stars (set via Tools → Settings → Comp Stars). Format: [[x1,y1],[x2,y2], ...]\n\n" +
             "Still need more comps? Go to the Image Analysis tab, scan frames, select an image, enable Pick Comp Stars, click stars, then Send to Comp Stars.");
 
     private void OnHelpPlanetParameters_Click(object? sender, RoutedEventArgs e) =>
@@ -166,22 +207,32 @@ public partial class EquipmentTargetView : UserControl
             MaxWidth    = 440,
             FontSize    = 15,
         };
+        var scroll = new ScrollViewer
+        {
+            Content                       = tb,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility   = ScrollBarVisibility.Auto,
+        };
         var btn = new Button
         {
             Content             = "OK",
             HorizontalAlignment = HorizontalAlignment.Center,
-            MinWidth            = 80,
+            MinWidth            = 70,
             Margin              = new Thickness(0, 2, 0, 14),
         };
-        var layout = new StackPanel { Children = { tb, btn } };
+        var layout = new DockPanel();
+        DockPanel.SetDock(btn, Dock.Bottom);
+        layout.Children.Add(btn);
+        layout.Children.Add(scroll);
         var dialog = new Window
         {
             Title                 = title,
             Content               = layout,
             Width                 = 480,
+            MaxHeight             = 700,
             SizeToContent         = SizeToContent.Height,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            CanResize             = false,
+            CanResize             = true,
             ShowInTaskbar         = false,
         };
         btn.Click += (_, _) => dialog.Close();

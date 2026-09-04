@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TransitLab;
 using TransitLab.Services;
 
 namespace TransitLab.ViewModels;
@@ -17,7 +18,7 @@ public partial class BugReportViewModel : ViewModelBase
     [ObservableProperty] private bool   _isSubmitting = false;
     [ObservableProperty] private bool   _isSubmitted  = false;
 
-    public string   Version     => "2.6.5";
+    public string   Version     => AppInfo.Version;
     public string   OsName      => DetectOs();
     public string[] ReportTypes { get; } = ["Bug Report", "Feature Request"];
 

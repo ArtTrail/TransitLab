@@ -1,4 +1,4 @@
-TransitLab  v2.6.5
+TransitLab  v2.8.3
 ==================
 © Art Trail 2026
 Powered by EXOTIC (Zellem, Pearson, Blaser et al. 2020, PASP 132)
@@ -17,7 +17,7 @@ Additional features include:
   • Automatic plate solving (astrometry.net or ASTAP) for precise sky
     coordinate determination
   • Automatic NEA target-parameter lookup via the NASA Exoplanet Archive
-  • Automatic AAVSO comparison-star selection
+  • Automatic comparison-star selection (AAVSO VSP, VSP + Stone, or Stone method with PSF validation)
   • Transit geometry visualizer (real-time animated transit preview)
   • Editable submission history table (export CSV/XLSX, import FinalParams JSON)
   • Python & EXOTIC setup wizard (install, upgrade, uninstall)
@@ -41,6 +41,32 @@ Disk space   : ~150 MB for TransitLab itself
 Internet     : Required for NEA queries, AAVSO comp-star lookups,
                and astrometry.net plate solving
                (ASTAP plate solving works offline)
+
+
+WINDOWS SECURITY WARNING
+------------------------
+TransitLab is not code-signed (that requires a paid certificate plus a
+hardware security key, not currently justified for a free, open-source
+project), so Windows may flag it as an unrecognized publisher.  This is
+expected.
+
+Most users see this -- "Windows protected your PC" (SmartScreen):
+  Click "More info", then "Run anyway".
+
+Less common -- the app opens briefly then silently closes, no error:
+  This is Smart App Control, a stricter Windows 11 feature enabled by
+  default on some newer installs.  To fix:
+    1. Settings -> Privacy & security -> Windows Security ->
+       App & browser control -> Smart App Control -> turn it Off.
+    2. Restart your PC -- the change needs a reboot to take effect.
+    3. Delete your existing TransitLab folder and re-download and
+       re-extract a fresh copy (a blocked file may already have been
+       partially removed).
+    4. Right-click TransitLab.exe -> Properties -> check "Unblock" at
+       the bottom -> Apply, then launch again.
+
+If you still have trouble, use Help -> Submit Feedback from a working
+install, or open a GitHub issue.
 
 
 PYTHON REQUIREMENT

@@ -99,14 +99,18 @@
             </StackPanel>
             <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,2"/>
             <TextBlock Classes="hint"
-                       Text="MObs section powered by Python code provided by Douglas James"
+                       Text="MObs data is mirrored to TransitLab once daily at 13:00 UTC, not live."
+                       TextWrapping="Wrap"
+                       Margin="4,0,4,2"/>
+            <TextBlock Classes="hint"
+                       Text="MObs section inspired by Python code provided by Douglas James"
                        Margin="4,0,4,6"/>
 
             <!-- Fetch controls row -->
             <StackPanel Orientation="Horizontal" Spacing="10" Margin="4,4,4,0" VerticalAlignment="Center">
                 <TextBlock Text="Lookback days:" VerticalAlignment="Center"/>
                 <NumericUpDown Value="{Binding MObs.LookbackDays}"
-                               Minimum="1" Maximum="30"
+                               Minimum="1" Maximum="14"
                                FormatString="0"
                                Width="130"/>
                 <Button Classes="toolbar"
@@ -180,13 +184,15 @@
                       GridLinesVisibility="None"
                       SelectionMode="Single"
                       MinHeight="180"
+                      MaxHeight="320"
+                      ScrollViewer.VerticalScrollBarVisibility="Visible"
                       Margin="4,6,4,0">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Object"         Binding="{Binding Object}"  Width="100"/>
                     <DataGridTextColumn Header="Date"           Binding="{Binding Date}"    Width="60"/>
                     <DataGridTextColumn Header="Science Frames" Binding="{Binding Science}" Width="150"/>
                     <DataGridTextColumn Header="Cal Frames"     Binding="{Binding Cal}"     Width="110"/>
-                    <DataGridTextColumn Header="Weather"        Binding="{Binding Weather}" Width="*"/>
+                    <DataGridTextColumn Header="Weather"        Binding="{Binding Weather}" Width="150"/>
                 </DataGrid.Columns>
             </DataGrid>
 

@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:TransitLab.ViewModels"
              x:Class="TransitLab.Views.Tabs.ResultsView"
@@ -31,6 +31,12 @@
                            IsVisible="{Binding !AutoAnswerPrompts}"
                            Text="Every EXOTIC question appears in the input box below for you to answer manually"/>
             </StackPanel>
+            <TextBlock Grid.Column="2"
+                       Text="{Binding ExoticVersion}"
+                       Classes="hint"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"/>
+
             <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                 <ToggleButton x:Name="BtnFreezeLog"
                               Classes="toolbar"
@@ -41,252 +47,276 @@
             </StackPanel>
         </Grid>
 
-        <!-- ── Submit Results panel (dock bottom — declared before fill so it always gets its space) -->
-        <Border DockPanel.Dock="Bottom"
-                Margin="0,6,0,0">
-            <StackPanel Spacing="8">
-
-                <!-- Section header -->
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Classes="h2" Text="Submit Results" VerticalAlignment="Center"/>
-                    <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
-                            VerticalAlignment="Center" Click="OnHelpSubmitResults_Click"/>
-                </StackPanel>
-
-                <!-- Credentials row -->
-                <WrapPanel Orientation="Horizontal" ItemHeight="36">
-                    <TextBlock Text="AAVSO Username:"
-                               VerticalAlignment="Center"
-                               Margin="0,0,6,0"/>
-                    <TextBox Text="{Binding AavsoUsername}"
-                             Width="200"
-                             VerticalAlignment="Center"
-                             Margin="0,0,12,0"/>
-                    <TextBlock Text="Password:"
-                               VerticalAlignment="Center"
-                               Margin="0,0,6,0"/>
-                    <TextBox Text="{Binding AavsoPassword}"
-                             PasswordChar="•"
-                             Width="200"
-                             VerticalAlignment="Center"
-                             Margin="0,0,8,0"/>
-                    <CheckBox Content="Save password"
-                              IsChecked="{Binding SavePassword}"
-                              VerticalAlignment="Center"
-                              Margin="0,0,12,0"/>
-                    <Button Classes="toolbar"
-                            Content="Login"
-                            Command="{Binding LoginCommand}"
-                            VerticalAlignment="Center"
-                            Margin="0,0,8,0"/>
-                    <TextBlock Text="{Binding LoginStatus}"
-                               Classes="hint"
-                               Foreground="{Binding LoginStatus, Converter={StaticResource StatusBrushConverter}}"
-                               VerticalAlignment="Center"/>
-                </WrapPanel>
-
-                <!-- Separator -->
-                <Rectangle Height="1" Fill="{StaticResource BrushSep}"/>
-
-                <!-- Two upload panels side-by-side -->
-                <Grid ColumnDefinitions="*,12,*">
-
-                    <!-- Left: AAVSO Exoplanet Watch -->
-                    <Border Grid.Column="0"
-                            Background="{StaticResource BrushBg2}"
-                            CornerRadius="4"
-                            Padding="10">
-                        <StackPanel Spacing="6">
-                            <TextBlock Classes="h2" Text="AAVSO Exoplanet  (exosite)"/>
-                            <TextBlock Text="{Binding ReportFile}" Classes="hint" TextWrapping="Wrap"/>
-                            <TextBlock Text="{Binding ImageFile}"  Classes="hint" TextWrapping="Wrap"/>
-
-                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
-                                <TextBlock Text="Site:" VerticalAlignment="Center"/>
-                                <ComboBox ItemsSource="{Binding EwSites}"
-                                          SelectedItem="{Binding EwSite}"
-                                          Width="250"
-                                          VerticalAlignment="Center"/>
-                            </StackPanel>
-
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="Equipment Package:" VerticalAlignment="Center"/>
-                                <ComboBox ItemsSource="{Binding EwEquipments}"
-                                          SelectedItem="{Binding EwEquipment}"
-                                          Width="250"
-                                          VerticalAlignment="Center"/>
-                            </StackPanel>
-
-                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <CheckBox Content="I accept the GDPR terms"
-                                          IsChecked="{Binding GdprAccepted}"
-                                          VerticalAlignment="Center"/>
-                                <HyperlinkButton Content="(gdpr.eu)"
-                                                 NavigateUri="https://gdpr.eu/"
-                                                 VerticalAlignment="Center"
-                                                 FontSize="13"
-                                                 Padding="0"/>
-                            </StackPanel>
-
-                            <Button Classes="primary"
-                                    Content="Upload to AAVSO Exoplanet"
-                                    Command="{Binding UploadExoplanetCommand}"
-                                    IsEnabled="{Binding IsUploadEnabled}"
-                                    HorizontalAlignment="Left"/>
-
-                            <TextBlock Text="{Binding EwStatus}"
-                                       Classes="hint"
-                                       Foreground="{Binding EwStatus, Converter={StaticResource StatusBrushConverter}}"
-                                       TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Right: AAVSO WebObs / Variability -->
-                    <Border Grid.Column="2"
-                            Background="{StaticResource BrushBg2}"
-                            CornerRadius="4"
-                            Padding="10">
-                        <StackPanel Spacing="6">
-                            <TextBlock Classes="h2" Text="AAVSO Variability  (WebObs)"/>
-                            <TextBlock Text="{Binding AidFile}" Classes="hint" TextWrapping="Wrap"/>
-
-                            <Button Classes="toolbar"
-                                    Content="Open WebObs in Browser"
-                                    Command="{Binding OpenWebObsCommand}"
-                                    HorizontalAlignment="Left"
-                                    Margin="0,4,0,0"/>
-                            <TextBlock Classes="hint"
-                                       TextWrapping="Wrap"
-                                       Text="WebObs requires manual review and approval before submission."/>
-
-                            <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="0,6"/>
-
-                            <Button Classes="toolbar"
-                                    Content="Open Transit Post Generator"
-                                    Command="{Binding OpenTransitPostGeneratorCommand}"
-                                    HorizontalAlignment="Left"/>
-                            <TextBlock Classes="hint"
-                                       TextWrapping="Wrap"
-                                       Text="Generate a customized media post via Exoplanet Slacker's Transit Post Generator. Courtesy of Douglas James."/>
-                        </StackPanel>
-                    </Border>
-
-                </Grid>
-            </StackPanel>
+        <!-- ── Quick Look preliminary banner ────────────────────────────────── -->
+        <Border DockPanel.Dock="Top"
+                IsVisible="{Binding IsQuickLookRun}"
+                Background="#4a3a1a"
+                Padding="12,6"
+                Margin="0,0,0,4">
+            <TextBlock Text="⚠  QUICK LOOK — PRELIMINARY.  Fast least-squares fit, not the full posterior inference. No AAVSO report is generated for this run."
+                       Foreground="#ebcb8b"
+                       TextWrapping="Wrap"/>
         </Border>
 
-        <!-- ── EXOTIC live log ──────────────────────────────────────────────── -->
-        <Border DockPanel.Dock="Top"
-                Background="#1A1D23"
-                CornerRadius="4"
-                Padding="8"
-                Height="300"
-                Margin="0,0,0,6"
-                BorderBrush="#3A3F4B"
-                BorderThickness="1">
-            <ListBox x:Name="LogListBox"
-                     ItemsSource="{Binding LogLines}"
-                     Background="Transparent"
-                     BorderThickness="0"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding Text}"
-                                   Foreground="{Binding Color}"
+        <!-- ── Everything below the header scrolls as one column, so the Submit Results
+             panel (including the AAVSO login row) is always reachable regardless of window
+             height — previously this content was split between a DockPanel "fill" area and
+             a bottom-docked panel with no shared scroll, so an oversized log/image area could
+             draw over the bottom panel instead of pushing it below the fold. ── -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="6">
+
+                <!-- EXOTIC live log — fixed viewport height with its own internal scroll -->
+                <Border Background="#1A1D23"
+                        CornerRadius="4"
+                        Padding="8"
+                        Height="280"
+                        BorderBrush="#3A3F4B"
+                        BorderThickness="1">
+                    <ListBox x:Name="LogListBox"
+                             ItemsSource="{Binding LogLines}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Text}"
+                                           Foreground="{Binding Color}"
+                                           FontFamily="Courier New"
+                                           FontSize="20"
+                                           TextWrapping="Wrap"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="2,0"/>
+                                <Setter Property="Background" Value="Transparent"/>
+                            </Style>
+                        </ListBox.Styles>
+                    </ListBox>
+                </Border>
+
+                <!-- Prompt input — visible when EXOTIC awaits a response -->
+                <Border IsVisible="{Binding IsPromptActive}"
+                        Background="#252930"
+                        BorderBrush="#EBCB8B"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="8,6">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding PromptLabel}"
+                                   Foreground="#EBCB8B"
                                    FontFamily="Courier New"
                                    FontSize="20"
                                    TextWrapping="Wrap"/>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-                <ListBox.Styles>
-                    <Style Selector="ListBoxItem">
-                        <Setter Property="Padding" Value="2,0"/>
-                        <Setter Property="Background" Value="Transparent"/>
-                    </Style>
-                </ListBox.Styles>
-            </ListBox>
-        </Border>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox x:Name="PromptTextBox"
+                                     Grid.Column="0"
+                                     Text="{Binding PromptInput}"
+                                     FontFamily="Courier New"
+                                     FontSize="20"
+                                     VerticalAlignment="Center"
+                                     Watermark="Type response and press Enter…"
+                                     KeyDown="OnPromptKeyDown"/>
+                            <Button Grid.Column="1"
+                                    Classes="toolbar"
+                                    Content="Send"
+                                    Command="{Binding SendPromptCommand}"
+                                    Margin="6,0,0,0"
+                                    VerticalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
-        <!-- ── Prompt input row (visible when EXOTIC is waiting for a response) ─ -->
-        <Border DockPanel.Dock="Top"
-                IsVisible="{Binding IsPromptActive}"
-                Background="#252930"
-                BorderBrush="#EBCB8B"
-                BorderThickness="1"
-                CornerRadius="4"
-                Padding="8,6"
-                Margin="0,0,0,6">
-            <StackPanel Spacing="4">
-                <TextBlock Text="{Binding PromptLabel}"
-                           Foreground="#EBCB8B"
-                           FontFamily="Courier New"
-                           FontSize="20"
-                           TextWrapping="Wrap"/>
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBox x:Name="PromptTextBox"
-                             Grid.Column="0"
-                             Text="{Binding PromptInput}"
-                             FontFamily="Courier New"
-                             FontSize="20"
-                             VerticalAlignment="Center"
-                             Watermark="Type response and press Enter…"
-                             KeyDown="OnPromptKeyDown"/>
-                    <Button Grid.Column="1"
-                            Classes="toolbar"
-                            Content="Send"
-                            Command="{Binding SendPromptCommand}"
-                            Margin="6,0,0,0"
-                            VerticalAlignment="Center"/>
-                </Grid>
+                <!-- Light curve image area — hidden while EXOTIC is running. MaxHeight caps
+                     growth to the loaded PNG's native resolution. -->
+                <Border Background="{StaticResource BrushBg2}"
+                        CornerRadius="4"
+                        MinHeight="80"
+                        MaxHeight="420"
+                        IsVisible="{Binding !IsExoticRunning}">
+                    <Panel>
+                        <!-- Placeholder when no images -->
+                        <TextBlock Classes="hint"
+                                   Text="Run EXOTIC to see light curve"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   IsVisible="{Binding !HasLightCurve}"/>
+                        <!-- One or two images when available -->
+                        <Grid IsVisible="{Binding HasLightCurve}"
+                              ColumnDefinitions="Auto,8,Auto"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Stretch">
+
+                            <!-- Light curve + open button -->
+                            <DockPanel Grid.Column="0" MaxWidth="580">
+                                <Button DockPanel.Dock="Bottom"
+                                        Classes="toolbar"
+                                        Content="Open in Viewer"
+                                        Command="{Binding OpenLightCurveCommand}"
+                                        HorizontalAlignment="Center"
+                                        Margin="0,4,0,4"/>
+                                <Image Source="{Binding LightCurveBitmap}"
+                                       Stretch="Uniform"/>
+                            </DockPanel>
+
+                            <!-- Stellar variability + open button -->
+                            <DockPanel Grid.Column="2" MaxWidth="580" IsVisible="{Binding HasStellarVar}">
+                                <Button DockPanel.Dock="Bottom"
+                                        Classes="toolbar"
+                                        Content="Open in Viewer"
+                                        Command="{Binding OpenStellarVarCommand}"
+                                        HorizontalAlignment="Center"
+                                        Margin="0,4,0,4"/>
+                                <Image Source="{Binding StellarVarBitmap}"
+                                       Stretch="Uniform"/>
+                            </DockPanel>
+
+                        </Grid>
+                    </Panel>
+                </Border>
+
+                <!-- ── Submit Results panel ── -->
+                <Border Margin="0,6,0,0">
+                    <StackPanel Spacing="8">
+
+                        <!-- Section header -->
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Classes="h2" Text="Submit Results" VerticalAlignment="Center"/>
+                            <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
+                                    VerticalAlignment="Center" Click="OnHelpSubmitResults_Click"/>
+                        </StackPanel>
+
+                        <!-- Credentials row -->
+                        <WrapPanel Orientation="Horizontal" ItemHeight="36">
+                            <TextBlock Text="AAVSO Username:"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,6,0"/>
+                            <TextBox Text="{Binding AavsoUsername}"
+                                     Width="200"
+                                     VerticalAlignment="Center"
+                                     Margin="0,0,12,0"/>
+                            <TextBlock Text="Password:"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,6,0"/>
+                            <TextBox Text="{Binding AavsoPassword}"
+                                     PasswordChar="•"
+                                     Width="200"
+                                     VerticalAlignment="Center"
+                                     Margin="0,0,8,0"/>
+                            <CheckBox Content="Save password"
+                                      IsChecked="{Binding SavePassword}"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,12,0"/>
+                            <Button Classes="toolbar"
+                                    Content="Login"
+                                    Command="{Binding LoginCommand}"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,8,0"/>
+                            <TextBlock Text="{Binding LoginStatus}"
+                                       Classes="hint"
+                                       Foreground="{Binding LoginStatus, Converter={StaticResource StatusBrushConverter}}"
+                                       VerticalAlignment="Center"/>
+                        </WrapPanel>
+
+                        <!-- Separator -->
+                        <Rectangle Height="1" Fill="{StaticResource BrushSep}"/>
+
+                        <!-- Two upload panels side-by-side -->
+                        <Grid ColumnDefinitions="*,12,*">
+
+                            <!-- Left: AAVSO Exoplanet Watch -->
+                            <Border Grid.Column="0"
+                                    Background="{StaticResource BrushBg2}"
+                                    CornerRadius="4"
+                                    Padding="10">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Classes="h2" Text="AAVSO Exoplanet  (exosite)"/>
+                                    <TextBlock Text="{Binding ReportFile}" Classes="hint" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding ImageFile}"  Classes="hint" TextWrapping="Wrap"/>
+
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                                        <TextBlock Text="Site:" VerticalAlignment="Center"/>
+                                        <ComboBox ItemsSource="{Binding EwSites}"
+                                                  SelectedItem="{Binding EwSite}"
+                                                  Width="250"
+                                                  VerticalAlignment="Center"/>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="Equipment Package:" VerticalAlignment="Center"/>
+                                        <ComboBox ItemsSource="{Binding EwEquipments}"
+                                                  SelectedItem="{Binding EwEquipment}"
+                                                  Width="250"
+                                                  VerticalAlignment="Center"/>
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <CheckBox Content="I accept the GDPR terms"
+                                                  IsChecked="{Binding GdprAccepted}"
+                                                  VerticalAlignment="Center"/>
+                                        <HyperlinkButton Content="(gdpr.eu)"
+                                                         NavigateUri="https://gdpr.eu/"
+                                                         VerticalAlignment="Center"
+                                                         FontSize="13"
+                                                         Padding="0"/>
+                                    </StackPanel>
+
+                                    <Button Classes="primary"
+                                            Content="Upload to AAVSO Exoplanet"
+                                            Command="{Binding UploadExoplanetCommand}"
+                                            IsEnabled="{Binding IsUploadEnabled}"
+                                            HorizontalAlignment="Left"/>
+
+                                    <TextBlock Text="Quick Look mode doesn't generate a submittable AAVSO report — run Save &amp; Run EXOTIC for a full reduction first."
+                                               Classes="hint"
+                                               TextWrapping="Wrap"
+                                               IsVisible="{Binding IsQuickLookRun}"/>
+
+                                    <TextBlock Text="{Binding EwStatus}"
+                                               Classes="hint"
+                                               Foreground="{Binding EwStatus, Converter={StaticResource StatusBrushConverter}}"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Right: AAVSO WebObs / Variability -->
+                            <Border Grid.Column="2"
+                                    Background="{StaticResource BrushBg2}"
+                                    CornerRadius="4"
+                                    Padding="10">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Classes="h2" Text="AAVSO Variability  (WebObs)"/>
+                                    <TextBlock Text="{Binding AidFile}" Classes="hint" TextWrapping="Wrap"/>
+
+                                    <Button Classes="toolbar"
+                                            Content="Open WebObs in Browser"
+                                            Command="{Binding OpenWebObsCommand}"
+                                            HorizontalAlignment="Left"
+                                            Margin="0,4,0,0"/>
+                                    <TextBlock Classes="hint"
+                                               TextWrapping="Wrap"
+                                               Text="WebObs requires manual review and approval before submission."/>
+
+                                    <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="0,6"/>
+
+                                    <Button Classes="toolbar"
+                                            Content="Open Transit Post Generator"
+                                            Command="{Binding OpenTransitPostGeneratorCommand}"
+                                            HorizontalAlignment="Left"/>
+                                    <TextBlock Classes="hint"
+                                               TextWrapping="Wrap"
+                                               Text="Generate a customized media post via Exoplanet Slacker's Transit Post Generator. Courtesy of Douglas James."/>
+                                </StackPanel>
+                            </Border>
+
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
             </StackPanel>
-        </Border>
-
-        <!-- ── Light curve image area (fills remaining space) ─────────────── -->
-        <Border Background="{StaticResource BrushBg2}"
-                CornerRadius="4"
-                MinHeight="80"
-                Margin="0,0,0,6">
-            <Panel>
-                <!-- Placeholder when no images -->
-                <TextBlock Classes="hint"
-                           Text="Run EXOTIC to see light curve"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           IsVisible="{Binding !HasLightCurve}"/>
-                <!-- One or two images when available -->
-                <Grid IsVisible="{Binding HasLightCurve}"
-                      ColumnDefinitions="Auto,8,Auto"
-                      HorizontalAlignment="Center"
-                      VerticalAlignment="Stretch">
-
-                    <!-- Light curve + open button -->
-                    <DockPanel Grid.Column="0" MaxWidth="580">
-                        <Button DockPanel.Dock="Bottom"
-                                Classes="toolbar"
-                                Content="Open in Viewer"
-                                Command="{Binding OpenLightCurveCommand}"
-                                HorizontalAlignment="Center"
-                                Margin="0,4,0,4"/>
-                        <Image Source="{Binding LightCurveBitmap}"
-                               Stretch="Uniform"/>
-                    </DockPanel>
-
-                    <!-- Stellar variability + open button -->
-                    <DockPanel Grid.Column="2" MaxWidth="580" IsVisible="{Binding HasStellarVar}">
-                        <Button DockPanel.Dock="Bottom"
-                                Classes="toolbar"
-                                Content="Open in Viewer"
-                                Command="{Binding OpenStellarVarCommand}"
-                                HorizontalAlignment="Center"
-                                Margin="0,4,0,4"/>
-                        <Image Source="{Binding StellarVarBitmap}"
-                               Stretch="Uniform"/>
-                    </DockPanel>
-
-                </Grid>
-            </Panel>
-        </Border>
+        </ScrollViewer>
 
     </DockPanel>
 

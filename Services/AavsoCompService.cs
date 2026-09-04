@@ -15,15 +15,21 @@ public static class AavsoCompService
     public record CompResult(List<(int X, int Y)> Pairs, string StatusMessage);
 
     /// <summary>
-    /// Query the AAVSO VSP API for comparison stars near (ra, dec), convert
-    /// their sky coordinates to pixel positions via the WCS in fitsPath, and
-    /// return up to 10 in-frame pairs.
+    /// Query the AAVSO VSP API for comparison stars near (ra, dec) that have published
+    /// photometry in the requested filter band, convert their sky coordinates to pixel
+    /// positions via the WCS in fitsPath, and return up to 10 in-frame pairs. A star with
+    /// no chart entry for this band is skipped — the VSP chart is not band-agnostic (a
+    /// field's chart is often only populated for a subset of bands, e.g. V but not SR), so
+    /// silently accepting any band would return positions the target filter can't actually
+    /// calibrate against.
     /// </summary>
     public static async Task<CompResult> FetchAsync(
-        string fitsPath, double ra, double dec,
+        string fitsPath, double ra, double dec, string filterCode,
         int targetPx = 0, int targetPy = 0,
         CancellationToken ct = default)
     {
+        if (!GaiaCompService.VspFilterMap.TryGetValue(filterCode, out var vspBand))
+            return new CompResult([], $"✗  Filter '{filterCode}' has no known AAVSO VSP band mapping");
         // ── Read FITS header for WCS + image size ─────────────────────────
         var hdr = await Task.Run(() => FitsHeaderService.Read(fitsPath), ct);
         if (ct.IsCancellationRequested) return new CompResult([], "");
@@ -48,8 +54,12 @@ public static class AavsoCompService
         // ── Query VSP API ─────────────────────────────────────────────────
         if (ct.IsCancellationRequested) return new CompResult([], "");
 
-        var url = $"https://www.aavso.org/apps/vsp/api/chart/" +
-                  $"?ra={ra:F6}&dec={dec:F6}&fov={fovArcmin:F1}&maglimit=14.5&format=json";
+        // FormattableString.Invariant — without it, {ra:F6} etc. format using the OS's current
+        // culture, so on a locale with a comma decimal separator (e.g. Bulgarian, Russian,
+        // German) the URL would embed "283,306316" instead of "283.306316", producing a
+        // malformed request the API rejects with HTTP 400 on every single query.
+        var url = FormattableString.Invariant(
+            $"https://www.aavso.org/apps/vsp/api/chart/?ra={ra:F6}&dec={dec:F6}&fov={fovArcmin:F1}&maglimit=14.5&format=json");
 
         string json;
         try
@@ -68,7 +78,8 @@ public static class AavsoCompService
             return new CompResult([], $"✗  AAVSO API error: {ex.Message}");
         }
 
-        // ── Parse photometry list ─────────────────────────────────────────
+        // ── Parse photometry list — only keep stars with a chart entry in the
+        //    requested band (matches GaiaCompService.QueryVspAsync's band matching) ──
         List<(double Ra, double Dec)> skyPairs = [];
         try
         {
@@ -82,6 +93,24 @@ public static class AavsoCompService
                     !star.TryGetProperty("dec", out var decEl)) continue;
                 if (!TryParseCoord(raEl.GetString()  ?? "", out var sRa,  isDec: false)) continue;
                 if (!TryParseCoord(decEl.GetString() ?? "", out var sDec, isDec: true))  continue;
+
+                bool hasBandMag = false;
+                if (star.TryGetProperty("bands", out var bands))
+                {
+                    foreach (var b in bands.EnumerateArray())
+                    {
+                        if (!b.TryGetProperty("band", out var bandEl)) continue;
+                        if (bandEl.GetString() != vspBand) continue;
+                        if (!b.TryGetProperty("mag", out var magEl)) continue;
+                        var ms = magEl.ValueKind == JsonValueKind.String
+                            ? magEl.GetString() ?? "" : magEl.GetRawText();
+                        if (NumericParseService.TryParse(ms, out _))
+                            hasBandMag = true;
+                        break;
+                    }
+                }
+                if (!hasBandMag) continue;
+
                 skyPairs.Add((sRa, sDec));
             }
         }
@@ -91,10 +120,10 @@ public static class AavsoCompService
         }
 
         if (skyPairs.Count == 0)
-            return new CompResult([], "✗  No AAVSO comparison stars found for this target");
+            return new CompResult([], $"✗  No AAVSO comparison stars with {vspBand}-band photometry found for this target");
 
         // ── Convert RA/Dec → pixel, filter in-frame ───────────────────────
-        var pairs = new List<(int X, int Y)>();
+        var inFrame = new List<(int X, int Y)>();
         foreach (var (sRa, sDec) in skyPairs)
         {
             var px = WcsService.SkyToPixel(wcs, sRa, sDec);
@@ -105,14 +134,54 @@ public static class AavsoCompService
             if (naxis1 > 0 && naxis2 > 0 &&
                 (x < 1 || x > naxis1 || y < 1 || y > naxis2)) continue;
 
-            pairs.Add((x, y));
-            if (pairs.Count == 10) break;
+            inFrame.Add((x, y));
+        }
+
+        if (inFrame.Count == 0)
+            return new CompResult([], "✗  No AAVSO comparison stars fall within the image frame");
+
+        // ── Sanity-check each candidate against the actual pixel data before
+        //    accepting it. The VSP chart only guarantees a catalog entry exists at
+        //    this RA/Dec — it says nothing about whether that star is actually
+        //    detectable in THIS image (faint target, shallow exposure, crowded
+        //    field). Unlike the Stone pipeline, this method previously had no such
+        //    check at all, so a chart position landing on blank sky was silently
+        //    accepted as a valid comparison star, sometimes for every candidate at
+        //    once — producing photometry with no real reference signal and no
+        //    indication anything was wrong.
+        const double MinSnr = 5.0;   // "is there a real point source here at all", not a precision bar
+        var imageData = await Task.Run(() => PsfService.ReadFitsPixels(fitsPath), ct);
+        var pairs      = new List<(int X, int Y)>();
+        int droppedNoSignal = 0;
+
+        if (imageData is null)
+        {
+            // Can't validate — fall back to the old behaviour rather than blocking entirely.
+            pairs = inFrame.Take(10).ToList();
+        }
+        else
+        {
+            double saturationAdu = PsfService.EstimateSaturation(hdr);
+            double gainEPerAdu   = PsfService.GetGain(hdr);
+            foreach (var (x, y) in inFrame)
+            {
+                var psf = PsfService.Measure(imageData, x, y, saturationAdu, gainEPerAdu);
+                if (psf.Success && !psf.Saturated && psf.Snr >= MinSnr)
+                    pairs.Add((x, y));
+                else
+                    droppedNoSignal++;
+                if (pairs.Count == 10) break;
+            }
         }
 
         if (pairs.Count == 0)
-            return new CompResult([], "✗  No AAVSO comparison stars fall within the image frame");
+            return new CompResult([],
+                $"⚠  {inFrame.Count} AAVSO candidate position{(inFrame.Count == 1 ? "" : "s")} found, but none showed a detectable star in this image — this field may be too faint for reliable photometry with this exposure. Try Stone or VSP + Stone instead.");
 
-        return new CompResult(pairs, $"✓  {pairs.Count} AAVSO comparison star{(pairs.Count == 1 ? "" : "s")} loaded");
+        string note = droppedNoSignal > 0
+            ? $"  ⚠  {droppedNoSignal} candidate{(droppedNoSignal == 1 ? "" : "s")} dropped (no detectable signal)"
+            : "";
+        return new CompResult(pairs, $"✓  {pairs.Count} AAVSO comparison star{(pairs.Count == 1 ? "" : "s")} loaded ({vspBand} band){note}");
     }
 
     private static bool TryParseCoord(string raw, out double value, bool isDec)
@@ -122,19 +191,15 @@ public static class AavsoCompService
         if (string.IsNullOrEmpty(raw)) return false;
 
         // Try decimal first
-        if (double.TryParse(raw, System.Globalization.NumberStyles.Any,
-                            System.Globalization.CultureInfo.InvariantCulture, out value))
+        if (NumericParseService.TryParse(raw, out value))
             return true;
 
         // Try sexagesimal (HH MM SS.ss or DD MM SS.s, colon or space separated)
         var parts = raw.Replace(':', ' ').Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length != 3) return false;
-        if (!double.TryParse(parts[0], System.Globalization.NumberStyles.Any,
-                             System.Globalization.CultureInfo.InvariantCulture, out var d0)) return false;
-        if (!double.TryParse(parts[1], System.Globalization.NumberStyles.Any,
-                             System.Globalization.CultureInfo.InvariantCulture, out var d1)) return false;
-        if (!double.TryParse(parts[2], System.Globalization.NumberStyles.Any,
-                             System.Globalization.CultureInfo.InvariantCulture, out var d2)) return false;
+        if (!NumericParseService.TryParse(parts[0], out var d0)) return false;
+        if (!NumericParseService.TryParse(parts[1], out var d1)) return false;
+        if (!NumericParseService.TryParse(parts[2], out var d2)) return false;
 
         double abs = Math.Abs(d0) + d1 / 60.0 + d2 / 3600.0;
         double sign = (raw.TrimStart()[0] == '-') ? -1 : 1;

@@ -38,6 +38,19 @@
                            VerticalAlignment="Center"/>
             </StackPanel>
 
+            <!-- Debayer (shown only while an OSC debayer pass is running, or just finished) -->
+            <StackPanel Orientation="Horizontal" Margin="4,2,4,2" Spacing="10"
+                        IsVisible="{Binding DebayerStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <ProgressBar Value="{Binding DebayerProgress}"
+                             Maximum="{Binding DebayerProgressMax}"
+                             IsVisible="{Binding IsDebayering}"
+                             Width="200"
+                             VerticalAlignment="Center"/>
+                <TextBlock Classes="hint" Text="{Binding DebayerStatus}"
+                           Foreground="{Binding DebayerStatus, Converter={StaticResource StatusBrushConverter}}"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+
             <!-- Plate Solve -->
             <TextBlock Classes="h2" Text="Plate Solve" Margin="4,10,0,2"/>
             <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,6"/>

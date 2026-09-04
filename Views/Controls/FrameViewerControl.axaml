@@ -1,0 +1,211 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:TransitLab.ViewModels"
+             x:Class="TransitLab.Views.Controls.FrameViewerControl"
+             x:DataType="vm:FrameAnalysisViewModel">
+
+    <DockPanel>
+
+        <!-- Pick controls (bottom) -->
+        <Border DockPanel.Dock="Bottom" Padding="0,4,0,0">
+            <StackPanel Spacing="4">
+                <!-- Target pick row -->
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Classes="toolbar"
+                            Content="{Binding PickTargetLabel}"
+                            Command="{Binding PickTargetStarCommand}"/>
+                    <Button Classes="toolbar"
+                            Content="Send to Target Star"
+                            Command="{Binding SendTargetPickCommand}"/>
+                    <Button Classes="toolbar"
+                            Content="Clear"
+                            Command="{Binding ClearTargetPickCommand}"/>
+                    <TextBlock Classes="hint"
+                               Text="{Binding TargetPickStatus}"
+                               Foreground="{Binding TargetPickStatus, Converter={StaticResource StatusBrushConverter}}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+                <!-- Comp pick row -->
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Classes="toolbar"
+                            Content="{Binding PickCompLabel}"
+                            Command="{Binding PickCompStarsCommand}"/>
+                    <TextBlock Classes="hint"
+                               Text="{Binding CompPickCountText}"
+                               VerticalAlignment="Center"/>
+                    <Button Classes="toolbar"
+                            Content="Clear"
+                            Command="{Binding ClearCompPicksCommand}"/>
+                    <Button Classes="toolbar"
+                            Content="Send to Comp Stars"
+                            Command="{Binding SendCompPicksCommand}"/>
+                    <TextBlock Classes="hint"
+                               Text="{Binding CompPickStatus}"
+                               Foreground="{Binding CompPickStatus, Converter={StaticResource StatusBrushConverter}}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Zoom controls (bottom) -->
+        <Border DockPanel.Dock="Bottom" Padding="0,6,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Classes="toolbar"
+                        Content="Zoom −"
+                        Command="{Binding ZoomOutCommand}"/>
+                <Button Classes="toolbar"
+                        Content="Zoom +"
+                        Command="{Binding ZoomInCommand}"/>
+                <Button Classes="toolbar"
+                        Content="Reset"
+                        Command="{Binding ZoomResetCommand}"/>
+                <TextBlock Text="{Binding CursorText}"
+                           Classes="hint"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,0"/>
+                <TextBlock Text="{Binding FovText}"
+                           Classes="hint"
+                           VerticalAlignment="Center"
+                           Margin="12,0,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Slider controls (bottom) -->
+        <Border DockPanel.Dock="Bottom" Padding="0,4,0,0">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,12,Auto,Auto,*,Auto,Auto">
+
+                <!-- Black -->
+                <TextBlock Grid.Column="0" Text="Black" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <RepeatButton Grid.Column="1"
+                              Classes="toolbar"
+                              Content="−"
+                              Width="32"
+                              Command="{Binding StepBlackMinusCommand}"
+                              Delay="400" Interval="80"/>
+                <Grid Grid.Column="2" VerticalAlignment="Center" Margin="4,0">
+                    <Slider x:Name="BlackSlider"
+                            Value="{Binding BlackValue, Mode=OneWay}"
+                            Minimum="{Binding BlackMin}"
+                            Maximum="{Binding BlackMax}"
+                            IsHitTestVisible="False"/>
+                    <Border Background="Transparent"
+                            PointerPressed="OnBlackTroughPressed"
+                            PointerMoved="OnSliderTroughMoved"
+                            PointerReleased="OnSliderTroughReleased"/>
+                </Grid>
+                <RepeatButton Grid.Column="3"
+                              Classes="toolbar"
+                              Content="+"
+                              Width="32"
+                              Command="{Binding StepBlackPlusCommand}"
+                              Delay="400" Interval="80"/>
+                <TextBlock Grid.Column="4"
+                           Text="{Binding BlackLabel}"
+                           VerticalAlignment="Center"
+                           Margin="6,0,0,0"
+                           Width="60"/>
+
+                <!-- White -->
+                <TextBlock Grid.Column="6" Text="White" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <RepeatButton Grid.Column="7"
+                              Classes="toolbar"
+                              Content="−"
+                              Width="32"
+                              Command="{Binding StepWhiteMinusCommand}"
+                              Delay="400" Interval="80"/>
+                <Grid Grid.Column="8" VerticalAlignment="Center" Margin="4,0">
+                    <Slider x:Name="WhiteSlider"
+                            Value="{Binding WhiteValue, Mode=OneWay}"
+                            Minimum="{Binding WhiteMin}"
+                            Maximum="{Binding WhiteMax}"
+                            IsHitTestVisible="False"/>
+                    <Border Background="Transparent"
+                            PointerPressed="OnWhiteTroughPressed"
+                            PointerMoved="OnSliderTroughMoved"
+                            PointerReleased="OnSliderTroughReleased"/>
+                </Grid>
+                <RepeatButton Grid.Column="9"
+                              Classes="toolbar"
+                              Content="+"
+                              Width="32"
+                              Command="{Binding StepWhitePlusCommand}"
+                              Delay="400" Interval="80"/>
+                <TextBlock Grid.Column="10"
+                           Text="{Binding WhiteLabel}"
+                           VerticalAlignment="Center"
+                           Margin="6,0,0,0"
+                           Width="60"/>
+
+            </Grid>
+        </Border>
+
+        <!-- Auto Stretch (bottom) -->
+        <Border DockPanel.Dock="Bottom" Padding="0,4,0,0">
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
+                <Button Classes="toolbar"
+                        Content="Auto Stretch"
+                        Command="{Binding AutoStretchCommand}"/>
+                <Button x:Name="PopOutButton"
+                        Classes="toolbar"
+                        Content="⤢ Pop Out"
+                        Click="OnPopOutClick"
+                        ToolTip.Tip="Open the image viewer in its own resizable window"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Histogram (bottom, shown only when image is loaded) -->
+        <Border DockPanel.Dock="Bottom"
+                Height="120"
+                Margin="0,6,0,0"
+                IsVisible="{Binding HasImage}">
+            <Image Source="{Binding HistogramBitmap}"
+                   Stretch="Fill"
+                   HorizontalAlignment="Stretch"
+                   VerticalAlignment="Stretch"/>
+        </Border>
+
+        <!-- Image viewer (fills remaining space) -->
+        <Grid>
+
+            <!-- Placeholder shown when no image is loaded -->
+            <Border Background="{StaticResource BrushBg2}"
+                    CornerRadius="4"
+                    IsVisible="{Binding !HasImage}">
+                <TextBlock Classes="hint"
+                           Text="Image preview — select a frame"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+            </Border>
+
+            <!-- Image in scrollable pane -->
+            <ScrollViewer x:Name="ImageScrollViewer"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          Background="{StaticResource BrushBg2}"
+                          IsVisible="{Binding HasImage}">
+                <Grid x:Name="ImageContainer"
+                      Background="Transparent"
+                      HorizontalAlignment="Left" VerticalAlignment="Top">
+                    <Image x:Name="FrameImage"
+                           Source="{Binding FrameBitmap}"
+                           Width="{Binding ImageDisplayWidth}"
+                           Height="{Binding ImageDisplayHeight}"
+                           Stretch="Fill"
+                           IsHitTestVisible="False"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Top"/>
+                    <!-- Pick marker overlay — same size as the image, non-interactive -->
+                    <Canvas x:Name="PickOverlay"
+                            Width="{Binding ImageDisplayWidth}"
+                            Height="{Binding ImageDisplayHeight}"
+                            IsHitTestVisible="False"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"/>
+                </Grid>
+            </ScrollViewer>
+
+        </Grid>
+
+    </DockPanel>
+
+</UserControl>

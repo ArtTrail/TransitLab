@@ -179,8 +179,8 @@ public partial class HistoryViewModel : ViewModelBase
             var fname = Path.GetFileNameWithoutExtension(path);
             if (fname.StartsWith("FinalParams_", StringComparison.OrdinalIgnoreCase))
             {
-                var body    = fname["FinalParams_".Length..];
-                var lastUs  = body.LastIndexOf('_');
+                var body   = fname["FinalParams_".Length..];
+                var lastUs = body.LastIndexOf('_');
                 if (lastUs > 0)
                 {
                     planet = body[..lastUs].Trim();

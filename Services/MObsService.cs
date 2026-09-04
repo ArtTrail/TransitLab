@@ -1,33 +1,44 @@
-﻿using TransitLab.Models;
+using TransitLab.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text.RegularExpressions;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TransitLab.Services;
 
+/// <summary>
+/// Reads MicroObservatory (MObs) observation data from a Cloudflare R2 mirror instead of
+/// MicroObservatory's own servers directly. A separate scheduled job (MObsSync, run via
+/// GitHub Actions) fetches MicroObservatory's listing once daily and uploads recent FITS
+/// files plus a manifest.json to R2 — every TransitLab install reads from that shared,
+/// publicly-cached copy instead of each install hitting MicroObservatory's site itself.
+/// This was changed after MicroObservatory (Harvard-Smithsonian) reported that TransitLab's
+/// growing user base was putting real load on their infrastructure.
+///
+/// Trade-off: data refreshes once daily (whenever the sync job last ran), not live — a
+/// frame from tonight's session won't appear here until the next day's sync.
+/// </summary>
 public static class MObsService
 {
-    private static readonly HttpClient Http = new(new HttpClientHandler
+    private static readonly HttpClient Http = new()
     {
-        AllowAutoRedirect = true,
-    })
-    {
-        Timeout    = TimeSpan.FromSeconds(30),
+        Timeout = TimeSpan.FromSeconds(30),
         DefaultRequestHeaders = { { "User-Agent", "Mozilla/5.0" } },
     };
 
-    private const string BaseUrl  = "https://waps.cfa.harvard.edu/microobservatory/MOImageDirectory/ImageDirectory.php";
-    private const string SiteRoot = "https://waps.cfa.harvard.edu";
+    // Public read-only endpoint for the R2 bucket the daily sync job populates.
+    // Not a secret — this bucket only ever grants public GET access; the sync job's
+    // write credentials live solely in that job's own GitHub Actions Secrets, never here.
+    private const string R2PublicBaseUrl = "https://pub-2e8ad4f6b18748098ec4ecfc9f95ca0c.r2.dev";
+    private const string ManifestUrl     = R2PublicBaseUrl + "/mobs/manifest.json";
 
-    private static readonly string[] IgnoreWords =
-        ["spiral", "whirl", "irreg", "edge", "andro", "calib"];
-
-    // ── Public API ────────────────────────────────────────────────────────────
+    // ── Public API (unchanged shape — MObsViewModel/DownloadAsync depend on exactly this) ──
 
     public class Observation
     {
@@ -57,13 +68,49 @@ public static class MObsService
         public int    CalFail      { get; init; }
     }
 
-    /// <summary>Fetch and parse the MObs observation list for a given telescope.</summary>
+    /// <summary>Fetch the R2-mirrored manifest and return this telescope's observations within lookbackDays.</summary>
     public static async Task<List<Observation>> FetchListAsync(
         string telescope, int lookbackDays, CancellationToken ct = default)
     {
-        var html = await Http.GetStringAsync(BaseUrl, ct);
-        return ParseHtml(html, telescope, lookbackDays);
+        var json = await Http.GetStringAsync(ManifestUrl, ct);
+        var manifest = JsonSerializer.Deserialize<ManifestDto>(json, JsonOpts)
+            ?? throw new InvalidDataException("Empty or unparsable manifest.json");
+
+        if (!manifest.Telescopes.TryGetValue(telescope, out var entries))
+            return [];
+
+        // Compare against midnight N days ago, not "now minus N days" — observation dates
+        // are date-only (always midnight), but DateTime.UtcNow carries today's time-of-day.
+        // Subtracting days from UtcNow directly meant the cutoff could land later than
+        // yesterday's midnight (e.g. 17:38 UTC today - 1 day = 17:38 UTC yesterday), silently
+        // excluding a session from "yesterday" unless Lookback Days was bumped up by one to
+        // compensate — worse the later in the UTC day the fetch happened.
+        var cutoff = DateTime.UtcNow.Date.AddDays(-lookbackDays);
+
+        var observations = entries
+            .Where(e => DateTime.TryParse(e.Date, out var d) && d >= cutoff)
+            .Select(e => new Observation
+            {
+                ObjectName      = e.ObjectName,
+                Date            = DateTime.Parse(e.Date),
+                DateDisplay     = e.DateDisplay,
+                Weather         = e.Weather,
+                Telescope       = telescope,
+                CalFallbackDate = e.CalFallbackDate,
+                ScienceFiles    = e.ScienceFiles.Select(ToFitsFile).ToList(),
+                CalibrationFiles = e.CalibrationFiles.Select(ToFitsFile).ToList(),
+            })
+            .ToList();
+
+        observations.Sort((a, b) => b.Date.CompareTo(a.Date));
+        return observations;
     }
+
+    private static FitsFile ToFitsFile(ManifestFileDto f) => new()
+    {
+        Filename    = f.Filename,
+        DownloadUrl = $"{R2PublicBaseUrl}/{f.Key}",
+    };
 
     /// <summary>Download all FITS files for one observation to disk, reporting progress.</summary>
     public static async Task<DownloadResult> DownloadAsync(
@@ -82,9 +129,12 @@ public static class MObsService
         int done       = 0;
         int scienceOk  = 0, scienceFail = 0, calOk = 0, calFail = 0;
 
+        var sw = new Stopwatch();
+
         async Task Dl(FitsFile file, string destDir, bool isCalibration)
         {
             var outPath = Path.Combine(destDir, file.Filename);
+            sw.Restart();
             try
             {
                 using var resp = await Http.GetAsync(file.DownloadUrl,
@@ -94,21 +144,43 @@ public static class MObsService
                 if (ct2.Contains("text/html"))
                     throw new InvalidDataException("Server returned HTML instead of FITS");
 
-                await using var fs = new FileStream(outPath, FileMode.Create, FileAccess.Write);
-                await resp.Content.CopyToAsync(fs, ct);
+                long bytesWritten;
+                await using (var fs = new FileStream(outPath, FileMode.Create, FileAccess.Write))
+                {
+                    await resp.Content.CopyToAsync(fs, ct);
+                    bytesWritten = fs.Length;
+                }
+                sw.Stop();
 
                 if (isCalibration) calOk++;    else scienceOk++;
+
+                var cfRay = resp.Headers.TryGetValues("CF-RAY", out var rayValues)
+                    ? rayValues.FirstOrDefault() : null;
+                var secs  = Math.Max(sw.Elapsed.TotalSeconds, 0.001);
+                var kbps  = bytesWritten / 1024.0 / secs;
+                SessionLogService.Write(
+                    $"[MObs] ✓ {file.Filename} — {bytesWritten:N0} bytes in {secs:F2}s ({kbps:F0} KB/s)" +
+                    (cfRay is not null ? $"  [CF-RAY: {cfRay}]" : ""));
             }
-            catch
+            catch (Exception ex)
             {
+                sw.Stop();
                 if (isCalibration) calFail++;  else scienceFail++;
+                SessionLogService.Write(
+                    $"[MObs] ✗ {file.Filename} — FAILED after {sw.Elapsed.TotalSeconds:F2}s: {ex.GetType().Name}: {ex.Message}");
             }
             done++;
             progress?.Report((done, total, file.Filename));
         }
 
+        var batchSw = Stopwatch.StartNew();
         foreach (var f in obs.ScienceFiles)     await Dl(f, scienceDir, false);
         foreach (var f in obs.CalibrationFiles) await Dl(f, darksDir,   true);
+        batchSw.Stop();
+
+        SessionLogService.Write(
+            $"[MObs] Download batch finished in {batchSw.Elapsed.TotalSeconds:F1}s — " +
+            $"{scienceOk + calOk} succeeded, {scienceFail + calFail} failed, {total} total.");
 
         return new DownloadResult
         {
@@ -121,189 +193,44 @@ public static class MObsService
         };
     }
 
-    // ── HTML parsing ──────────────────────────────────────────────────────────
+    // ── manifest.json DTOs (written by MObsSync; keep in sync with it) ────────
 
-    private static readonly Regex DateRe     = new(@"\b(\d{2}-[A-Za-z]{3}-\d{4})\s+(\d{2}:\d{2}:\d{2})\b");
-    private static readonly Regex FileNameRe = new(@"^(?<obj>.+?)(?<stamp>\d{12})$", RegexOptions.IgnoreCase);
-    private static readonly Regex WeatherRe  = new(@"\b\d+%\s+Clear\b", RegexOptions.IgnoreCase);
-    private static readonly Regex FileNameQs = new(@"fileName=([^&]+)", RegexOptions.IgnoreCase);
-
-    private static List<Observation> ParseHtml(string html, string telescope, int lookbackDays)
+    private static readonly JsonSerializerOptions JsonOpts = new()
     {
-        // Minimal table parser — find <tr> blocks, then <td> and <a href> elements
-        var rows = new List<Dictionary<string, string>>();
+        PropertyNameCaseInsensitive = true,
+    };
 
-        var trMatches = Regex.Matches(html, @"<tr[^>]*>(.*?)</tr>",
-            RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-        var cutoff = DateTime.UtcNow.AddDays(-lookbackDays);
-
-        var rawRows = new List<(string obj, DateTime dt, string weather, string dlUrl, string filename)>();
-
-        foreach (Match trm in trMatches)
-        {
-            var trHtml = trm.Groups[1].Value;
-
-            // Extract all <td> text values
-            var tdTexts = Regex.Matches(trHtml, @"<td[^>]*>(.*?)</td>",
-                RegexOptions.IgnoreCase | RegexOptions.Singleline)
-                .Select(m => StripTags(m.Groups[1].Value).Trim())
-                .ToList();
-
-            // Must contain this telescope name in one of the cells
-            if (!tdTexts.Any(t => t.Equals(telescope, StringComparison.OrdinalIgnoreCase)))
-                continue;
-
-            var rowText = StripTags(trHtml);
-            var dm = DateRe.Match(rowText);
-            if (!dm.Success) continue;
-
-            if (!DateTime.TryParseExact($"{dm.Groups[1].Value} {dm.Groups[2].Value}",
-                "dd-MMM-yyyy HH:mm:ss",
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.AssumeUniversal,
-                out var dt))
-                continue;
-
-            if (dt < cutoff) continue;
-
-            // Find download URL — prefer a direct FITS file link (path ends with .fits/.fit)
-            // over a JS9 viewer link that merely has fileName= in the query string.
-            var hrefs = Regex.Matches(trHtml, @"href=""([^""]+)""", RegexOptions.IgnoreCase)
-                .Select(m => m.Groups[1].Value).ToList();
-
-            string? dlUrl    = null;
-            string? filename = null;
-
-            // 1st priority: href whose path (before any ?) ends with .fits / .fit
-            foreach (var href in hrefs)
-            {
-                var pathPart = href.Split('?')[0];
-                if (!pathPart.EndsWith(".fits", StringComparison.OrdinalIgnoreCase) &&
-                    !pathPart.EndsWith(".fit",  StringComparison.OrdinalIgnoreCase))
-                    continue;
-                dlUrl    = href.StartsWith("http") ? href : SiteRoot + href;
-                filename = Path.GetFileName(pathPart);
-                break;
-            }
-
-            // 2nd priority: extract filename from fileName= query param (e.g. JS9 viewer link)
-            if (dlUrl is null)
-            {
-                foreach (var href in hrefs)
-                {
-                    var fnm = FileNameQs.Match(href);
-                    if (!fnm.Success) continue;
-                    var fn = Uri.UnescapeDataString(fnm.Groups[1].Value.Trim());
-                    dlUrl    = href.StartsWith("http") ? href : SiteRoot + href;
-                    filename = Path.GetFileName(fn);
-                    break;
-                }
-            }
-
-            if (dlUrl is null || filename is null) continue;
-
-            // Derive object name from filename
-            var fnNoExt = Path.GetFileNameWithoutExtension(filename);
-            var objm    = FileNameRe.Match(fnNoExt);
-            var derived = objm.Success
-                ? Normalize(objm.Groups["obj"].Value)
-                : Normalize(fnNoExt);
-
-            // Cell before telescope index = object column
-            int telIdx = tdTexts.FindIndex(t =>
-                t.Equals(telescope, StringComparison.OrdinalIgnoreCase));
-            var cellObj = telIdx > 0 ? tdTexts[telIdx - 1] : "";
-            var objName = !string.IsNullOrEmpty(cellObj) ? cellObj : derived;
-
-            var wm      = WeatherRe.Match(rowText);
-            var weather = wm.Success ? wm.Value : "Unknown";
-
-            rawRows.Add((objName, dt, weather, dlUrl, filename));
-        }
-
-        // Classify calibration vs science
-        bool IsCal(string name)
-        {
-            var low = name.ToLowerInvariant();
-            return low.Contains("calibration") || low.Contains("dark");
-        }
-
-        bool IsIgnored(string name)
-        {
-            var low = name.ToLowerInvariant();
-            return IgnoreWords.Any(w => low.Contains(w));
-        }
-
-        // Group by (object, date)
-        var calByDate  = new Dictionary<string, List<(string url, string fn)>>();
-        var sciGroups  = new Dictionary<(string obj, string date),
-                             (string weather, DateTime latest, List<(string url, string fn, DateTime dt)> files)>();
-
-        foreach (var (obj, dt, weather, url, fn) in rawRows)
-        {
-            // Use a 12-hour offset so that files timestamped after midnight UTC (00:00–12:00)
-            // are grouped with the previous evening's session, not a new calendar day.
-            // This keeps overnight acquisitions that span midnight UTC as a single observation.
-            var dateKey = dt.AddHours(-12).Date.ToString("yyyy-MM-dd");
-            if (IsCal(obj) || IsCal(fn))
-            {
-                calByDate.TryAdd(dateKey, []);
-                calByDate[dateKey].Add((url, fn));
-                continue;
-            }
-            if (IsIgnored(obj)) continue;
-
-            var key = (obj, dateKey);
-            if (!sciGroups.ContainsKey(key))
-                sciGroups[key] = (weather, dt, []);
-            var g = sciGroups[key];
-            g.files.Add((url, fn, dt));
-            if (dt > g.latest) sciGroups[key] = (weather, dt, g.files);
-        }
-
-        var observations = new List<Observation>();
-        foreach (var (key, g) in sciGroups)
-        {
-            var (obj, dateKey) = key;
-            var cals = calByDate.GetValueOrDefault(dateKey);
-
-            string? calFallback = null;
-            if (cals is null || cals.Count == 0)
-            {
-                // Find most-recent prior date with calibration files
-                var prior = calByDate.Keys
-                    .Where(d => string.Compare(d, dateKey, StringComparison.Ordinal) < 0)
-                    .OrderDescending()
-                    .FirstOrDefault();
-                if (prior is not null) { cals = calByDate[prior]; calFallback = prior; }
-            }
-
-            observations.Add(new Observation
-            {
-                ObjectName      = obj,
-                Date            = DateTime.Parse(dateKey),
-                DateDisplay     = DateTime.Parse(dateKey).ToString("dd MMM yyyy"),
-                Weather         = g.weather,
-                Telescope       = telescope,
-                CalFallbackDate = calFallback,
-                ScienceFiles    = g.files
-                    .OrderBy(f => f.dt)
-                    .Select(f => new FitsFile { Filename = f.fn, DownloadUrl = f.url })
-                    .ToList(),
-                CalibrationFiles = (cals ?? [])
-                    .Select(c => new FitsFile { Filename = c.fn, DownloadUrl = c.url })
-                    .ToList(),
-            });
-        }
-
-        observations.Sort((a, b) => b.Date.CompareTo(a.Date));
-        return observations;
+    private sealed class ManifestDto
+    {
+        [JsonPropertyName("generated_utc")]
+        public string GeneratedUtc { get; set; } = "";
+        [JsonPropertyName("telescopes")]
+        public Dictionary<string, List<ManifestObservationDto>> Telescopes { get; set; } = [];
     }
 
-    private static string StripTags(string html)
-        => Regex.Replace(html, "<[^>]+>", " ");
+    private sealed class ManifestObservationDto
+    {
+        [JsonPropertyName("object")]
+        public string ObjectName { get; set; } = "";
+        [JsonPropertyName("date")]
+        public string Date { get; set; } = "";
+        [JsonPropertyName("date_display")]
+        public string DateDisplay { get; set; } = "";
+        [JsonPropertyName("weather")]
+        public string Weather { get; set; } = "";
+        [JsonPropertyName("cal_fallback_date")]
+        public string? CalFallbackDate { get; set; }
+        [JsonPropertyName("science_files")]
+        public List<ManifestFileDto> ScienceFiles { get; set; } = [];
+        [JsonPropertyName("cal_files")]
+        public List<ManifestFileDto> CalibrationFiles { get; set; } = [];
+    }
 
-    private static string Normalize(string s)
-        => Regex.Replace(s.Replace('\u00a0', ' '), @"\s+", " ").Trim();
+    private sealed class ManifestFileDto
+    {
+        [JsonPropertyName("filename")]
+        public string Filename { get; set; } = "";
+        [JsonPropertyName("key")]
+        public string Key { get; set; } = "";
+    }
 }

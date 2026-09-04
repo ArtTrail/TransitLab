@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using System;
 using System.ComponentModel;
+using TransitLab.Services;
 
 namespace TransitLab.ViewModels;
 
@@ -195,9 +196,7 @@ public partial class TransitViewModel : ViewModelBase
                    : !string.IsNullOrEmpty(host)   ? host
                    : "";
 
-        if (double.TryParse(_et.Teff,
-            System.Globalization.NumberStyles.Any,
-            System.Globalization.CultureInfo.InvariantCulture, out var teff) && teff > 1000)
+        if (NumericParseService.TryParse(_et.Teff, out var teff) && teff > 1000)
             StarTeff = teff;
         else
             StarTeff = 5778.0;
@@ -222,12 +221,9 @@ public partial class TransitViewModel : ViewModelBase
 
         UpdateMetadata();
 
-        double.TryParse(_et.RpRs,        System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture, out var rprs);
-        double.TryParse(_et.ARs,         System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture, out var ars);
-        double.TryParse(_et.Inclination, System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture, out var inc);
+        NumericParseService.TryParse(_et.RpRs, out var rprs);
+        NumericParseService.TryParse(_et.ARs, out var ars);
+        NumericParseService.TryParse(_et.Inclination, out var inc);
         bool ok = rprs > 0.001 && rprs < 0.99 && ars > 1.0 && inc >= 0 && inc <= 90;
 
         HasParams = ok;
@@ -246,8 +242,7 @@ public partial class TransitViewModel : ViewModelBase
             return;
         }
 
-        double.TryParse(_et.OrbitalPeriod, System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture, out var period);
+        NumericParseService.TryParse(_et.OrbitalPeriod, out var period);
         if (period <= 0) period = 1.0;
 
         RpRs   = rprs;

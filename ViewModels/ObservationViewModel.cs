@@ -21,6 +21,12 @@ public partial class ObservationViewModel : ViewModelBase
     public string PythonExePath { get; set; } = "";
     public string ExoticExePath { get; set; } = "";
 
+    // Set by MainWindowViewModel to resolve the currently-ACTIVE multi-environment
+    // Python path (Setup tab's Stable/Pre-release slot), so Plate Solve checks the same
+    // install that Check System and Save & Run use — falling back to PythonExePath above
+    // (the legacy shared base Python) only if no active environment is configured.
+    public Func<string>? ResolveActivePythonPathFunc { get; set; }
+
     // ── Directories ───────────────────────────────────────────────────────────
     [ObservableProperty] private string _fitsDir          = "";
     [ObservableProperty] private string _saveDir          = "";
@@ -34,6 +40,21 @@ public partial class ObservationViewModel : ViewModelBase
     private bool _darksAuto = true;
     private bool _flatsAuto = true;
     private bool _biasAuto  = true;
+
+    // ── OSC (one-shot-color) detection + debayer ──────────────────────────────
+    public Func<string, string, Task<bool>>? ShowConfirmFunc     { get; set; }
+    public Func<Task>?                       TriggerScanFramesFunc { get; set; }
+    [ObservableProperty] private bool   _isDebayering       = false;
+    [ObservableProperty] private string _debayerStatus      = "";
+    [ObservableProperty] private int    _debayerProgress    = 0;
+    [ObservableProperty] private int    _debayerProgressMax = 1;
+    // Exact directory paths already prompted (debayered or explicitly skipped) —
+    // never re-prompt for the same directory twice in a session.
+    private readonly HashSet<string> _oscHandledDirs = new(StringComparer.OrdinalIgnoreCase);
+    // Suppresses the per-directory OSC check while OnFitsDirChanged's own auto-cascade
+    // (Darks/Flats/Bias auto-derivation) is in progress, so the cascade produces exactly
+    // one combined check/prompt instead of one per cascaded directory.
+    private bool _suppressOscCheck = false;
 
     // ── Observer Information ──────────────────────────────────────────────────
     [ObservableProperty] private string _aavsoCode      = "";
@@ -52,8 +73,8 @@ public partial class ObservationViewModel : ViewModelBase
 
     [ObservableProperty] private string _observatoryStatus = "";
 
-    // Injected by the View
-    public Func<string, Task<string?>>? FolderPickerFunc  { get; set; }
+    // Injected by the View. Args: (dialog title, suggested starting directory).
+    public Func<string, string, Task<string?>>? FolderPickerFunc  { get; set; }
     public Func<string, Task<string?>>? NameDialogFunc    { get; set; }  // shows input dialog, returns typed name or null
 
     // ── FITS dir / header-read tracking (item 9) ──────────────────────────────
@@ -109,11 +130,13 @@ public partial class ObservationViewModel : ViewModelBase
 
         // Auto-fill SaveDir whenever FitsDir changes, unless the user has
         // deliberately browsed to a different Save Plots location.
+        _suppressOscCheck = true;
         if (!SaveDirUserSet)
             SaveDir = string.IsNullOrEmpty(parent) ? fitsDir : parent;
         if (_darksAuto) DarksDir = FindCalibDir(fitsDir, parent, "dark", "darks") ?? "";
         if (_flatsAuto) FlatsDir = FindCalibDir(fitsDir, parent, "flat", "flats") ?? "";
         if (_biasAuto)  BiasDir  = FindCalibDir(fitsDir, parent, "bias", "biases", "biasd", "bias frames") ?? "";
+        _suppressOscCheck = false;
 
         // Debounced auto-scan: cancel any pending scan and schedule a new one 600ms out
         _fitsDirScanTimer?.Dispose();
@@ -122,6 +145,99 @@ public partial class ObservationViewModel : ViewModelBase
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 AutoScanAndGetFitsFunc?.Invoke());
         }, null, 600, System.Threading.Timeout.Infinite);
+
+        _ = CheckForOscAndPromptAsync();
+    }
+
+    partial void OnDarksDirChanged(string value) { if (!_suppressOscCheck) _ = CheckForOscAndPromptAsync(); }
+    partial void OnFlatsDirChanged(string value) { if (!_suppressOscCheck) _ = CheckForOscAndPromptAsync(); }
+    partial void OnBiasDirChanged(string value)  { if (!_suppressOscCheck) _ = CheckForOscAndPromptAsync(); }
+
+    /// <summary>
+    /// Checks Lights/Darks/Flats/Biases for raw one-shot-color (Bayer) data and, if found,
+    /// offers to debayer them in-app before Image Analysis, Plate Solve, or the Stone comp
+    /// method ever touch the mosaic pixels. Shows one combined prompt covering whichever
+    /// directories are affected, rather than one prompt per directory.
+    /// </summary>
+    private async Task CheckForOscAndPromptAsync()
+    {
+        var candidates = new (string Label, string Dir)[]
+        {
+            ("Lights", FitsDir), ("Darks", DarksDir), ("Flats", FlatsDir), ("Biases", BiasDir),
+        };
+
+        var toPrompt = new List<(string Label, string Dir, DebayerService.DetectResult Detect)>();
+        foreach (var (label, dir) in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(dir) || _oscHandledDirs.Contains(dir)) continue;
+            var det = DebayerService.Detect(dir);
+            if (det.IsOsc) toPrompt.Add((label, dir, det));
+        }
+        if (toPrompt.Count == 0) return;
+
+        if (ShowConfirmFunc is null) return;
+
+        var camera  = toPrompt[0].Detect.CameraName;
+        var pattern = toPrompt[0].Detect.BayerPattern;
+        var dirList = string.Join(", ", toPrompt.Select(t => t.Label));
+        var cameraNote = string.IsNullOrEmpty(camera) ? $"Bayer pattern {pattern}" : $"{camera}, Bayer pattern {pattern}";
+
+        var proceed = await ShowConfirmFunc("One-Shot-Color Data Detected",
+            $"The {dirList} director{(toPrompt.Count == 1 ? "y appears" : "ies appear")} to contain " +
+            $"raw color camera data ({cameraNote}).\n\n" +
+            "Debayering should happen before Image Analysis, Plate Solve, or comp star selection — " +
+            "running these on raw mosaic data distorts star detection and photometry.\n\n" +
+            "Debayer these frames now with TransitLab?");
+
+        // Declining marks nothing as handled — the same directory (or the same folder
+        // re-selected later) is checked fresh again next time. "Skip" shouldn't
+        // permanently suppress the prompt for the rest of the session.
+        if (!proceed) return;
+
+        // Disable calibration-dir auto-follow before redirecting FitsDir below — otherwise
+        // OnFitsDirChanged's own auto-cascade would re-derive Darks/Flats/Bias from the new
+        // (debayered) Lights path and clobber the redirects this method makes for them.
+        _darksAuto = false;
+        _flatsAuto = false;
+        _biasAuto  = false;
+
+        IsDebayering = true;
+        foreach (var (label, dir, _) in toPrompt)
+        {
+            DebayerProgress    = 0;
+            DebayerProgressMax = 1;
+            DebayerStatus      = $"⟳  Debayering {label}…";
+            var result = await DebayerService.DebayerDirectoryAsync(dir, ExoticExePath, PythonExePath,
+                new Progress<DebayerService.Progress>(p =>
+                {
+                    DebayerProgress    = p.Done;
+                    DebayerProgressMax = Math.Max(p.Total, 1);
+                    DebayerStatus      = $"⟳  Debayering {label}: {p.LastMessage}";
+                }));
+            if (!result.Success)
+            {
+                DebayerStatus = $"✗  {label}: {result.Message}";
+                continue; // not marked handled — a failed directory can be retried later
+            }
+
+            // Only mark handled once debayering has actually succeeded for this directory.
+            _oscHandledDirs.Add(dir);
+
+            _suppressOscCheck = true;
+            switch (label)
+            {
+                case "Lights": FitsDir  = result.OutputDir; break;
+                case "Darks":  DarksDir = result.OutputDir; break;
+                case "Flats":  FlatsDir = result.OutputDir; break;
+                case "Biases": BiasDir  = result.OutputDir; break;
+            }
+            _suppressOscCheck = false;
+        }
+        IsDebayering  = false;
+        DebayerStatus = "✓  Debayering complete.";
+
+        if (TriggerScanFramesFunc is not null)
+            await TriggerScanFramesFunc();
     }
 
     partial void OnSelectedObservatoryChanged(string value)
@@ -141,8 +257,13 @@ public partial class ObservationViewModel : ViewModelBase
     partial void OnSecondaryCodeChanged(string value) => DebounceLog("Secondary code",  value);
 
     // ── Commands — Directories ────────────────────────────────────────────────
+    // Darks/Flats/Bias/Save default their picker to the Lights directory when they don't
+    // already have a directory of their own — the Data tab's fields no longer share a
+    // "last folder" default with unrelated pickers elsewhere in the app (e.g. log export).
+    private string StartDirFor(string current) => string.IsNullOrEmpty(current) ? FitsDir : current;
+
     [RelayCommand] private async Task BrowseFitsDir()
-        => await BrowseFolder("Select FITS Files Directory", v =>
+        => await BrowseFolder("Select FITS Files Directory", FitsDir, v =>
         {
             FitsDir = v;
             _fitsDirNeedsHeaderRead = true;
@@ -152,7 +273,7 @@ public partial class ObservationViewModel : ViewModelBase
         });
 
     [RelayCommand] private async Task BrowseSaveDir()
-        => await BrowseFolder("Select Save Plots Directory", v =>
+        => await BrowseFolder("Select Save Plots Directory", StartDirFor(SaveDir), v =>
         {
             SaveDir = v;
             SaveDirUserSet = true;
@@ -162,7 +283,7 @@ public partial class ObservationViewModel : ViewModelBase
     [RelayCommand] private async Task BrowseDarksDir()
     {
         _darksAuto = false;
-        await BrowseFolder("Select Darks Directory", v =>
+        await BrowseFolder("Select Darks Directory", StartDirFor(DarksDir), v =>
         {
             DarksDir = v;
             Services.SessionLogService.Write($"[Field] Darks dir: {v}");
@@ -174,7 +295,7 @@ public partial class ObservationViewModel : ViewModelBase
     [RelayCommand] private async Task BrowseFlatsDir()
     {
         _flatsAuto = false;
-        await BrowseFolder("Select Flats Directory", v =>
+        await BrowseFolder("Select Flats Directory", StartDirFor(FlatsDir), v =>
         {
             FlatsDir = v;
             Services.SessionLogService.Write($"[Field] Flats dir: {v}");
@@ -186,7 +307,7 @@ public partial class ObservationViewModel : ViewModelBase
     [RelayCommand] private async Task BrowseBiasDir()
     {
         _biasAuto = false;
-        await BrowseFolder("Select Biases Directory", v =>
+        await BrowseFolder("Select Biases Directory", StartDirFor(BiasDir), v =>
         {
             BiasDir = v;
             Services.SessionLogService.Write($"[Field] Bias dir: {v}");
@@ -210,6 +331,7 @@ public partial class ObservationViewModel : ViewModelBase
         if (EquipmentTarget is not null)
         {
             EquipmentTarget.TargetXY = "";
+            EquipmentTarget.ResetCompSelection();
             EquipmentTarget.ResetWcs();
         }
 
@@ -270,11 +392,16 @@ public partial class ObservationViewModel : ViewModelBase
 
         if (!string.IsNullOrEmpty(siteLat))
         {
-            if (!siteLat.StartsWith('+') && !siteLat.StartsWith('-')) siteLat = "+" + siteLat;
-            Latitude = siteLat;
-            populated.Append($"Lat: {siteLat}  ");
+            var parsedLat = ParseLatLonToDecimal(siteLat);
+            Latitude = parsedLat ?? (siteLat.StartsWith('+') || siteLat.StartsWith('-') ? siteLat : "+" + siteLat);
+            populated.Append($"Lat: {Latitude}  ");
         }
-        if (!string.IsNullOrEmpty(siteLon)) { Longitude = siteLon; populated.Append($"Lon: {siteLon}  "); }
+        if (!string.IsNullOrEmpty(siteLon))
+        {
+            var parsedLon = ParseLatLonToDecimal(siteLon);
+            Longitude = parsedLon ?? (siteLon.StartsWith('+') || siteLon.StartsWith('-') ? siteLon : "+" + siteLon);
+            populated.Append($"Lon: {Longitude}  ");
+        }
         if (!string.IsNullOrEmpty(siteElev)) { Elevation = siteElev; populated.Append($"Elev: {siteElev}m  "); }
 
         // Auto-match saved observatory by lat/lon
@@ -372,16 +499,52 @@ public partial class ObservationViewModel : ViewModelBase
         _fitsDirNeedsHeaderRead = false;
         FitsDirNeedsHeaderReadChanged?.Invoke();
 
-        // Always update plate solve status based on WCS + config state
+        // Always update plate solve status based on WCS + config state.
         _lastFitsPath = fitsPath;
-        var hasCtype1 = !string.IsNullOrEmpty(hdr.Get("CTYPE1"));
+        var hasCtype1  = !string.IsNullOrEmpty(hdr.Get("CTYPE1"));
+        // The first non-excluded file may be a bad/dark frame that was never solvable
+        // and therefore never received a plate solution.  If CTYPE1 is absent in that
+        // file, scan up to 5 additional files in the directory — if any already carry
+        // a WCS we can skip re-solving and call NotifyWcsReady with a solved file path.
+        string wcsReadyPath = fitsPath;
+        if (!hasCtype1)
+        {
+            var fitsDir = Path.GetDirectoryName(fitsPath) ?? "";
+            if (!string.IsNullOrEmpty(fitsDir))
+            {
+                var candidates = Directory.GetFiles(fitsDir, "*.fits", SearchOption.TopDirectoryOnly)
+                    .Concat(Directory.GetFiles(fitsDir, "*.fit",  SearchOption.TopDirectoryOnly))
+                    .Concat(Directory.GetFiles(fitsDir, "*.fts",  SearchOption.TopDirectoryOnly))
+                    .Concat(Directory.GetFiles(fitsDir, "*.fz",   SearchOption.TopDirectoryOnly))
+                    .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                    .Where(f => !f.Equals(fitsPath, StringComparison.OrdinalIgnoreCase))
+                    .Take(5);
+                foreach (var candidate in candidates)
+                {
+                    try
+                    {
+                        var cHdr = await Task.Run(() => FitsHeaderService.Read(candidate));
+                        if (!string.IsNullOrEmpty(cHdr.Get("CTYPE1")))
+                        {
+                            hasCtype1    = true;
+                            wcsReadyPath = candidate;
+                            Services.SessionLogService.Write(
+                                $"[FITS] WCS found in {Path.GetFileName(candidate)} — skipping plate solve");
+                            break;
+                        }
+                    }
+                    catch { /* unreadable — skip */ }
+                }
+            }
+        }
+
         if (EquipmentTarget is not null)
         {
             if (hasCtype1)
             {
                 EquipmentTarget.PlateSolveStatus = "✓  WCS already present — no plate solve needed";
                 EquipmentTarget.IsPsRetryEnabled = false;
-                EquipmentTarget.NotifyWcsReady(fitsPath, SaveDir, ExoticExePath);
+                EquipmentTarget.NotifyWcsReady(wcsReadyPath, SaveDir, ExoticExePath);
             }
             else
             {
@@ -402,7 +565,10 @@ public partial class ObservationViewModel : ViewModelBase
                 var solveFile = Path.GetFileName(fitsPath);
                 _ = EquipmentTarget.StartPlateSolveAsync(fitsPath, SaveDir, ExoticExePath, PythonExePath)
                     .ContinueWith(_ => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                        FitsHeaderStatus = $"✓  {solveFile}  |  {EquipmentTarget.PlateSolveStatus}"));
+                        // Lead with the plate solve's own ✓/⚠/✗ prefix (not a hardcoded ✓) so the
+                        // status color reflects the real outcome — a partial or failed solve
+                        // previously still rendered green here regardless of what actually happened.
+                        FitsHeaderStatus = $"{EquipmentTarget.PlateSolveStatus}  |  {solveFile}"));
             }
         }
     }
@@ -415,12 +581,16 @@ public partial class ObservationViewModel : ViewModelBase
     {
         if (EquipmentTarget is null) return;
 
-        var path = _lastFitsPath;
-        if (string.IsNullOrEmpty(path))
+        // Prefer the live, exclusion-aware lookup over the cached path from the last Read
+        // FITS Header — a frame excluded afterward in Image Analysis would otherwise keep
+        // getting solved anyway, since _lastFitsPath is only stale-checked for emptiness.
+        string path;
+        if (AutoScanAndGetFitsFunc is not null)
+            path = await AutoScanAndGetFitsFunc() ?? _lastFitsPath;
+        else
         {
-            if (AutoScanAndGetFitsFunc is not null)
-                path = await AutoScanAndGetFitsFunc() ?? "";
-            else
+            path = _lastFitsPath;
+            if (string.IsNullOrEmpty(path))
                 path = FitsHeaderService.FindFirstFits(FitsDir) ?? "";
         }
         if (string.IsNullOrEmpty(path))
@@ -443,7 +613,10 @@ public partial class ObservationViewModel : ViewModelBase
 
     private async Task<bool> ResolveExoticRuntimeForPlateSolveAsync()
     {
-        var runtime = await ExoticRuntimeService.ResolveAsync(PythonExePath, ExoticExePath);
+        var pythonPath = ResolveActivePythonPathFunc?.Invoke();
+        if (string.IsNullOrWhiteSpace(pythonPath)) pythonPath = PythonExePath;
+
+        var runtime = await ExoticRuntimeService.ResolveAsync(pythonPath, ExoticExePath);
         if (runtime is null) return false;
 
         PythonExePath = runtime.PythonExePath;
@@ -533,19 +706,77 @@ public partial class ObservationViewModel : ViewModelBase
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
-    private async Task BrowseFolder(string title, Action<string> setter)
+    private async Task BrowseFolder(string title, string startDir, Action<string> setter)
     {
         if (FolderPickerFunc is null) return;
-        var path = await FolderPickerFunc(title);
+        var path = await FolderPickerFunc(title, startDir);
         if (path is not null) setter(path);
+    }
+
+    /// <summary>
+    /// Converts a FITS-header latitude/longitude value to a plain decimal-degree string.
+    /// Handles three conventions seen in the wild: plain decimal ("31.68", "-110.88" — what
+    /// MObs and most amateur setups write, already correct as-is), sexagesimal DMS with a
+    /// leading sign ("+28 17 58.8", "-16 30 39.7"), and sexagesimal DMS with a trailing
+    /// hemisphere letter instead of a sign ("28 17 58.8 S", "16 30 39.7 W" — e.g. Teide
+    /// Observatory's convention). The previous code only ever checked for a leading sign, so
+    /// a trailing-letter value was never converted from DMS to decimal AND got the wrong sign
+    /// (an unsigned "S"/"W" value was blindly treated as positive). A hemisphere letter, when
+    /// present, is treated as authoritative over any leading sign on the same value.
+    /// Returns null if the value doesn't match any of these shapes.
+    /// </summary>
+    private static string? ParseLatLonToDecimal(string raw)
+    {
+        var s = raw.Trim();
+        if (s.Length == 0) return null;
+
+        char? hemisphere = null;
+        var last = char.ToUpperInvariant(s[^1]);
+        if (last is 'N' or 'S' or 'E' or 'W')
+        {
+            hemisphere = last;
+            s = s[..^1].TrimEnd();
+        }
+
+        bool negative = false;
+        if (s.StartsWith('-'))      { negative = true; s = s[1..].TrimStart(); }
+        else if (s.StartsWith('+')) { s = s[1..].TrimStart(); }
+
+        var parts = s.Split([' ', ':'], StringSplitOptions.RemoveEmptyEntries);
+        double value;
+        switch (parts.Length)
+        {
+            case 1:
+                if (!NumericParseService.TryParse(parts[0], out value)) return null;
+                break;
+            case 2 or 3:
+                if (!NumericParseService.TryParse(parts[0], out var deg)) return null;
+                if (!NumericParseService.TryParse(parts[1], out var min)) return null;
+                double sec = 0;
+                if (parts.Length == 3 && !NumericParseService.TryParse(parts[2], out sec)) return null;
+                value = deg + min / 60.0 + sec / 3600.0;
+                break;
+            default:
+                return null;
+        }
+
+        if (hemisphere is 'S' or 'W') negative = true;
+        else if (hemisphere is 'N' or 'E') negative = false;
+
+        value = negative ? -Math.Abs(value) : Math.Abs(value);
+        var formatted = value.ToString("0.######", System.Globalization.CultureInfo.InvariantCulture);
+
+        // EXOTIC's own input validation (inputs.py: latitude()/longitude()) requires an
+        // explicit leading '+' or '-' on both fields — a bare unsigned positive value like
+        // "31.68" is rejected outright ("You forgot the sign for the latitude!  North is '+'
+        // and South is '-'.") — so a sign must always be emitted, not only for negatives.
+        return formatted.StartsWith('-') ? formatted : "+" + formatted;
     }
 
     private static bool CoordApproxEqual(string a, string b)
     {
-        if (!double.TryParse(a.TrimStart('+'), System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out var da)) return false;
-        if (!double.TryParse(b.TrimStart('+'), System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out var db)) return false;
+        if (!NumericParseService.TryParse(a.TrimStart('+'), out var da)) return false;
+        if (!NumericParseService.TryParse(b.TrimStart('+'), out var db)) return false;
         return Math.Abs(da - db) < 0.01;   // ~1 km tolerance
     }
 

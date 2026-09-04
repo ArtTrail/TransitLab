@@ -1,3 +1,4 @@
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TransitLab.Services;
@@ -7,7 +8,6 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -54,7 +54,11 @@ public partial class EquipmentTargetViewModel : ViewModelBase
 
     partial void OnFilterChanged(string value)
     {
-        if (FilterFwhm.TryGetValue(value, out var fwhm))
+        // value can be null here: a non-editable ComboBox's SelectedItem two-way binding
+        // resolves to null (and writes back to this property) if the bound value isn't
+        // present in FilterCodes — e.g. a corrupted or stale saved config. Dictionary
+        // lookups throw on a null key, so guard before ever reaching FilterFwhm.
+        if (!string.IsNullOrEmpty(value) && FilterFwhm.TryGetValue(value, out var fwhm))
         { FilterMin = fwhm.Min.ToString("G"); FilterMax = fwhm.Max.ToString("G"); }
         DebounceLog("Filter", value);
     }
@@ -68,11 +72,50 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     partial void OnPlanetNameChanged(string value)  => DebounceLog("Planet name",   value);
 
     // ── Star Selection ────────────────────────────────────────────────────────
-    [ObservableProperty] private string _csvFileName        = "No file selected";
-    [ObservableProperty] private string _starListPreview    = "";
     [ObservableProperty] private string _plateSolveStatus   = "";
     [ObservableProperty] private string _activeSolverLabel  = "Solver: Astrometry.net";
     [ObservableProperty] private string _aavsoCompStatus    = "";
+    [ObservableProperty] private bool   _isCompQuerying;
+
+    partial void OnIsCompQueryingChanged(bool value) =>
+        FetchCompsCommand.NotifyCanExecuteChanged();
+
+    // ── Comp star method ──────────────────────────────────────────────────────
+    /// <summary>Options shown in the comp star method ComboBox.</summary>
+    public string[] CompMethods { get; } = ["AAVSO VSP", "VSP + Stone", "Stone"];
+
+    // ── Comp star detail popup ────────────────────────────────────────────────
+    /// <summary>Per-star detail data from the last Gaia fetch; null until a Gaia method succeeds.</summary>
+    public List<GaiaCompService.CompStarInfo>? CompStarDetails { get; private set; }
+
+    /// <summary>True when <see cref="CompStarDetails"/> is populated — drives the "Comp Details" button.</summary>
+    [ObservableProperty] private bool _hasCompStarDetails;
+
+    partial void OnHasCompStarDetailsChanged(bool value) =>
+        ShowCompStarDetailsCommand.NotifyCanExecuteChanged();
+
+    /// <summary>Set by the view code-behind to open the details popup window.</summary>
+    public Func<List<GaiaCompService.CompStarInfo>, Task>? ShowCompStarDetailsFunc { get; set; }
+
+    [RelayCommand(CanExecute = nameof(HasCompStarDetails))]
+    private async Task ShowCompStarDetails()
+    {
+        if (CompStarDetails is { Count: > 0 } && ShowCompStarDetailsFunc is not null)
+            await ShowCompStarDetailsFunc(CompStarDetails);
+    }
+
+    /// <summary>Currently selected comp star method.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CompMethodDescription))]
+    private string _selectedCompMethod = "AAVSO VSP";
+
+    /// <summary>One-line description shown beneath the comp method ComboBox.</summary>
+    public string CompMethodDescription => SelectedCompMethod switch
+    {
+        "AAVSO VSP"   => "Queries the AAVSO Variable Star Plotter for this target's published comparison sequence. Fast and reliable when an AAVSO sequence exists. No PSF validation.",
+        "Stone"       => "Gaia DR3 + APASS + Gaia GSPC pipeline without the VSP query. Scored by color match, RUWE, and isolation. Quality gates: RUWE < 1.1 (tiered fallback to < 1.2 / < 1.4), Gaia FOE > 200, VSX variable cross-check. Includes PSF validation.",
+        _             => "Gaia DR3 + APASS + Gaia GSPC, scored by color match, RUWE, and isolation. Quality gates: RUWE < 1.1 (tiered fallback to < 1.2 / < 1.4), Gaia FOE > 200, VSX variable cross-check. VSP stars fill first slots; Stone fills remaining. Includes PSF validation. Recommended.",
+    };
 
     /// <summary>Set by MainWindowViewModel when plate solver config changes.</summary>
     public PlateSolveService.SolverConfig? PlateSolverConfig { get; set; }
@@ -83,12 +126,27 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     [ObservableProperty] private string _compXY             = "";
     [ObservableProperty] private string _autoTargetStatus   = "⚠  Fetch planet parameters first";
     [ObservableProperty] private bool   _isAutoTargetEnabled;
-    [ObservableProperty] private bool   _isAutoCompsEnabled;
     [ObservableProperty] private bool   _isPsCancelVisible;
     [ObservableProperty] private bool   _isPsRetryEnabled;
     [ObservableProperty] private bool   _isCompsRetryEnabled;
 
     // ── Planet Parameters ─────────────────────────────────────────────────────
+    // Skips transit fitting entirely and runs EXOTIC's stellar-variability-only reduction
+    // instead — requires the EXOTIC 4.3.2 pre-release dev build (build 80+); written to
+    // inits.json's optional_info as "stellar_variability_only" (a plain JSON bool).
+    [ObservableProperty] private bool   _stellarVariabilityOnly = false;
+
+    /// <summary>Pushed in from MainWindowViewModel/config; suppresses the warning popup below.</summary>
+    public bool SuppressStellarVariabilityWarning { get; set; } = false;
+
+    /// <summary>Shows the "not for transit data" warning popup; persisting "don't show again" is handled by the caller.</summary>
+    public Func<Task>? ShowStellarVariabilityWarningFunc { get; set; }
+
+    partial void OnStellarVariabilityOnlyChanged(bool value)
+    {
+        if (value && !SuppressStellarVariabilityWarning)
+            _ = ShowStellarVariabilityWarningFunc?.Invoke();
+    }
     [ObservableProperty] private string _planetName     = "";
     [ObservableProperty] private string _neaStatus      = "";
     public ObservableCollection<string> RecentPlanets  { get; } = new();
@@ -121,6 +179,51 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     [ObservableProperty] private string _pmRa              = "";
     [ObservableProperty] private string _pmDec             = "";
 
+    // ── Image quality (populated after Stone comp query) ──────────────────────
+    /// <summary>Wire this to Results.AppendLog to stream Stone Method progress into the log.</summary>
+    public Action<string>? CompLogAction { get; set; }
+
+    /// <summary>Maximum comparison stars for Stone / VSP + Stone. Set by MainWindowViewModel from config.</summary>
+    [ObservableProperty] private int _maxCompStars = 10;
+
+    private GaiaCompService.ImageQualityInfo? _lastImageQuality;
+
+    [ObservableProperty] private bool _hasImageQuality;
+
+    public string QualityFwhm =>
+        _lastImageQuality?.FwhmMeanPx is double fwhm
+            ? $"{fwhm:F1}px  ({_lastImageQuality.FwhmUniformity})"
+            : "—";
+
+    public string QualityColorMatch =>
+        _lastImageQuality is null ? "—" :
+        _lastImageQuality.ColorMatchActive ? "✓  active" : "✗  disabled";
+
+    public string QualityPrecision =>
+        _lastImageQuality?.PrecisionMmag is double p ? $"~{p:F1} mmag" : "—";
+
+    public string QualityGrade => _lastImageQuality?.OverallGrade ?? "—";
+
+    public IBrush QualityGradeColor => _lastImageQuality?.OverallGrade switch
+    {
+        "good"       => new SolidColorBrush(Color.FromRgb(0xA3, 0xBE, 0x8C)),
+        "acceptable" => new SolidColorBrush(Color.FromRgb(0xEB, 0xCB, 0x8B)),
+        "marginal"   => new SolidColorBrush(Color.FromRgb(0xD0, 0x87, 0x70)),
+        "poor"       => new SolidColorBrush(Color.FromRgb(0xBF, 0x61, 0x6A)),
+        _            => new SolidColorBrush(Color.FromRgb(0xEC, 0xEF, 0xF4)),
+    };
+
+    private void SetImageQuality(GaiaCompService.ImageQualityInfo? q)
+    {
+        _lastImageQuality = q;
+        HasImageQuality   = q is not null;
+        OnPropertyChanged(nameof(QualityFwhm));
+        OnPropertyChanged(nameof(QualityColorMatch));
+        OnPropertyChanged(nameof(QualityPrecision));
+        OnPropertyChanged(nameof(QualityGrade));
+        OnPropertyChanged(nameof(QualityGradeColor));
+    }
+
     // ── Injected ──────────────────────────────────────────────────────────────
     /// <summary>Set to true by MainWindowViewModel while an automation sequence is running; suppresses blocking dialogs.</summary>
     public bool IsAutomationRunning { get; set; }
@@ -129,8 +232,6 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     public Action<string>? TargetNameChanged { get; set; }
 
     public Func<string, Task<string?>>?  FolderPickerFunc            { get; set; }
-    public Func<string, Task<string?>>?  FilePickerFunc              { get; set; }
-    public Func<string, string, Task>?   ShowErrorFunc               { get; set; }
     public Func<string, string, Task>?   ShowInfoFunc                { get; set; }
     /// <summary>Returns the FITS directory path.</summary>
     public Func<string>?                 FitsDirFunc                 { get; set; }
@@ -142,6 +243,9 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     private string _wcsFitsPath = "";
     private CancellationTokenSource? _aavsoCompCts;
     private bool   _isNeaRunning = false;  // true while FetchFromNeaAsync is in progress
+    // Set when StartAavsoCompFetchAsync defers because NEA is in progress.
+    // FetchFromNeaAsync checks this flag on completion and re-triggers the fetch.
+    private bool   _compFetchDeferredForNea = false;
 
     /// <summary>Called by ObservationViewModel at the start of ReadFitsHeader to invalidate the previous plate solve.</summary>
     public void ResetWcs()
@@ -149,6 +253,18 @@ public partial class EquipmentTargetViewModel : ViewModelBase
         _wcsReady    = false;
         _wcsFitsPath = "";
         UpdateAutoTargetEnabled();
+        FetchCompsCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Clears comp-star pixel positions and details. Pixel coordinates are image-specific,
+    /// so this must run whenever a new FITS/target invalidates the previous plate solve.
+    /// </summary>
+    public void ResetCompSelection()
+    {
+        CompXY             = "";
+        CompStarDetails    = null;
+        HasCompStarDetails = false;
     }
 
     /// <summary>Called by ObservationViewModel when a plate solve succeeds or WCS is already present.</summary>
@@ -156,16 +272,33 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     {
         _wcsReady            = true;
         _wcsFitsPath         = fitsPath;
-        IsCompsRetryEnabled  = true;
         if (!string.IsNullOrEmpty(fitsPath))    _psFitsPath  = fitsPath;
         if (!string.IsNullOrEmpty(saveDir))     _psSaveDir   = saveDir;
         if (!string.IsNullOrEmpty(exoticExePath)) _psExoticExe = exoticExePath;
         UpdateAutoTargetEnabled();
-        _ = StartAavsoCompFetchAsync(fitsPath);
+        FetchCompsCommand.NotifyCanExecuteChanged();
+        AavsoCompStatus = "Plate solve complete — select a method and click Fetch Comps.";
     }
 
     [RelayCommand]
     private Task RetryComps() => StartAavsoCompFetchAsync(_wcsFitsPath);
+
+    private bool CanFetchComps() => _wcsReady && !IsCompQuerying;
+
+    [RelayCommand(CanExecute = nameof(CanFetchComps))]
+    private Task FetchComps()
+    {
+        Services.SessionLogService.Write($"[Comp] User clicked Fetch Comps (method: {SelectedCompMethod})");
+        return StartAavsoCompFetchAsync(_wcsFitsPath);
+    }
+
+    [RelayCommand]
+    private void CancelComps()
+    {
+        _aavsoCompCts?.Cancel();
+        _compFetchDeferredForNea = false;
+        AavsoCompStatus = "Cancelled.";
+    }
 
     public async Task StartAavsoCompFetchAsync(string fitsPath)
     {
@@ -178,10 +311,8 @@ public partial class EquipmentTargetViewModel : ViewModelBase
         bool hasCoords = false;
 
         // 1. Planet parameters
-        if (double.TryParse(TargetRa,  System.Globalization.NumberStyles.Any,
-                            System.Globalization.CultureInfo.InvariantCulture, out var pRa) &&
-            double.TryParse(TargetDec, System.Globalization.NumberStyles.Any,
-                            System.Globalization.CultureInfo.InvariantCulture, out var pDec))
+        if (NumericParseService.TryParse(TargetRa, out var pRa) &&
+            NumericParseService.TryParse(TargetDec, out var pDec))
         {
             ra = pRa; dec = pDec; hasCoords = true;
         }
@@ -193,6 +324,7 @@ public partial class EquipmentTargetViewModel : ViewModelBase
             if (_isNeaRunning && !ct.IsCancellationRequested)
             {
                 AavsoCompStatus = "⟳  Waiting for NEA query to complete…";
+                _compFetchDeferredForNea = true;
                 return;
             }
 
@@ -215,40 +347,49 @@ public partial class EquipmentTargetViewModel : ViewModelBase
 
         if (!hasCoords)
         {
-            // Only surface this error if we haven't already been superseded by a newer fetch.
             if (!ct.IsCancellationRequested)
             {
-                AavsoCompStatus = "⚠  AAVSO comp fetch skipped — fetch planet parameters or plate solve first";
-                Services.SessionLogService.Write("[AavsoComp] Skipped — no RA/Dec available (fetch planet parameters or plate solve first)");
+                AavsoCompStatus = "⚠  Comp fetch skipped — fetch planet parameters or plate solve first";
+                Services.SessionLogService.Write("[CompFetch] Skipped — no RA/Dec available");
             }
             return;
         }
 
-        // If a newer fetch has already taken over, exit silently — it will set the status.
         if (ct.IsCancellationRequested) return;
 
-        // Clear stale comps from any previous target before the network call,
-        // so we never show old data while the new fetch is in progress.
-        CompXY = "";
-        AavsoCompStatus = "⟳  Fetching AAVSO comparison stars…";
+        // ── Route to the selected method ──────────────────────────────────────
+        switch (SelectedCompMethod)
+        {
+            case "VSP + Stone": await RunGaiaCompFetchAsync(fitsPath, ra, dec, useVsp: true,  ct); break;
+            case "Stone":       await RunGaiaCompFetchAsync(fitsPath, ra, dec, useVsp: false, ct); break;
+            default:            await RunVspCompFetchAsync (fitsPath, ra, dec, ct);                 break;
+        }
+    }
+
+    // ── AAVSO VSP — existing behaviour ───────────────────────────────────────
+
+    private async Task RunVspCompFetchAsync(string fitsPath, double ra, double dec, CancellationToken ct)
+    {
+        ResetCompSelection();
+        AavsoCompStatus    = "⟳  Fetching AAVSO comparison stars…";
+        IsCompQuerying     = true;
         try
         {
             TryParseXY(TargetXY, out var targetPx, out var targetPy);
-            var result = await AavsoCompService.FetchAsync(fitsPath, ra, dec, targetPx, targetPy, ct);
+            var result = await AavsoCompService.FetchAsync(fitsPath, ra, dec, Filter, targetPx, targetPy, ct);
             if (ct.IsCancellationRequested) return;
 
             if (result.Pairs.Count == 0)
             {
-                // First attempt returned nothing — wait 10 s and retry once.
                 Services.SessionLogService.Write($"[AavsoComp] Attempt 1 failed ({result.StatusMessage}) — retrying in 10 s");
-                AavsoCompStatus = $"⟳  Retrying AAVSO fetch in 10 s… (attempt 1: {result.StatusMessage})";
+                AavsoCompStatus = $"⟳  Retrying AAVSO fetch in 10 s… ({result.StatusMessage})";
                 await Task.Delay(TimeSpan.FromSeconds(10), ct);
                 if (ct.IsCancellationRequested) return;
 
                 AavsoCompStatus = "⟳  Retrying AAVSO comparison star fetch…";
-                result = await AavsoCompService.FetchAsync(fitsPath, ra, dec, targetPx, targetPy, ct);
+                result = await AavsoCompService.FetchAsync(fitsPath, ra, dec, Filter, targetPx, targetPy, ct);
                 if (ct.IsCancellationRequested) return;
-                Services.SessionLogService.Write($"[AavsoComp] Retry result: {result.StatusMessage}");
+                Services.SessionLogService.Write($"[AavsoComp] Retry: {result.StatusMessage}");
             }
             else
             {
@@ -256,15 +397,8 @@ public partial class EquipmentTargetViewModel : ViewModelBase
             }
 
             AavsoCompStatus = result.StatusMessage;
-            if (result.Pairs.Count > 0)
-            {
-                SetCompStars(result.Pairs);   // replace, not merge
-                PlayStatusSoundAction?.Invoke(true);
-            }
-            else
-            {
-                PlayStatusSoundAction?.Invoke(false);
-            }
+            if (result.Pairs.Count > 0) { SetCompStars(result.Pairs); PlayStatusSoundAction?.Invoke(true); }
+            else                          PlayStatusSoundAction?.Invoke(false);
         }
         catch (OperationCanceledException) { /* superseded */ }
         catch (Exception ex)
@@ -273,7 +407,95 @@ public partial class EquipmentTargetViewModel : ViewModelBase
             Services.SessionLogService.Write($"[AavsoComp] ERROR — {ex.GetType().Name}: {ex.Message}");
             PlayStatusSoundAction?.Invoke(false);
         }
+        finally
+        {
+            IsCompQuerying = false;
+        }
     }
+
+    // ── Gaia + VSP — full scored pipeline ────────────────────────────────────
+
+    private async Task RunGaiaCompFetchAsync(string fitsPath, double ra, double dec, bool useVsp, CancellationToken ct)
+    {
+        ResetCompSelection();
+        SetImageQuality(null);   // clear previous quality panel
+        AavsoCompStatus    = "⟳  Stone method: querying Gaia DR3…";
+        IsCompQuerying     = true;
+        try
+        {
+            // Prefer the user-selected filter; fall back to the FITS header FILTER keyword;
+            // last resort "V" so that VSP always has a band to query against.
+            var filter = EquipmentTarget_Filter;
+            if (string.IsNullOrWhiteSpace(filter) && !string.IsNullOrEmpty(fitsPath))
+            {
+                try
+                {
+                    var hdr = await Task.Run(() => FitsHeaderService.Read(fitsPath), ct);
+                    filter  = hdr.Get("FILTER") ?? "";
+                }
+                catch { /* ignore — will fall through to default */ }
+            }
+            if (string.IsNullOrWhiteSpace(filter)) filter = "V";
+
+            // Progress<string> captures the current (UI) SynchronizationContext, so
+            // Report() calls from background tasks marshal back to the UI thread safely.
+            var progress    = new Progress<string>(msg => AavsoCompStatus = msg);
+            var logProgress = new Progress<string>(msg => CompLogAction?.Invoke(msg + "\n"));
+
+            var result = await GaiaCompService.FetchAsync(
+                fitsPath, ra, dec, filter,
+                aavsoCode: null,
+                useVsp: useVsp,
+                progress: progress,
+                logProgress: logProgress,
+                maxCompStars: MaxCompStars,
+                ct);
+            if (ct.IsCancellationRequested) return;
+
+            AavsoCompStatus = result.StatusMessage;
+            Services.SessionLogService.Write($"[GaiaComp] {result.StatusMessage}");
+            SetImageQuality(result.Quality);
+
+            if (result.Pairs.Count > 0)
+            {
+                SetCompStars(result.Pairs, MaxCompStars);
+                // Populate detail popup data when the Gaia pipeline returns per-star info
+                if (result.Stars is { Count: > 0 })
+                {
+                    CompStarDetails    = result.Stars;
+                    HasCompStarDetails = true;
+                }
+                // "poor" here can mean every candidate failed the PSF/SNR quality bar and this
+                // is a forced fallback selection (see GaiaCompService) — that's not a genuine
+                // success, so don't play the success cue for it even though comps were returned.
+                PlayStatusSoundAction?.Invoke(result.Quality?.OverallGrade != "poor");
+            }
+            else
+            {
+                PlayStatusSoundAction?.Invoke(false);
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { /* superseded */ }
+        catch (OperationCanceledException)
+        {
+            AavsoCompStatus = "✗  Gaia query timed out — check your internet connection";
+            Services.SessionLogService.Write("[GaiaComp] Timed out waiting for Gaia/APASS response");
+            PlayStatusSoundAction?.Invoke(false);
+        }
+        catch (Exception ex)
+        {
+            AavsoCompStatus = $"✗  Gaia fetch failed: {ex.Message}";
+            Services.SessionLogService.Write($"[GaiaComp] ERROR — {ex.GetType().Name}: {ex.Message}");
+            PlayStatusSoundAction?.Invoke(false);
+        }
+        finally
+        {
+            IsCompQuerying = false;
+        }
+    }
+
+    // Helper: expose the filter code from this VM (Filter is declared in the same partial class)
+    private string EquipmentTarget_Filter => Filter;
 
     // ── Reactive enable-flag helpers ──────────────────────────────────────────
     partial void OnTargetRaChanged(string value)
@@ -284,9 +506,7 @@ public partial class EquipmentTargetViewModel : ViewModelBase
         // it is cleared at the start of StartAavsoCompFetchAsync instead.
         if (!string.IsNullOrWhiteSpace(value))
         {
-            TargetXY        = "";
-            CsvFileName     = "No file selected";
-            StarListPreview = "";
+            TargetXY = "";
             // NOTE: comp fetch re-trigger is handled at the end of FetchFromNeaAsync, after
             // both TargetRa AND TargetDec are fully set.  Triggering here would race against
             // TargetDec being set on the very next line of FetchFromNeaAsync.
@@ -294,12 +514,11 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     }
 
     partial void OnTargetDecChanged(string value) => UpdateAutoTargetEnabled();
-    partial void OnTargetXYChanged(string value)  => IsAutoCompsEnabled = !string.IsNullOrWhiteSpace(value);
 
     private void UpdateAutoTargetEnabled()
     {
-        bool hasRa  = double.TryParse(TargetRa,  NumberStyles.Any, CultureInfo.InvariantCulture, out _);
-        bool hasDec = double.TryParse(TargetDec, NumberStyles.Any, CultureInfo.InvariantCulture, out _);
+        bool hasRa  = NumericParseService.TryParse(TargetRa, out _);
+        bool hasDec = NumericParseService.TryParse(TargetDec, out _);
 
         if (hasRa && hasDec && _wcsReady)
         {
@@ -319,7 +538,6 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     }
 
     partial void OnIsAutoTargetEnabledChanged(bool value) => AutoSelectTargetCommand.NotifyCanExecuteChanged();
-    partial void OnIsAutoCompsEnabledChanged(bool value)  => AutoSelectCompsCommand.NotifyCanExecuteChanged();
 
     // ── Plate solve state ─────────────────────────────────────────────────────
     private CancellationTokenSource? _psCts;
@@ -328,8 +546,60 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     private string _psExoticExe   = "";
     private string _psPythonExe   = "";
 
+    // MicroObservatory FITS headers report OBSERVAT='Whipple Observatory' (the facility
+    // hosting every MObs telescope) and TELESCOP as one of its four named instruments —
+    // checked directly against the file being solved, not just the folder it came from,
+    // so this catches MObs data regardless of how the FITS directory was selected.
+    private static readonly string[] MobsTelescopes = ["Cecilia", "Donald", "Ben", "Ed"];
+
+    private static bool LooksLikeMobsHeader(FitsHeaderService.FitsHeader hdr)
+    {
+        var observat = hdr.Get("OBSERVAT") ?? "";
+        var telescop = hdr.Get("TELESCOP") ?? "";
+        return observat.Contains("Whipple", StringComparison.OrdinalIgnoreCase)
+            || MobsTelescopes.Contains(telescop, StringComparer.OrdinalIgnoreCase);
+    }
+
+    // Unistellar FITS headers report ORIGIN='Unistellar' and TELESCOP='eVscope v2.0' (or
+    // similar). Checked independently of BAYERPAT/debayer state — confirmed via live testing
+    // (a real Unistellar user's frames) that ASTAP still fails to solve even after debayering
+    // with a correct pixel scale, so this warning applies whether or not the data has been
+    // debayered yet.
+    private static bool LooksLikeUnistellarHeader(FitsHeaderService.FitsHeader hdr)
+    {
+        var origin = hdr.Get("ORIGIN") ?? "";
+        var telescop = hdr.Get("TELESCOP") ?? "";
+        return origin.Contains("Unistellar", StringComparison.OrdinalIgnoreCase)
+            || telescop.Contains("evscope", StringComparison.OrdinalIgnoreCase);
+    }
+
     public async Task StartPlateSolveAsync(string fitsPath, string saveDir, string exoticExePath, string pythonExePath = "")
     {
+        // ASTAP is known to struggle with data from certain sources — warn once per solve
+        // attempt rather than gating/blocking, so the user can still proceed if they want to.
+        if (PlateSolverConfig?.Solver == "ASTAP" && ShowInfoFunc is not null)
+        {
+            try
+            {
+                var hdr = await Task.Run(() => FitsHeaderService.Read(fitsPath));
+                bool isMobs = LooksLikeMobsHeader(hdr);
+                bool isUnistellar = LooksLikeUnistellarHeader(hdr);
+                if (isMobs || isUnistellar)
+                {
+                    string reason = (isMobs, isUnistellar) switch
+                    {
+                        (true, true) => "MicroObservatory's small image dimensions and Unistellar eVscope's field distortion can both overwhelm ASTAP's quad-matching.",
+                        (true, false) => "ASTAP can struggle to plate solve MicroObservatory's small image frames — it may fail outright or produce an incorrect solution.",
+                        _ => "Unistellar eVscope frames have a known field distortion that ASTAP's quad-matching can't handle — confirmed to still fail even after debayering with a correct pixel scale, so this isn't a data-quality issue debayering alone can fix.",
+                    };
+                    _ = ShowInfoFunc("ASTAP May Struggle With This Data",
+                        $"{reason}\n\nFor more reliable results, consider switching solvers in Plate Solve Setup: " +
+                        "Astrometry.net if you're running EXOTIC 4.3.1, or NextAstro if you're running the EXOTIC 4.3.2 pre-release build.");
+                }
+            }
+            catch { /* header unreadable — skip the warning, the solve attempt itself will report the real error */ }
+        }
+
         _psFitsPath  = fitsPath;
         _psSaveDir   = saveDir;
         _psExoticExe = exoticExePath;
@@ -346,7 +616,23 @@ public partial class EquipmentTargetViewModel : ViewModelBase
         PlateSolveService.Result result;
         try
         {
-            result = await PlateSolveService.SolveAsync(fitsPath, saveDir, exoticExePath, PlateSolverConfig, progress, ct, pythonExePath);
+            // Inject the current pixel scale so ASTAP receives a computed FOV
+            // instead of -fov 0 (auto-iterate), which risks spurious low-quad solutions.
+            var config = PlateSolverConfig;
+            if (config is not null &&
+                NumericParseService.TryParse(PixelScale, out var ps) && ps > 0)
+            {
+                config = config with { PixelScaleArcsec = ps };
+            }
+            // Inject target RA/Dec as solve hints — used by NextAstro (and passed through
+            // harmlessly to Astrometry.net, which already solves blind without them).
+            if (config is not null &&
+                NumericParseService.TryParse(TargetRa, out var ra) &&
+                NumericParseService.TryParse(TargetDec, out var dec))
+            {
+                config = config with { Ra = ra, Dec = dec };
+            }
+            result = await PlateSolveService.SolveAsync(fitsPath, saveDir, exoticExePath, config, progress, ct, pythonExePath);
         }
         catch (OperationCanceledException)
         {
@@ -364,118 +650,58 @@ public partial class EquipmentTargetViewModel : ViewModelBase
             return;
         }
 
-        PlateSolveStatus  = result.Success ? $"✓  {result.Message}" : $"✗  {result.Message}";
+        PlateSolveStatus  = !result.Success            ? $"✗  {result.Message}"
+                           : result.IsPartialSuccess    ? $"⚠  {result.Message}"
+                           :                              $"✓  {result.Message}";
         IsPsCancelVisible = false;
         IsPsRetryEnabled  = !result.Success;
         PlayStatusSoundAction?.Invoke(result.Success);
 
         if (result.Success)
-            NotifyWcsReady(fitsPath);
+        {
+            // When Astrometry.net returns a WCS-derived pixel scale that differs from the
+            // configured value by more than 5 %, auto-correct PixelScale so subsequent ASTAP
+            // calls receive the correct FOV hint — wrong scale was the root cause of ASTAP's
+            // consistent quad-matching failures on mismatched telescope/camera combos.
+            if (result.WcsPixelScaleArcsec > 0 &&
+                NumericParseService.TryParse(PixelScale, out var currentScale) &&
+                currentScale > 0)
+            {
+                double diffPct = Math.Abs(result.WcsPixelScaleArcsec - currentScale) / currentScale * 100.0;
+                if (diffPct > 5.0)
+                {
+                    string newScale = result.WcsPixelScaleArcsec.ToString(
+                        "F2", System.Globalization.CultureInfo.InvariantCulture);
+                    PixelScale = newScale;
+                    PlateSolveStatus =
+                        $"✓  WCS written — pixel scale auto-corrected to {newScale}\"/px " +
+                        $"(was {currentScale:F2}\"/px).";
+                    Services.SessionLogService.Write(
+                        $"[PlateSolve] Pixel scale auto-corrected: {currentScale:F3}→" +
+                        $"{result.WcsPixelScaleArcsec:F3}\"/px ({diffPct:F1}% off).");
+                }
+            }
+
+            // ASTAP all-frames: use the first file that was actually solved, not the original
+            // fitsPath which may be a bad/dark frame that ASTAP could never plate-solve.
+            // AavsoCompService and GaiaCompService both read WCS from the FITS file to convert
+            // comp star RA/Dec → pixel coords, so _wcsFitsPath must point to a solved file.
+            var wcsNotifyPath = !string.IsNullOrEmpty(result.FirstSolvedPath)
+                ? result.FirstSolvedPath
+                : fitsPath;
+            NotifyWcsReady(wcsNotifyPath);
+        }
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────
-    [RelayCommand] private async Task BrowseCsv()
-    {
-        if (FilePickerFunc is null) return;
-        var path = await FilePickerFunc("Select Star List CSV");
-        if (path is null) return;
-
-        CsvFileName = Path.GetFileName(path);
-        try   { ParseStarListCsv(path); }
-        catch (Exception ex) { StarListPreview = $"⚠  Error reading CSV: {ex.Message}"; }
-    }
-
-    private void ParseStarListCsv(string path)
-    {
-        var lines = File.ReadAllLines(path);
-        if (lines.Length < 2) { StarListPreview = "⚠  CSV appears empty."; return; }
-
-        var headers = SplitCsvLine(lines[0]);
-        var rows    = new List<Dictionary<string, string>>();
-        for (int i = 1; i < lines.Length; i++)
-        {
-            if (string.IsNullOrWhiteSpace(lines[i])) continue;
-            var vals = SplitCsvLine(lines[i]);
-            var row  = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            for (int j = 0; j < headers.Count && j < vals.Count; j++)
-                row[headers[j].Trim()] = vals[j].Trim();
-            rows.Add(row);
-        }
-
-        // Target row
-        var targetRow = rows.FirstOrDefault(r =>
-            r.TryGetValue("Type", out var t) && t.Trim().Equals("Target", StringComparison.OrdinalIgnoreCase));
-        if (targetRow is null) { StarListPreview = "⚠  No row with Type = \"Target\" found."; return; }
-
-        int tx = (int)double.Parse(targetRow["xPos"], CultureInfo.InvariantCulture);
-        int ty = (int)double.Parse(targetRow["yPos"], CultureInfo.InvariantCulture);
-        TargetXY = $"[{tx}, {ty}]";
-
-        // Comp rows — filter saturated, dedup, sort by MaxBright desc, top 10
-        var compRows = rows.Where(r =>
-            r.TryGetValue("Type", out var t) && t.Trim().StartsWith("Comp", StringComparison.OrdinalIgnoreCase));
-
-        var valid = new List<(string Name, int X, int Y, double MaxBright)>();
-        foreach (var r in compRows)
-        {
-            if (!r.TryGetValue("MaxBright", out var mbStr)) continue;
-            if (!double.TryParse(mbStr, NumberStyles.Any, CultureInfo.InvariantCulture, out var mb)) continue;
-            if (mb > 60_000) continue;
-            if (!r.TryGetValue("xPos", out var xs) || !r.TryGetValue("yPos", out var ys)) continue;
-            int cx = (int)double.Parse(xs, CultureInfo.InvariantCulture);
-            int cy = (int)double.Parse(ys, CultureInfo.InvariantCulture);
-            var name = r.TryGetValue("Name", out var n) ? n.Trim() : "?";
-            valid.Add((name, cx, cy, mb));
-        }
-
-        var seen   = new HashSet<(int, int)>();
-        var unique = new List<(string Name, int X, int Y, double MaxBright)>();
-        foreach (var item in valid)
-        {
-            if (seen.Add((item.X, item.Y)))
-                unique.Add(item);
-        }
-
-        var top10 = unique.OrderByDescending(x => x.MaxBright).Take(10).ToList();
-        CompXY = "[" + string.Join(", ", top10.Select(c => $"[{c.X}, {c.Y}]")) + "]";
-
-        // Preview
-        var sb = new StringBuilder();
-        var tname = targetRow.TryGetValue("Name", out var tn) ? tn.Trim() : "?";
-        sb.AppendLine($"Target:  {tname}  →  [{tx}, {ty}]");
-        sb.AppendLine();
-        sb.AppendLine($"Comp stars from CSV  ({top10.Count} of {unique.Count} candidates):");
-        for (int i = 0; i < top10.Count; i++)
-        {
-            var c = top10[i];
-            sb.AppendLine($"  {i + 1,2}.  {c.Name,-32}  MaxBright={c.MaxBright,6:0}   [{c.X}, {c.Y}]");
-        }
-        StarListPreview = sb.ToString().TrimEnd();
-    }
-
-    private static List<string> SplitCsvLine(string line)
-    {
-        var result  = new List<string>();
-        var current = new StringBuilder();
-        bool inQuotes = false;
-        foreach (char c in line)
-        {
-            if      (c == '"')              inQuotes = !inQuotes;
-            else if (c == ',' && !inQuotes) { result.Add(current.ToString()); current.Clear(); }
-            else                            current.Append(c);
-        }
-        result.Add(current.ToString());
-        return result;
-    }
-
     [RelayCommand(CanExecute = nameof(IsAutoTargetEnabled))]
     private async Task AutoSelectTarget()
     {
         Services.SessionLogService.Write("[UI] User clicked Auto Select Target");
         AutoTargetStatus = "Searching…";
 
-        if (!double.TryParse(TargetRa,  NumberStyles.Any, CultureInfo.InvariantCulture, out var ra) ||
-            !double.TryParse(TargetDec, NumberStyles.Any, CultureInfo.InvariantCulture, out var dec))
+        if (!NumericParseService.TryParse(TargetRa, out var ra) ||
+            !NumericParseService.TryParse(TargetDec, out var dec))
         {
             AutoTargetStatus = "⚠  RA/Dec must be decimal degrees";
             return;
@@ -532,164 +758,14 @@ public partial class EquipmentTargetViewModel : ViewModelBase
         }
     }
 
-    [RelayCommand(CanExecute = nameof(IsAutoCompsEnabled))]
-    private async Task AutoSelectComps()
-    {
-        Services.SessionLogService.Write("[UI] User clicked Auto Select Comps");
-        // Parse target position
-        if (!TryParseXY(TargetXY, out var tx, out var ty))
-        {
-            AavsoCompStatus = "⚠  Set Target Star X,Y first";
-            return;
-        }
-
-        var existing = ParseCompStars();
-        int slots    = 10 - existing.Count;
-        if (slots <= 0)
-        {
-            if (IsAutomationRunning)
-            {
-                // Automation: clear existing comps so auto-select can proceed with a fresh set
-                CompXY = "";
-                existing = [];
-                slots    = 10;
-                Services.SessionLogService.Write("[Automation] Cleared existing comp stars (was at max 10) to allow auto-select to proceed.");
-            }
-            else if (ShowErrorFunc is not null)
-                await ShowErrorFunc("Maximum Comp Stars Reached",
-                    "You already have 10 comparison stars selected.\n\nRemove one or more before running Auto Select Comps.");
-            else
-                AavsoCompStatus = "⚠  Already have 10 comp stars — remove some first";
-            if (!IsAutomationRunning) return;
-        }
-
-        // Find FITS file
-        string fitsPath = "";
-        if (GetFirstNonExcludedFitsFunc is not null)
-            fitsPath = await GetFirstNonExcludedFitsFunc() ?? "";
-        if (string.IsNullOrEmpty(fitsPath))
-        {
-            var dir = FitsDirFunc?.Invoke() ?? "";
-            fitsPath = FitsHeaderService.FindFirstFits(dir) ?? "";
-        }
-        if (string.IsNullOrEmpty(fitsPath)) { AavsoCompStatus = "⚠  No FITS file found"; return; }
-
-        AavsoCompStatus = "⟳  Detecting stars…";
-
-        try
-        {
-            var (newComps, targetAdu, totalCandidates) = await Task.Run(() =>
-                DetectCompStars(fitsPath, tx, ty, existing, slots));
-
-            if (newComps.Count == 0)
-            {
-                AavsoCompStatus = "⚠  No suitable candidates found";
-                return;
-            }
-
-            SetCompStars(existing.Concat(newComps).ToList());
-            AavsoCompStatus = $"✓  {newComps.Count} comp(s) added  (target ADU ≈ {targetAdu:N0})";
-        }
-        catch (Exception ex)
-        {
-            AavsoCompStatus = $"✗  {ex.Message}";
-        }
-    }
-
-    private static (List<(int X, int Y)> NewComps, double TargetAdu, int TotalCandidates)
-        DetectCompStars(string fitsPath, int tx, int ty,
-                        List<(int X, int Y)> existing, int slots)
-    {
-        var img    = FitsImageService.Load(fitsPath);
-        int w      = img.Width;
-        int h      = img.Height;
-        var pixels = img.Pixels;
-
-        // Background: median + 3×MAD detection threshold
-        var sample = pixels.ToArray();
-        Array.Sort(sample);
-        double bgMed = sample[sample.Length / 2];
-        var mads = sample.Select(p => Math.Abs(p - bgMed)).ToArray();
-        Array.Sort(mads);
-        double bgMad = mads[mads.Length / 2] * 1.4826;
-        if (bgMad < 1.0) bgMad = 1.0;
-        double threshold = bgMed + 3.0 * bgMad;
-
-        // Target peak ADU in 8-pixel aperture
-        const int R = 8;
-        int txc = Math.Clamp(tx - 1, R, w - R - 1);   // convert 1-based to 0-based
-        int tyc = Math.Clamp(ty - 1, R, h - R - 1);
-        double targetAdu = double.MinValue;
-        for (int dy = -R; dy <= R; dy++)
-            for (int dx = -R; dx <= R; dx++)
-                targetAdu = Math.Max(targetAdu, pixels[(tyc + dy) * w + (txc + dx)]);
-
-        // 10% edge exclusion zone
-        int edgeX = Math.Max(1, (int)(w * 0.10));
-        int edgeY = Math.Max(1, (int)(h * 0.10));
-
-        // Local-maximum star detection (3×3 window) inside the edge exclusion zone
-        var stars = new List<(int X, int Y, double Peak)>();
-        for (int y = edgeY; y < h - edgeY; y++)
-        {
-            for (int x = edgeX; x < w - edgeX; x++)
-            {
-                float v = pixels[y * w + x];
-                if (v <= threshold) continue;
-                bool isMax = true;
-                for (int dy = -1; dy <= 1 && isMax; dy++)
-                    for (int dx = -1; dx <= 1 && isMax; dx++)
-                        if (!(dx == 0 && dy == 0) && pixels[(y + dy) * w + (x + dx)] >= v)
-                            isMax = false;
-                if (isMax) stars.Add((x + 1, y + 1, v)); // back to 1-based
-            }
-        }
-
-        // Filter: reject stars outside the [10%, 100%] ADU range of the target and stars
-        // inside the target exclusion zone; rank by brightness similarity to target (ADU delta).
-        const int    targetExclusion = 20;
-        double       minAdu          = targetAdu * 0.10;
-        var candidates = new List<(int X, int Y, double Peak, double Dist)>();
-        foreach (var (sx, sy, speak) in stars)
-        {
-            if (speak > targetAdu) continue;   // brighter than target — skip
-            if (speak < minAdu)    continue;   // too faint (< 10% of target ADU) — skip
-            double dist = Math.Sqrt((double)(sx - tx) * (sx - tx) + (double)(sy - ty) * (sy - ty));
-            if (dist <= targetExclusion) continue;  // inside target exclusion zone
-            if (existing.Any(e => Math.Abs(e.X - sx) <= 10 && Math.Abs(e.Y - sy) <= 10)) continue;
-            candidates.Add((sx, sy, speak, dist));
-        }
-
-        // Rank by brightness similarity to target (closest ADU match first)
-        candidates.Sort((a, b) => Math.Abs(a.Peak - targetAdu).CompareTo(Math.Abs(b.Peak - targetAdu)));
-        var newComps = candidates.Take(slots).Select(c => (c.X, c.Y)).ToList();
-        return (newComps, targetAdu, candidates.Count);
-    }
-
-    private List<(int X, int Y)> ParseCompStars()
-    {
-        var result = new List<(int, int)>();
-        var raw = CompXY.Trim();
-        if (string.IsNullOrEmpty(raw)) return result;
-        try
-        {
-            var arr = JsonSerializer.Deserialize<int[][]>(raw);
-            if (arr is not null)
-                foreach (var p in arr)
-                    if (p.Length >= 2) result.Add((p[0], p[1]));
-        }
-        catch { /* ignore parse errors */ }
-        return result;
-    }
-
-    private void SetCompStars(List<(int X, int Y)> pairs)
+    private void SetCompStars(List<(int X, int Y)> pairs, int maxCap = 10)
     {
         var deduped = new List<(int X, int Y)>();
         foreach (var (x, y) in pairs)
         {
             if (deduped.Any(e => Math.Abs(e.X - x) <= 5 && Math.Abs(e.Y - y) <= 5)) continue;
             deduped.Add((x, y));
-            if (deduped.Count == 10) break;
+            if (deduped.Count == maxCap) break;
         }
         CompXY = "[" + string.Join(", ", deduped.Select(p => $"[{p.X}, {p.Y}]")) + "]";
     }
@@ -804,11 +880,12 @@ public partial class EquipmentTargetViewModel : ViewModelBase
         PmDec             = data.PmDec;
 
         _isNeaRunning = false;
+        var source = data.FromNextAstroCache ? "NextAstro cache (NASA Archive unreachable)" : "NEA";
         NeaStatus = string.IsNullOrEmpty(data.RpRsWarning)
-            ? $"✓  Loaded from NEA — {data.PlanetName}  ({DateTime.Now:HH:mm:ss})"
+            ? $"✓  Loaded from {source} — {data.PlanetName}  ({DateTime.Now:HH:mm:ss})"
             : data.RpRsWarning;
         PlayStatusSoundAction?.Invoke(true);
-        Services.SessionLogService.Write($"[NEA] ✓  Loaded: {data.PlanetName}");
+        Services.SessionLogService.Write($"[NEA] ✓  Loaded from {source}: {data.PlanetName}");
         if (!string.IsNullOrEmpty(data.RpRsWarning))
             Services.SessionLogService.Write($"[NEA] {data.RpRsWarning}");
         if (!string.IsNullOrEmpty(data.DefaultsApplied))
@@ -826,11 +903,18 @@ public partial class EquipmentTargetViewModel : ViewModelBase
                 "Please review the values below and edit them on the Equipment & Target tab if you have better data before running EXOTIC.\n\n" +
                 data.DefaultsApplied);
 
-        // Re-trigger comp fetch now that both TargetRa and TargetDec are populated.
-        // This supersedes the earlier WCS-fallback fetch that fired from NotifyWcsReady
-        // before NEA completed, giving it accurate planet coords instead of image-centre coords.
-        if (_wcsReady && !string.IsNullOrEmpty(_wcsFitsPath))
+        // If a comp fetch was deferred while NEA was in progress (rare — only possible when
+        // a single-frame plate solve completes before NEA responds), re-trigger it now that
+        // accurate planet RA/Dec are available.
+        if (_compFetchDeferredForNea && _wcsReady && !string.IsNullOrEmpty(_wcsFitsPath))
+        {
+            _compFetchDeferredForNea = false;
             _ = StartAavsoCompFetchAsync(_wcsFitsPath);
+        }
+        else
+        {
+            _compFetchDeferredForNea = false;
+        }
     }
 
     [RelayCommand] private void SavePixelScale()

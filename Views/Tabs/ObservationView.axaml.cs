@@ -23,12 +23,17 @@ public partial class ObservationView : UserControl
         };
     }
 
-    private async Task<string?> PickFolderAsync(string title)
+    private async Task<string?> PickFolderAsync(string title, string startDir)
     {
         var topLevel = TopLevel.GetTopLevel(this);
         if (topLevel is null) return null;
+
+        IStorageFolder? startFolder = null;
+        if (!string.IsNullOrEmpty(startDir))
+            startFolder = await topLevel.StorageProvider.TryGetFolderFromPathAsync(startDir);
+
         var results = await topLevel.StorageProvider.OpenFolderPickerAsync(
-            new FolderPickerOpenOptions { Title = title, AllowMultiple = false });
+            new FolderPickerOpenOptions { Title = title, AllowMultiple = false, SuggestedStartLocation = startFolder });
         return results.Count > 0 ? results[0].Path.LocalPath : null;
     }
 

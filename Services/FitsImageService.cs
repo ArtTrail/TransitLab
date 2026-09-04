@@ -14,6 +14,9 @@ public static class FitsImageService
     /// <summary>Fast background estimate by row-sampling ~10 000 pixels (25th percentile).</summary>
     public static float EstimateBackground(string path)
     {
+        if (FitsCompressionService.IsCompressed(path))
+            return (float)EstimateBackgroundFromPixels(FitsCompressionService.Decode(path).Pixels);
+
         using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         var meta = ReadHeader(fs);
         if (meta.Width == 0 || meta.Height == 0) return 0f;
@@ -58,6 +61,9 @@ public static class FitsImageService
     /// <summary>Load the full first image plane as float pixels (BZERO/BSCALE applied).</summary>
     public static FitsImage Load(string path)
     {
+        if (FitsCompressionService.IsCompressed(path))
+            return FitsCompressionService.Decode(path);
+
         using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         var meta = ReadHeader(fs);
         if (meta.Width == 0 || meta.Height == 0) return new FitsImage([], 0, 0);
@@ -162,8 +168,7 @@ public static class FitsImageService
     private static double ParseCardDouble(string card)
     {
         var val = card.Length > 10 ? card[10..].Split('/')[0].Trim() : "";
-        return double.TryParse(val, System.Globalization.NumberStyles.Any,
-            System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0.0;
+        return NumericParseService.TryParse(val, out var v) ? v : 0.0;
     }
 
     private static double ReadPixelValue(byte[] raw, int o, int bitpix) => bitpix switch

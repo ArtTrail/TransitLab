@@ -23,8 +23,7 @@ public static class FitsHeaderService
 
         /// <summary>Return a double or null if absent / unparseable.</summary>
         public double? GetDouble(string keyword)
-            => double.TryParse(Get(keyword), System.Globalization.NumberStyles.Any,
-                               System.Globalization.CultureInfo.InvariantCulture, out var d)
+            => NumericParseService.TryParse(Get(keyword), out var d)
                ? d : null;
 
         /// <summary>Return an int or null if absent / unparseable.</summary>
@@ -32,12 +31,14 @@ public static class FitsHeaderService
             => int.TryParse(Get(keyword), out var i) ? i : null;
     }
 
-    /// <summary>Read the primary header from a FITS file. Throws on I/O or format error.</summary>
-    public static FitsHeader Read(string path)
+    /// <summary>
+    /// Read one HDU's header (2880-byte blocks of 80-byte cards) starting at the stream's
+    /// current position. Leaves the stream positioned at the start of that HDU's data
+    /// (the next 2880-byte boundary after the END card).
+    /// </summary>
+    public static Dictionary<string, string> ReadHeaderBlock(FileStream fs)
     {
-        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         var kv = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
         var block = new byte[2880];
         while (true)
         {
@@ -68,6 +69,40 @@ public static class FitsHeaderService
             }
             if (end) break;
         }
+        return kv;
+    }
+
+    /// <summary>
+    /// Read the effective header from a FITS file. Throws on I/O or format error.
+    /// For Rice/GZIP tile-compressed images (.fz, primary HDU is an empty shell per the
+    /// FITS Tile Compression convention), transparently reads the first extension's header
+    /// instead and remaps ZBITPIX/ZNAXIS/ZNAXISn back to BITPIX/NAXIS/NAXISn so callers see
+    /// the logical (uncompressed) image header, same as astropy/CFITSIO present it.
+    /// </summary>
+    public static FitsHeader Read(string path)
+    {
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var kv = ReadHeaderBlock(fs);
+
+        bool looksCompressedContainer =
+            kv.TryGetValue("NAXIS", out var naxisStr) && naxisStr == "0" &&
+            kv.TryGetValue("EXTEND", out var extendStr) && extendStr == "T";
+
+        if (looksCompressedContainer)
+        {
+            var extKv = ReadHeaderBlock(fs);
+            if (extKv.TryGetValue("XTENSION", out var xt) && xt == "BINTABLE" &&
+                extKv.TryGetValue("ZIMAGE", out var zimg) && zimg == "T")
+            {
+                if (extKv.TryGetValue("ZBITPIX", out var zbp)) extKv["BITPIX"] = zbp;
+                if (extKv.TryGetValue("ZNAXIS",  out var znx)) extKv["NAXIS"]  = znx;
+                for (int n = 1; extKv.TryGetValue($"ZNAXIS{n}", out var znxn); n++)
+                    extKv[$"NAXIS{n}"] = znxn;
+
+                return new FitsHeader(extKv);
+            }
+        }
+
         return new FitsHeader(kv);
     }
 
@@ -75,7 +110,7 @@ public static class FitsHeaderService
     public static string? FindFirstFits(string directory)
     {
         if (!Directory.Exists(directory)) return null;
-        foreach (var ext in new[] { "*.fits", "*.fit", "*.fts" })
+        foreach (var ext in new[] { "*.fits", "*.fit", "*.fts", "*.fz" })
         {
             var files = Directory.GetFiles(directory, ext);
             Array.Sort(files, StringComparer.OrdinalIgnoreCase);

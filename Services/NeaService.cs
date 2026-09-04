@@ -56,17 +56,113 @@ public static class NeaService
         public string StarDistance      { get; init; } = "";
         public string PmRa              { get; init; } = "";
         public string PmDec             { get; init; } = "";
+        public bool   FromNextAstroCache { get; init; }
     }
 
     /// <summary>
-    /// Resolve the canonical casing of a planet name, then fetch all parameters.
-    /// Returns null if the planet is not found.
+    /// Resolve the canonical casing of a planet name, then fetch all parameters from the
+    /// live NASA Exoplanet Archive TAP service. If that's unreachable (outage, timeout,
+    /// DNS/connection failure), falls back to NextAstro's cached mirror of NEA parameters —
+    /// the same fallback EXOTIC's own pre-release code (NASAExoplanetArchive._load_params_from_nextastro_cache
+    /// in nea.py) already uses internally. Returns null only if the planet genuinely isn't
+    /// found in either source.
     /// </summary>
     public static async Task<PlanetData?> FetchAsync(string planetName, CancellationToken ct = default)
     {
-        var canonical = await ResolveCanonicalNameAsync(planetName, ct);
-        if (canonical is null) return null;
-        return await FetchParametersAsync(canonical, ct);
+        try
+        {
+            var canonical = await ResolveCanonicalNameAsync(planetName, ct);
+            if (canonical is null) return null;
+            return await FetchParametersAsync(canonical, ct);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested && IsConnectivityFailure(ex))
+        {
+            var fallback = await FetchFromNextAstroCacheAsync(planetName, ct);
+            if (fallback is not null) return fallback;
+            throw;
+        }
+    }
+
+    private static bool IsConnectivityFailure(Exception ex) =>
+        ex is HttpRequestException ||
+        ex is System.Net.Sockets.SocketException ||
+        (ex is TaskCanceledException tce && tce.InnerException is TimeoutException);
+
+    /// <summary>
+    /// NextAstro's cached mirror of NASA Exoplanet Archive parameters — same endpoint and
+    /// field mapping as EXOTIC's own nea.py fallback. Used only when the live NASA TAP
+    /// service is unreachable; NextAstro's cache doesn't get the elaborate Rp/Rs
+    /// cross-validation the primary path applies, matching EXOTIC's own fallback (which
+    /// also skips it).
+    /// </summary>
+    private const string NextAstroNeaUrl = "https://archive.nextastro.org/api/exoplanet_params";
+
+    private static async Task<PlanetData?> FetchFromNextAstroCacheAsync(string planetName, CancellationToken ct)
+    {
+        string json;
+        try
+        {
+            json = await Http.GetStringAsync(
+                $"{NextAstroNeaUrl}?name={Uri.EscapeDataString(planetName)}", ct);
+        }
+        catch { return null; }
+
+        var root = JsonNode.Parse(json);
+        if (root?["params"] is not JsonObject p) return null;
+
+        (string val, string errPlus) ValueAndPlus(string key) =>
+            p[key] is JsonObject obj ? (F(obj["value"]), F(obj["errPlus"])) : (F(p[key]), "");
+
+        string NegErr(JsonNode? holder, string errKey)
+        {
+            var raw = holder is JsonObject obj ? F(obj[errKey]) : "";
+            return !string.IsNullOrEmpty(raw) && NumericParseService.TryParse(raw, out double d)
+                ? Fmt(-Math.Abs(d)) : "";
+        }
+
+        var (period, periodUnc) = ValueAndPlus("orbitalPeriodDays");
+        var (midt, midtUnc)     = ValueAndPlus("midTransitTimeDays");
+        var (rprs, rprsUnc)     = ValueAndPlus("rpOverRs");
+        var (ars, arsUnc)       = ValueAndPlus("aOverRs");
+        var (incl, inclUnc)     = ValueAndPlus("inclinationDeg");
+        var (teff, teffPlus)    = ValueAndPlus("starTeffK");
+        var (feh, fehPlus)      = ValueAndPlus("starFeh");
+        var (logg, loggPlus)    = ValueAndPlus("starLogg");
+
+        var name = S(p["name"]);
+
+        return new PlanetData
+        {
+            PlanetName        = string.IsNullOrEmpty(name) ? planetName : name,
+            HostStarName      = S(p["hostStarName"]),
+            Ra                = F(p["raDeg"]),
+            Dec               = F(p["decDeg"]),
+            OrbitalPeriod     = period,
+            OrbitalPeriodUnc  = periodUnc,
+            MidTransitTime    = midt,
+            MidTransitTimeUnc = midtUnc,
+            RpRs              = rprs,
+            RpRsUnc           = rprsUnc,
+            ARs               = ars,
+            ARsUnc            = string.IsNullOrEmpty(arsUnc) ? "0.1" : arsUnc,
+            Inclination       = string.IsNullOrEmpty(incl) ? "90" : incl,
+            InclinationUnc    = inclUnc,
+            Eccentricity      = string.IsNullOrEmpty(F(p["eccentricity"])) ? "0" : F(p["eccentricity"]),
+            ArgPeriastron     = string.IsNullOrEmpty(F(p["argPeriastronDeg"])) ? "0" : F(p["argPeriastronDeg"]),
+            Teff              = teff,
+            TeffPlus          = teffPlus,
+            TeffMinus         = NegErr(p["starTeffK"], "errMinus"),
+            Metallicity       = string.IsNullOrEmpty(feh) ? "0" : feh,
+            MetallicityPlus   = string.IsNullOrEmpty(feh) ? "0.1" : fehPlus,
+            MetallicityMinus  = string.IsNullOrEmpty(feh) ? "-0.1" : NegErr(p["starFeh"], "errMinus"),
+            Logg              = logg,
+            LoggPlus          = loggPlus,
+            LoggMinus         = NegErr(p["starLogg"], "errMinus"),
+            StarDistance      = "",
+            PmRa              = "",
+            PmDec             = "",
+            FromNextAstroCache = true,
+        };
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
@@ -158,14 +254,12 @@ public static class NeaService
         {
             var dep = Pick("pl_trandep");
             if (!string.IsNullOrEmpty(dep) &&
-                double.TryParse(dep, System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture, out double depVal) && depVal > 0)
+                NumericParseService.TryParse(dep, out double depVal) && depVal > 0)
             {
                 rprs = Fmt(Math.Sqrt(depVal / 1e6));
                 var depUnc = Pick("pl_trandeperr1");
                 if (!string.IsNullOrEmpty(depUnc) &&
-                    double.TryParse(depUnc, System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture, out double depUncVal) && depUncVal > 0)
+                    NumericParseService.TryParse(depUnc, out double depUncVal) && depUncVal > 0)
                     rprsUnc = Fmt(0.5 * (depUncVal / 1e6) / (depVal / 1e6) * double.Parse(rprs,
                                   System.Globalization.CultureInfo.InvariantCulture));
             }
@@ -174,10 +268,8 @@ public static class NeaService
                 var radj  = Pick("pl_radj");
                 var strad = Pick("st_rad");
                 if (!string.IsNullOrEmpty(radj) && !string.IsNullOrEmpty(strad) &&
-                    double.TryParse(radj,  System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture, out double radjVal) &&
-                    double.TryParse(strad, System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture, out double stradVal) &&
+                    NumericParseService.TryParse(radj, out double radjVal) &&
+                    NumericParseService.TryParse(strad, out double stradVal) &&
                     stradVal > 0)
                     rprs = Fmt(radjVal * RjupM / (stradVal * RsunM));
             }
@@ -190,8 +282,7 @@ public static class NeaService
         string rprsWarning    = "";
         bool   rprsUncEst     = false;   // true when unc was defaulted to 10%
         if (!string.IsNullOrEmpty(rprs) &&
-            double.TryParse(rprs, System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out double rprsVal) &&
+            NumericParseService.TryParse(rprs, out double rprsVal) &&
             (rprsVal < 0.01 || rprsVal > 0.35))
         {
             string? alt        = null;
@@ -201,8 +292,7 @@ public static class NeaService
             // Alt 1: sqrt(pl_trandep [ppm] / 1e6)
             var dep = Pick("pl_trandep");
             if (!string.IsNullOrEmpty(dep) &&
-                double.TryParse(dep, System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture, out altDepVal) && altDepVal > 0)
+                NumericParseService.TryParse(dep, out altDepVal) && altDepVal > 0)
             {
                 double candidate = Math.Sqrt(altDepVal / 1e6);
                 if (candidate >= 0.01 && candidate <= 0.35)
@@ -215,10 +305,8 @@ public static class NeaService
                 var radj  = Pick("pl_radj");
                 var strad = Pick("st_rad");
                 if (!string.IsNullOrEmpty(radj) && !string.IsNullOrEmpty(strad) &&
-                    double.TryParse(radj,  System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture, out altRadjVal) &&
-                    double.TryParse(strad, System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture, out altStradVal) &&
+                    NumericParseService.TryParse(radj, out altRadjVal) &&
+                    NumericParseService.TryParse(strad, out altStradVal) &&
                     altStradVal > 0)
                 {
                     double candidate = altRadjVal * RjupM / (altStradVal * RsunM);
@@ -238,10 +326,8 @@ public static class NeaService
                 {
                     var depUncStr = Pick("pl_trandeperr1");
                     if (!string.IsNullOrEmpty(depUncStr) &&
-                        double.TryParse(depUncStr, System.Globalization.NumberStyles.Any,
-                            System.Globalization.CultureInfo.InvariantCulture, out double depUnc) && depUnc > 0 &&
-                        double.TryParse(alt, System.Globalization.NumberStyles.Any,
-                            System.Globalization.CultureInfo.InvariantCulture, out double altRpRsD))
+                        NumericParseService.TryParse(depUncStr, out double depUnc) && depUnc > 0 &&
+                        NumericParseService.TryParse(alt, out double altRpRsD))
                         rprsUnc = Fmt(0.5 * (depUnc / 1e6) / (altDepVal / 1e6) * altRpRsD);
                 }
                 else if (altSource == "planet/star radii" && altRadjVal > 0 && altStradVal > 0)
@@ -249,20 +335,16 @@ public static class NeaService
                     var radjErrStr  = Pick("pl_radjerr1");
                     var stradErrStr = Pick("st_raderr1");
                     if (!string.IsNullOrEmpty(radjErrStr) && !string.IsNullOrEmpty(stradErrStr) &&
-                        double.TryParse(radjErrStr,  System.Globalization.NumberStyles.Any,
-                            System.Globalization.CultureInfo.InvariantCulture, out double radjErr) &&
-                        double.TryParse(stradErrStr, System.Globalization.NumberStyles.Any,
-                            System.Globalization.CultureInfo.InvariantCulture, out double stradErr) &&
-                        double.TryParse(alt, System.Globalization.NumberStyles.Any,
-                            System.Globalization.CultureInfo.InvariantCulture, out double altRpRsR))
+                        NumericParseService.TryParse(radjErrStr, out double radjErr) &&
+                        NumericParseService.TryParse(stradErrStr, out double stradErr) &&
+                        NumericParseService.TryParse(alt, out double altRpRsR))
                         rprsUnc = Fmt(altRpRsR * Math.Sqrt(
                             Math.Pow(Math.Abs(radjErr) / altRadjVal, 2) +
                             Math.Pow(Math.Abs(stradErr) / altStradVal, 2)));
                 }
                 // Last resort: estimate at 10% of substituted value
                 if (string.IsNullOrEmpty(rprsUnc) &&
-                    double.TryParse(alt, System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture, out double altRpRsF))
+                    NumericParseService.TryParse(alt, out double altRpRsF))
                 { rprsUnc = Fmt(altRpRsF * 0.10); rprsUncEst = true; }
             }
             else
@@ -283,12 +365,9 @@ public static class NeaService
             var stmas = Pick("st_mass");
             var strad = Pick("st_rad");
             if (!string.IsNullOrEmpty(per) && !string.IsNullOrEmpty(stmas) && !string.IsNullOrEmpty(strad) &&
-                double.TryParse(per,   System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture, out double perDays) &&
-                double.TryParse(stmas, System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture, out double massSun) &&
-                double.TryParse(strad, System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture, out double radSun) &&
+                NumericParseService.TryParse(per, out double perDays) &&
+                NumericParseService.TryParse(stmas, out double massSun) &&
+                NumericParseService.TryParse(strad, out double radSun) &&
                 massSun > 0 && radSun > 0)
             {
                 double perSec  = perDays * 86400.0;
@@ -400,8 +479,7 @@ public static class NeaService
         catch
         {
             var s = n.ToString().Trim();
-            return double.TryParse(s, System.Globalization.NumberStyles.Any,
-                                   System.Globalization.CultureInfo.InvariantCulture, out _)
+            return NumericParseService.TryParse(s, out _)
                    ? s : "";
         }
     }
