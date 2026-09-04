@@ -4,6 +4,7 @@
              x:Class="TransitLab.Views.AboutView"
              x:DataType="views:AboutView">
 
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
     <Border Padding="36,28,36,28">
         <StackPanel Spacing="0">
 
@@ -167,5 +168,6 @@
 
         </StackPanel>
     </Border>
+    </ScrollViewer>
 
 </UserControl>

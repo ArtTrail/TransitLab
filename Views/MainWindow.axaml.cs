@@ -136,12 +136,23 @@ public partial class MainWindow : Window
 
     private void OnAboutClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
+        // Content (logo, Acknowledgements, License) has grown long enough that SizeToContent
+        // could ask for a window taller than a smaller screen's own working area. Default to
+        // ~2/3 of the current screen's height instead — long enough to avoid an immediate
+        // scrollbar on most screens, short enough to always fit — and let the ScrollViewer
+        // inside AboutView handle whatever doesn't fit. Resizable now that scrolling exists,
+        // so a small-screen user can shrink further or a large-screen user can expand.
+        var screen = this.Screens?.ScreenFromWindow(this) ?? this.Screens?.Primary;
+        var workingHeight = screen?.WorkingArea.Height ?? 900;
+        var targetHeight  = workingHeight * 2.0 / 3.0;
+
         var win = new Window
         {
             Title         = "About TransitLab",
             Width         = 520,
-            SizeToContent = Avalonia.Controls.SizeToContent.Height,
-            CanResize     = false,
+            Height        = targetHeight,
+            MinHeight     = 400,
+            CanResize     = true,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Content      = new AboutView(),
         };
