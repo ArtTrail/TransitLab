@@ -114,7 +114,7 @@
                                  FontFamily="Courier New"
                                  FontSize="16"
                                  Background="{StaticResource BrushField}"
-                                 Watermark="Path to astap_cli.exe or astap.exe…"/>
+                                 Watermark="{Binding AstapPathWatermark}"/>
                         <Button Classes="toolbar" Content="Browse…"
                                 Command="{Binding BrowseAstapCommand}"/>
                     </StackPanel>

@@ -26,6 +26,14 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
         "⚠  Requires the EXOTIC 4.3.2 pre-release dev build — install via Tools → Python & EXOTIC Setup → Pre-release / Development Build.";
 
     // ── ASTAP settings ────────────────────────────────────────────────────────
+    // Windows-specific wording would wrongly suggest a .exe is required on Linux/macOS,
+    // where the binary has no fixed extension (issue #50).
+    public string AstapPathWatermark { get; } = OperatingSystem.IsWindows()
+        ? "Path to astap_cli.exe or astap.exe…"
+        : OperatingSystem.IsMacOS()
+            ? "Path to the astap binary inside ASTAP.app, or the .app bundle itself…"
+            : "Path to the astap or astap_cli binary…";
+
     [ObservableProperty] private string _astapExePath    = "";
     [ObservableProperty] private string _astapCatalogDir = "";  // blank = same dir as exe
     [ObservableProperty] private int    _searchRadius    = 60;   // arcminutes

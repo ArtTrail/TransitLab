@@ -351,6 +351,8 @@ else:
             return new Result(false, $"FITS file not found: {fitsPath}");
         }
 
+        EnsureExecutableOnUnix(config.AstapExePath);
+
         progress?.Report($"Starting ASTAP plate solve for {Path.GetFileName(fitsPath)}…");
         SessionLogService.Write($"[PlateSolve/ASTAP] Starting solve: {Path.GetFileName(fitsPath)}");
 
@@ -411,7 +413,22 @@ else:
         }
 
         using var proc = new Process { StartInfo = psi };
-        proc.Start();
+        try
+        {
+            proc.Start();
+        }
+        catch (Exception ex)
+        {
+            // Most commonly a Unix "Permission denied" — the file was selected but never
+            // marked executable (e.g. a tarball extraction that didn't preserve the bit).
+            // EnsureExecutableOnUnix already tried to fix this above; if it's still failing
+            // here, surface something actionable instead of a bare Win32Exception message.
+            SessionLogService.Write($"[PlateSolve/ASTAP] ERROR — failed to launch {config.AstapExePath}: {ex.Message}");
+            var hint = !OperatingSystem.IsWindows()
+                ? " — on Linux/macOS, make sure the file is executable (chmod +x)"
+                : "";
+            return new Result(false, $"Could not launch ASTAP: {ex.Message}{hint}");
+        }
 
         var stdoutTask = proc.StandardOutput.ReadToEndAsync(ct);
         var stderrTask = proc.StandardError.ReadToEndAsync(ct);
@@ -826,6 +843,8 @@ else:
         if (!File.Exists(exePath))
             return (false, $"File not found: {exePath}");
 
+        EnsureExecutableOnUnix(exePath);
+
         try
         {
             var psi = new ProcessStartInfo
@@ -872,7 +891,31 @@ else:
         }
         catch (Exception ex)
         {
-            return (false, $"Error running ASTAP: {ex.Message}");
+            var hint = !OperatingSystem.IsWindows()
+                ? " — on Linux/macOS, make sure the file is executable (chmod +x)"
+                : "";
+            return (false, $"Error running ASTAP: {ex.Message}{hint}");
+        }
+    }
+
+    /// <summary>Sets the executable bit on Unix if it's missing — a no-op on Windows.</summary>
+    private static void EnsureExecutableOnUnix(string path)
+    {
+        if (OperatingSystem.IsWindows()) return;
+        try
+        {
+            var mode = File.GetUnixFileMode(path);
+            if ((mode & UnixFileMode.UserExecute) != 0) return;
+            File.SetUnixFileMode(path,
+                mode | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+            SessionLogService.Write($"[PlateSolve/ASTAP] Set executable bit on: {path}");
+        }
+        catch (Exception ex)
+        {
+            // Best-effort — a read-only filesystem or permissions issue here will surface as a
+            // clear "Permission denied" from Process.Start immediately after this, which is caught
+            // and reported with a chmod hint rather than left as a bare exception.
+            SessionLogService.Write($"[PlateSolve/ASTAP] Could not set executable bit on {path}: {ex.Message}");
         }
     }
 

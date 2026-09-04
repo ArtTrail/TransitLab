@@ -401,19 +401,26 @@ public partial class MainWindow : Window
     {
         var isMac     = OperatingSystem.IsMacOS();
         var isWindows = OperatingSystem.IsWindows();
+
+        // On Windows the binary is always named astap_cli.exe/astap.exe, so a named filter
+        // narrows the list usefully. On Linux/macOS there's no single guaranteed binary name
+        // (source builds, distro packages, AppImages, user renames) — a named filter there risks
+        // hiding a valid file behind a picker-backend glob quirk (issue #50), so "All files" is
+        // the default/first filter and the named one is offered only as a secondary option.
+        var namedFilter = isWindows
+            ? new FilePickerFileType("ASTAP executable")  { Patterns = ["astap_cli.exe", "astap.exe", "astap"] }
+            : isMac
+                ? new FilePickerFileType("ASTAP application") { Patterns = ["ASTAP.app", "*.app", "astap", "astap_cli"] }
+                : new FilePickerFileType("ASTAP executable")  { Patterns = ["astap", "astap_cli"] };
+        var allFilesFilter = new FilePickerFileType("All files") { Patterns = ["*"] };
+
         var results = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title          = "Locate ASTAP Executable",
             AllowMultiple  = false,
-            FileTypeFilter = new List<FilePickerFileType>
-            {
-                isWindows
-                    ? new("ASTAP executable")  { Patterns = ["astap_cli.exe", "astap.exe", "astap"] }
-                    : isMac
-                        ? new("ASTAP application") { Patterns = ["ASTAP.app", "*.app", "astap", "astap_cli"] }
-                        : new("ASTAP executable")  { Patterns = ["astap", "astap_cli"] },
-                new("All files") { Patterns = ["*"] },
-            }
+            FileTypeFilter = isWindows
+                ? new List<FilePickerFileType> { namedFilter, allFilesFilter }
+                : new List<FilePickerFileType> { allFilesFilter, namedFilter },
         });
         if (results.Count == 0) return null;
         var path = results[0].Path.LocalPath;
