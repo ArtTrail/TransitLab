@@ -15,10 +15,18 @@
             <StackPanel Spacing="10" Margin="8,0,0,0">
                 <RadioButton IsChecked="{Binding UseStarFix}"
                              FontSize="18">
-                    <TextBlock Text="StarFix  (local, first-party — Gaia DR3 catalog, no internet required once installed)"
+                    <TextBlock Text="StarFix  (local, first-party — Gaia DR3 catalog, no internet required)"
                                TextWrapping="Wrap"
                                MaxWidth="560"/>
                 </RadioButton>
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="28,0,0,0">
+                    <TextBlock Classes="hint" FontSize="14" Text="StarFix:"/>
+                    <Button Classes="toolbar"
+                            FontSize="14"
+                            Padding="4,1"
+                            Content="github.com/ArtTrail/StarFix"
+                            Command="{Binding OpenStarFixWebsiteCommand}"/>
+                </StackPanel>
                 <RadioButton IsChecked="{Binding UseAstap}"
                              FontSize="18">
                     <TextBlock Text="ASTAP  (local, fast, no internet required)"

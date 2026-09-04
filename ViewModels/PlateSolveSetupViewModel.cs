@@ -327,6 +327,20 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void OpenStarFixWebsite()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName        = "https://github.com/ArtTrail/StarFix",
+                UseShellExecute = true,
+            });
+        }
+        catch { /* best-effort */ }
+    }
+
+    [RelayCommand]
     private void OpenNextAstroWebsite()
     {
         try
