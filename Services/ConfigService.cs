@@ -176,6 +176,10 @@ public class AppConfig
 
     // Last-used UI values (restored on next launch)
     public LastUi                LastUi          { get; set; } = new();
+
+    // Update checker — "Skip" means "don't ask about this specific version again," not "not
+    // now," so it has to persist (both across the daily re-check and across relaunches).
+    public string SkippedUpdateVersion { get; set; } = "";
 }
 
 public class SessionRecord

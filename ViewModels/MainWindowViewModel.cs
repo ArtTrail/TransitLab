@@ -177,13 +177,45 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private UpdateInfo? _pendingUpdate;
     private UpdateInfo? _pendingInstallerUpdate;
+    private System.Threading.Timer? _dailyUpdateCheckTimer;
+    private DateTime _lastAutoUpdateCheckUtcDate;
 
     public async Task RunStartupUpdateCheckAsync()
     {
+        _lastAutoUpdateCheckUtcDate = DateTime.UtcNow.Date;
+        await RunAutomaticUpdateCheckAsync();
+        StartDailyUpdateCheckTimer();
+    }
+
+    // Polls every 30 minutes rather than trying to fire a single timer exactly at 00:00 UTC —
+    // a long-lived periodic Timer drifts and doesn't reliably survive sleep/resume, but a poll
+    // that just asks "has the UTC calendar date changed since the last automatic check?" is
+    // robust to both and still lands within 30 minutes of midnight, for a user who leaves
+    // TransitLab open indefinitely.
+    private void StartDailyUpdateCheckTimer()
+    {
+        var interval = TimeSpan.FromMinutes(30);
+        _dailyUpdateCheckTimer = new System.Threading.Timer(_ =>
+        {
+            if (DateTime.UtcNow.Date <= _lastAutoUpdateCheckUtcDate) return;
+            _lastAutoUpdateCheckUtcDate = DateTime.UtcNow.Date;
+            Avalonia.Threading.Dispatcher.UIThread.Post(async () => await RunAutomaticUpdateCheckAsync());
+        }, null, interval, interval);
+    }
+
+    // Shared by the launch-time check and the daily re-check — both are silent when there's
+    // nothing new or when the user already clicked Skip for this exact version (persisted in
+    // config, since "Skip" means "don't ask about this version again," not "not right now").
+    // The manual Check for Updates button (below) deliberately does NOT consult the skipped
+    // version, and does report "up to date" — an explicit ask should always tell the truth.
+    private async Task RunAutomaticUpdateCheckAsync()
+    {
         var info = await UpdateService.CheckAsync(Version);
-        if (info is null) return;
+        if (info is null || info.Version == _cfg.SkippedUpdateVersion) return;
+
         _pendingUpdate      = info;
         UpdateVersionText   = $"TransitLab v{info.Version} is available";
+        IsUpdateDone        = false;
         IsUpdateAvailable   = true;
 
         await CheckSelfUpdateAsync();
@@ -255,7 +287,12 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void SkipUpdate()
     {
-        SessionLogService.Write("[Update] User clicked Skip Update");
+        SessionLogService.Write($"[Update] User clicked Skip Update for v{_pendingUpdate?.Version}");
+        if (_pendingUpdate is not null)
+        {
+            _cfg.SkippedUpdateVersion = _pendingUpdate.Version;
+            ConfigService.Save(_cfg);
+        }
         IsUpdateAvailable = false;
     }
 
