@@ -30,6 +30,7 @@ public partial class MainWindow : Window
                 vm.ShowConfirmFunc                 = ShowConfirmAsync;
                 vm.BrowseUpdateFolderFunc          = BrowseUpdateFolderAsync;
                 vm.ShowInfoFunc                    = ShowInfoAsync;
+                vm.RequestAppExitAction            = () => Close();
                 vm.EquipmentTarget.ShowInfoFunc    = ShowErrorAsync;
                 vm.EquipmentTarget.ShowStellarVariabilityWarningFunc = async () =>
                 {

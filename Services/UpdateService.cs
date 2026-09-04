@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.Http;
+using System.Runtime.Versioning;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
@@ -99,6 +101,92 @@ public static class UpdateService
         }
         catch { }
         return result;
+    }
+
+    // Fixed AppId GUID from installer\TransitLab.iss — identifies the Inno-managed install's
+    // uninstall registry entry regardless of what folder the user chose during setup.
+    private const string InstallerAppId = "{A02ECB23-31B0-44D4-9DAF-5F4DED3CE8E0}_is1";
+
+    /// <summary>
+    /// Looks for a Setup .exe asset (built by installer\TransitLab.iss, named
+    /// TransitLab-Setup-vX.Y.Z.exe) on the latest release — the self-update path, distinct from
+    /// CheckAsync's plain zip/dmg. Windows only, since Inno installers don't exist on other platforms.
+    /// </summary>
+    public static async Task<UpdateInfo?> CheckInstallerAsync(string currentVersion, CancellationToken ct = default)
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        try
+        {
+            var json = await Http.GetStringAsync(ApiUrl, ct);
+            var root = JsonNode.Parse(json);
+
+            var tag = root?["tag_name"]?.GetValue<string>();
+            if (tag is null) return null;
+
+            var latestVersion = tag.TrimStart('v');
+            if (!IsNewer(latestVersion, currentVersion)) return null;
+
+            var assets = root?["assets"]?.AsArray();
+            if (assets is null) return null;
+
+            foreach (var asset in assets)
+            {
+                var name = asset?["name"]?.GetValue<string>() ?? "";
+                var url  = asset?["browser_download_url"]?.GetValue<string>() ?? "";
+                if (name.StartsWith("TransitLab-Setup-", StringComparison.OrdinalIgnoreCase) &&
+                    name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                    return new UpdateInfo(latestVersion, name, url);
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    /// <summary>
+    /// True when this running instance is an Inno-managed install (installer\TransitLab.iss) —
+    /// found via its fixed-AppId uninstall registry entry, with the entry's InstallLocation
+    /// matching where this process is actually running from. A portable/manually-placed copy of
+    /// TransitLab (the existing win-x64 zip) always returns false, since silently reinstalling
+    /// over it would create a second, separate install rather than upgrading the running one.
+    /// </summary>
+    public static bool IsSelfUpdateCapable()
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+        try
+        {
+            var installLocation = GetInstallerInstallLocation();
+            if (string.IsNullOrWhiteSpace(installLocation)) return false;
+
+            var runningDir = AppContext.BaseDirectory.TrimEnd('\\', '/');
+            return string.Equals(runningDir, installLocation.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static string? GetInstallerInstallLocation()
+    {
+        using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+            $@"Software\Microsoft\Windows\CurrentVersion\Uninstall\{InstallerAppId}");
+        return key?.GetValue("InstallLocation") as string;
+    }
+
+    /// <summary>
+    /// Launches the downloaded Setup .exe silently. Inno's Restart Manager-based
+    /// CloseApplications detects the file lock this running instance holds on TransitLab.exe
+    /// (one of the files being overwritten) and closes it — /CLOSEAPPLICATIONS answers that
+    /// silently; verified locally to work reliably. The installer's own [Run] section (not
+    /// RestartApplications — confirmed unreliable by testing) then reopens TransitLab once the
+    /// install finishes.
+    /// </summary>
+    public static void LaunchSilentInstall(string installerPath)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName        = installerPath,
+            Arguments       = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS",
+            UseShellExecute = true,
+        });
     }
 
     public static string GetPlatformId()

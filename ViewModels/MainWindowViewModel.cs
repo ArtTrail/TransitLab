@@ -163,16 +163,20 @@ public partial class MainWindowViewModel : ViewModelBase
     public Func<string, string, Task<bool>>?      ShowConfirmFunc         { get; set; }
     public Func<Task<string?>>?                   BrowseUpdateFolderFunc  { get; set; }
     public Func<string, string, Task>?            ShowInfoFunc            { get; set; }
+    /// <summary>Closes the main window through its normal Closing path (SaveOnExit still runs) — used as a fallback if the installer's own close-and-reinstall doesn't complete promptly during self-update.</summary>
+    public Action?                                RequestAppExitAction    { get; set; }
 
     // ── Update checker ────────────────────────────────────────────────────────
     [ObservableProperty] private bool   _isUpdateAvailable   = false;
     [ObservableProperty] private bool   _isUpdateDownloading = false;
     [ObservableProperty] private bool   _isUpdateDone        = false;
+    [ObservableProperty] private bool   _canSelfUpdate       = false;
     [ObservableProperty] private string _updateVersionText   = "";
     [ObservableProperty] private string _updateStatusText    = "";
     [ObservableProperty] private double _updateProgress      = 0;
 
     private UpdateInfo? _pendingUpdate;
+    private UpdateInfo? _pendingInstallerUpdate;
 
     public async Task RunStartupUpdateCheckAsync()
     {
@@ -181,6 +185,71 @@ public partial class MainWindowViewModel : ViewModelBase
         _pendingUpdate      = info;
         UpdateVersionText   = $"TransitLab v{info.Version} is available";
         IsUpdateAvailable   = true;
+
+        await CheckSelfUpdateAsync();
+    }
+
+    // Only offered when this instance is an Inno-managed install (installer\TransitLab.iss)
+    // AND the latest release actually has a Setup .exe asset — both are independently checked
+    // since older releases predate the installer and a portable/manual copy can't be safely
+    // reinstalled over silently.
+    private async Task CheckSelfUpdateAsync()
+    {
+        _pendingInstallerUpdate = null;
+        CanSelfUpdate = false;
+        if (!UpdateService.IsSelfUpdateCapable()) return;
+
+        var installerInfo = await UpdateService.CheckInstallerAsync(Version);
+        if (installerInfo is null) return;
+
+        _pendingInstallerUpdate = installerInfo;
+        CanSelfUpdate = true;
+    }
+
+    [RelayCommand]
+    private async Task SelfUpdateNowAsync()
+    {
+        SessionLogService.Write("[Update] User clicked Update Now (self-update)");
+        if (_pendingInstallerUpdate is null) return;
+
+        var tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "TransitLab");
+        System.IO.Directory.CreateDirectory(tempDir);
+        var destPath = System.IO.Path.Combine(tempDir, _pendingInstallerUpdate.AssetName);
+
+        IsUpdateAvailable   = false;
+        IsUpdateDownloading = true;
+        UpdateStatusText    = "Downloading update…";
+
+        try
+        {
+            var progress = new Progress<(long done, long total)>(t =>
+            {
+                if (t.total > 0)
+                {
+                    UpdateProgress   = (double)t.done / t.total * 100;
+                    UpdateStatusText = $"Downloading update… {t.done / 1_048_576.0:F1} MB / {t.total / 1_048_576.0:F1} MB";
+                }
+            });
+            await ExoticInstallService.DownloadFileAsync(_pendingInstallerUpdate.DownloadUrl, destPath, progress, default);
+
+            UpdateStatusText = "Installing update — TransitLab will close and reopen automatically…";
+            SessionLogService.Write($"[Update] Launching silent installer: {destPath}");
+            UpdateService.LaunchSilentInstall(destPath);
+
+            // The installer's Restart Manager-based CloseApplications should close this window
+            // on its own once it detects the file lock on TransitLab.exe. This is a fallback in
+            // case that doesn't happen promptly, so the update never gets stuck with two
+            // processes running.
+            await Task.Delay(TimeSpan.FromSeconds(5));
+            RequestAppExitAction?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            SessionLogService.Write($"[Update] Self-update failed: {ex.Message}");
+            UpdateStatusText    = $"Update failed: {ex.Message}";
+            IsUpdateDownloading = false;
+            IsUpdateDone        = true;
+        }
     }
 
     [RelayCommand]
@@ -245,6 +314,8 @@ public partial class MainWindowViewModel : ViewModelBase
         UpdateVersionText = $"TransitLab v{info.Version} is available";
         IsUpdateDone      = false;
         IsUpdateAvailable = true;
+
+        await CheckSelfUpdateAsync();
     }
 
     // Set true while RunAutomationSequenceAsync is running — suppresses all confirm dialogs

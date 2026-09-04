@@ -24,6 +24,15 @@
 #define MyAppExeName "TransitLab.exe"
 
 [Setup]
+; Self-update relies on Inno's Restart Manager-based CloseApplications (default "yes" — not set
+; explicitly here), which detects the file lock TransitLab.exe holds on itself while running and
+; closes it — confirmed working by testing. Deliberately NOT using AppMutex: it triggers a
+; different, older "please close it manually" prompt that /SUPPRESSMSGBOXES answers as Cancel,
+; silently aborting the whole install before Restart Manager ever gets a chance (the two
+; mechanisms don't compose). Also deliberately NOT relying on RestartApplications/
+; /RESTARTAPPLICATIONS to reopen the app afterward — confirmed by testing that it's best-effort
+; and did not actually relaunch the process in practice; the [Run] section below (with
+; skipifsilent removed) handles the relaunch reliably instead.
 AppId={{A02ECB23-31B0-44D4-9DAF-5F4DED3CE8E0}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
@@ -59,4 +68,7 @@ Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+; No skipifsilent: this also fires on a silent self-update install, which is what actually
+; reopens TransitLab afterward (RestartApplications does not reliably do this — see [Setup]).
+; A normal interactive install still shows this as the usual "Launch TransitLab" wizard checkbox.
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall

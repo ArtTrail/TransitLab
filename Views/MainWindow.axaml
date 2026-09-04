@@ -92,9 +92,15 @@
                            Foreground="#90ee90"
                            FontWeight="SemiBold"
                            VerticalAlignment="Center"/>
+                <Button Content="Update Now"
+                        Command="{Binding SelfUpdateNowCommand}"
+                        IsVisible="{Binding CanSelfUpdate}"
+                        Classes="primary"
+                        ToolTip.Tip="Downloads and installs the update automatically — TransitLab will close and reopen on its own."/>
                 <Button Content="Download"
                         Command="{Binding DownloadUpdateCommand}"
-                        Classes="toolbar"/>
+                        Classes="toolbar"
+                        ToolTip.Tip="Downloads the zip to a folder you choose — you extract and replace the app files yourself."/>
                 <Button Content="Skip"
                         Command="{Binding SkipUpdateCommand}"
                         Classes="toolbar"/>
