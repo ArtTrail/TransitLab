@@ -20,19 +20,16 @@
     </UserControl.Styles>
 
     <Grid>
-    <ScrollViewer x:Name="Scroller"
-                  HorizontalScrollBarVisibility="Disabled"
-                  VerticalScrollBarVisibility="Auto">
+    <DockPanel>
 
-        <StackPanel x:Name="ContentPanel" Spacing="6" Margin="32,20,32,24">
-
+        <!-- ── Fixed header: title + search (never scrolls away) ───────────── -->
+        <StackPanel DockPanel.Dock="Top" Margin="32,20,32,0">
             <TextBlock Classes="title" Text="TransitLab User Guide"/>
 
-            <!-- ── Search ────────────────────────────────────────────────────── -->
             <Border Background="{StaticResource BrushBg2}"
                     CornerRadius="4"
                     Padding="10,8"
-                    Margin="0,0,0,4">
+                    Margin="0,12,0,0">
                 <DockPanel>
                     <TextBlock x:Name="SearchStatus"
                                DockPanel.Dock="Right"
@@ -51,6 +48,13 @@
                              KeyDown="SearchBox_KeyDown"/>
                 </DockPanel>
             </Border>
+        </StackPanel>
+
+    <ScrollViewer x:Name="Scroller"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+
+        <StackPanel x:Name="ContentPanel" Spacing="6" Margin="32,12,32,24">
 
             <!-- ── Table of Contents ──────────────────────────────────────────── -->
             <TextBlock Classes="h2" Text="Table of Contents" Margin="0,0,0,4"/>
@@ -482,6 +486,8 @@
         </StackPanel>
 
     </ScrollViewer>
+
+    </DockPanel>
 
     <Button Classes="fab" Content="&#x2191;" Click="OnBackToTopClick" ToolTip.Tip="Back to top"
             HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,28,28"/>
