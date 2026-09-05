@@ -9,6 +9,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -808,6 +809,34 @@ public partial class EquipmentTargetViewModel : ViewModelBase
 
     private CancellationTokenSource? _neaCts;
 
+    // Host-star names where NASA Exoplanet Archive's own canonical system name differs from
+    // the commonly-used HAT-P survey designation — confirmed via NEA's alias-lookup API
+    // (nph-aliaslookup.py), which has no bulk "resolve any HAT-P name" endpoint TransitLab
+    // could call generically, so these are the specific known cases rather than a general
+    // alias table. A query for the HAT-P name alone returns no results from NEA's main
+    // planetary-parameters tables — it's indexed only under the resolved name below.
+    private static readonly (string HatName, string ResolvedName)[] KnownHostAliases =
+    [
+        ("HAT-P-10",  "WASP-11"),
+        ("HAT-P-71",  "WASP-194"),
+    ];
+
+    /// <summary>Substitutes a known alias's resolved host name if the planet name starts with one, preserving whatever planet-letter suffix follows.</summary>
+    private static string ResolveKnownHostAlias(string planet, out bool substituted)
+    {
+        foreach (var (hatName, resolvedName) in KnownHostAliases)
+        {
+            var pattern = $@"^{Regex.Escape(hatName)}(?=\s|$)";
+            if (Regex.IsMatch(planet, pattern, RegexOptions.IgnoreCase))
+            {
+                substituted = true;
+                return Regex.Replace(planet, pattern, resolvedName, RegexOptions.IgnoreCase);
+            }
+        }
+        substituted = false;
+        return planet;
+    }
+
     public async Task FetchFromNeaAsync()
     {
         var planet = PlanetName.Trim();
@@ -815,6 +844,14 @@ public partial class EquipmentTargetViewModel : ViewModelBase
         {
             NeaStatus = "⚠  Enter a planet name first.";
             return;
+        }
+
+        var resolved = ResolveKnownHostAlias(planet, out var substituted);
+        if (substituted)
+        {
+            Services.SessionLogService.Write($"[NEA] \"{planet}\" is known in NASA's archive as \"{resolved}\" — using that instead.");
+            planet     = resolved;
+            PlanetName = resolved;
         }
 
         _neaCts?.Cancel();
