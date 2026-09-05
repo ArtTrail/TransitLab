@@ -1441,8 +1441,10 @@ public static class GaiaCompService
         // single interpolated string (not string-concatenated pieces) for the whole thing to
         // actually bind as one FormattableString instead of pre-formatting each half as a
         // plain (CurrentCulture) string before Invariant() ever sees it.
+        // apps.aavso.org, not www.aavso.org — see AavsoCompService.FetchAsync for why
+        // (a Cloudflare bot challenge on the www host blocks any non-browser client outright).
         string url = FormattableString.Invariant(
-            $"https://www.aavso.org/apps/vsp/api/chart/?ra={targetRa:F6}&dec={targetDec:F6}&fov={fov:F1}&maglimit={magLimit:F1}&format=json");
+            $"https://apps.aavso.org/vsp/api/chart/?ra={targetRa:F6}&dec={targetDec:F6}&fov={fov:F1}&maglimit={magLimit:F1}&format=json");
 
         string json;
         try
@@ -1532,8 +1534,11 @@ public static class GaiaCompService
         double ra, double dec, double radiusDeg, double magLimit, CancellationToken ct)
     {
         // FormattableString.Invariant — see QueryGaiaAsync for why this matters.
+        // vsx.aavso.org, not www.aavso.org — see AavsoCompService.FetchAsync for why
+        // (a Cloudflare bot challenge on the www host blocks any non-browser client outright;
+        // vsx.aavso.org is a separate host with no such challenge).
         string url = FormattableString.Invariant(
-            $"https://www.aavso.org/vsx/index.php?view=api.list&ra={ra:F6}&dec={dec:F6}&radius={radiusDeg:F6}&tomag={magLimit:F1}&format=json");
+            $"https://vsx.aavso.org/index.php?view=api.list&ra={ra:F6}&dec={dec:F6}&radius={radiusDeg:F6}&tomag={magLimit:F1}&format=json");
 
         using var resp = await Http.GetAsync(url, ct);
         resp.EnsureSuccessStatusCode();

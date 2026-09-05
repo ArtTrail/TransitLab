@@ -579,7 +579,11 @@ public partial class FrameAnalysisViewModel : ViewModelBase
         double mag   = (double)VspMag;
         string north = VspNorth;   // "up" or "down"
         string east  = VspEast;    // "left" or "right"
-        var pngUrl = "https://www.aavso.org/apps/vsp/chart/" +
+        // apps.aavso.org, not www.aavso.org — the www host sits behind a Cloudflare bot
+        // challenge that blocks any non-browser HTTP client outright (confirmed: even the
+        // plain www.aavso.org homepage returns HTTP 403 to curl/.NET's HttpClient regardless
+        // of headers). apps.aavso.org is a separate host with no such challenge.
+        var pngUrl = "https://apps.aavso.org/vsp/chart/" +
                      $"?star={Uri.EscapeDataString(star)}" +
                      $"&fov={fov}&maglimit={mag:0.0}&orientation=ccd" +
                      $"&north={north}&east={east}&format=png";
@@ -595,7 +599,7 @@ public partial class FrameAnalysisViewModel : ViewModelBase
             }
 
             // Fallback: open browser (no &format=png)
-            var webUrl = "https://www.aavso.org/apps/vsp/chart/" +
+            var webUrl = "https://apps.aavso.org/vsp/chart/" +
                          $"?star={Uri.EscapeDataString(star)}" +
                          $"&fov={fov}&maglimit={mag:0.0}&orientation=ccd" +
                          $"&north={north}&east={east}";

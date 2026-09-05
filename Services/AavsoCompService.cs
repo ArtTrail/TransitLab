@@ -58,8 +58,13 @@ public static class AavsoCompService
         // culture, so on a locale with a comma decimal separator (e.g. Bulgarian, Russian,
         // German) the URL would embed "283,306316" instead of "283.306316", producing a
         // malformed request the API rejects with HTTP 400 on every single query.
+        // apps.aavso.org, not www.aavso.org — the www host sits behind a Cloudflare bot
+        // challenge (a JS-based "Just a moment..." interstitial) that blocks any non-browser
+        // HTTP client outright, confirmed directly: even the plain www.aavso.org homepage
+        // returns HTTP 403 to curl/.NET's HttpClient alike, regardless of headers. apps.aavso.org
+        // is a different host with no such challenge — confirmed serving real VSP JSON data.
         var url = FormattableString.Invariant(
-            $"https://www.aavso.org/apps/vsp/api/chart/?ra={ra:F6}&dec={dec:F6}&fov={fovArcmin:F1}&maglimit=14.5&format=json");
+            $"https://apps.aavso.org/vsp/api/chart/?ra={ra:F6}&dec={dec:F6}&fov={fovArcmin:F1}&maglimit=14.5&format=json");
 
         string json;
         try

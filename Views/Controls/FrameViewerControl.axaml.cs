@@ -216,7 +216,7 @@ public partial class FrameViewerControl : UserControl
                 // Step 1: query the AAVSO JSON API to get the real image_uri.
                 // The direct ?format=png chart URL returns HTML, not raw PNG bytes.
                 var apiUrl = url
-                    .Replace("/apps/vsp/chart/", "/apps/vsp/api/chart/")
+                    .Replace("/vsp/chart/", "/vsp/api/chart/")
                     .Replace("format=png", "format=json");
 
                 string? imageUri = null;
