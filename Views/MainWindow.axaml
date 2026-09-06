@@ -82,6 +82,17 @@
             </MenuItem>
         </Menu>
 
+        <!-- ── Header banner: logo + title, bigger than just the window/taskbar icon ── -->
+        <Border DockPanel.Dock="Top" Padding="16,10,16,10">
+            <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                <Image Source="avares://TransitLab/Assets/TransitLab_logo.png" Width="104" Height="104"/>
+                <StackPanel VerticalAlignment="Center" Spacing="0">
+                    <TextBlock Classes="title" Text="TransitLab"/>
+                    <TextBlock Classes="hint" Text="Exoplanet transit photometry via EXOTIC"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
         <!-- ── Update banner: available ─────────────────────────────────── -->
         <Border DockPanel.Dock="Top"
                 IsVisible="{Binding IsUpdateAvailable}"

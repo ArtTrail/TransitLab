@@ -79,13 +79,15 @@
             <!-- Tips -->
             <TextBlock Classes="h2" Text="Tips" Margin="0,0,0,8"/>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"
-                       Text="• If the plate solve fails, try Retry under Plate Solve on the Parameters tab, or switch to ASTAP in Tools → Plate Solve Setup for faster local solving."/>
+                       Text="• If the plate solve fails, try Retry under Plate Solve on the Parameters tab, or switch solvers in Tools → Plate Solve Setup — StarFix (offline Gaia DR3, no internet required) or ASTAP for faster local solving. MicroObservatory and Unistellar eVscope frames in particular can struggle with ASTAP; StarFix or Astrometry.net are the recommended alternatives."/>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"
                        Text="• Python &amp; EXOTIC Setup (Tools menu) lets you locate or install Python and EXOTIC if they are not found automatically — including separate Stable and Pre-release environments."/>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"
                        Text="• Use File → Recent Sessions to reload the inits.json from a previous run and re-run with the same settings."/>
             <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"
-                       Text="• MicroObservatory users: use the MObs section in the Data tab to fetch and download telescope data directly — then click Use This Data to populate the directories automatically."/>
+                       Text="• MicroObservatory users: use the MObs section in the Data tab to fetch and download telescope data directly — then click Use This Data to populate the directories automatically. Data refreshes once daily (13:00 UTC), not live."/>
+            <TextBlock TextWrapping="Wrap" Margin="0,0,0,4"
+                       Text="• Running the EXOTIC 4.3.2 pre-release build? Quick Look (top bar, next to Save &amp; Run EXOTIC) runs a fast least-squares fit for a quick preliminary look at the light curve, using the same directories and star selections — no AAVSO report is produced, so it's for previewing only, not submitting."/>
 
         </StackPanel>
     </ScrollViewer>

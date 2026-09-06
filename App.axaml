@@ -155,7 +155,7 @@
         <!-- ── Menu bar ───────────────────────────────────────────────────── -->
         <Style Selector="MenuItem">
             <Setter Property="FontFamily" Value="Arial"/>
-            <Setter Property="FontSize"   Value="30"/>
+            <Setter Property="FontSize"   Value="18"/>
         </Style>
 
         <!-- ── TabControl / TabItem ───────────────────────────────────────── -->
