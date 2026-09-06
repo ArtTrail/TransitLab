@@ -555,7 +555,7 @@ public partial class EquipmentTargetViewModel : ViewModelBase
     // so this catches MObs data regardless of how the FITS directory was selected.
     private static readonly string[] MobsTelescopes = ["Cecilia", "Donald", "Ben", "Ed"];
 
-    private static bool LooksLikeMobsHeader(FitsHeaderService.FitsHeader hdr)
+    internal static bool LooksLikeMobsHeader(FitsHeaderService.FitsHeader hdr)
     {
         var observat = hdr.Get("OBSERVAT") ?? "";
         var telescop = hdr.Get("TELESCOP") ?? "";

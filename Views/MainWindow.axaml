@@ -152,34 +152,6 @@
             </StackPanel>
         </Border>
 
-        <!-- ── Top bar ──────────────────────────────────────────────────── -->
-        <Border DockPanel.Dock="Top" Padding="14,6,14,4">
-            <StackPanel Orientation="Horizontal"
-                        HorizontalAlignment="Right"
-                        Spacing="6"
-                        VerticalAlignment="Center">
-                <Button Classes="primary"
-                        Content="Save &amp; Run EXOTIC"
-                        Command="{Binding SaveAndRunCommand}"/>
-                <Button Classes="toolbar"
-                        Content="Quick Look"
-                        Command="{Binding QuickLookCommand}"
-                        IsEnabled="{Binding CanQuickLook}"
-                        ToolTip.Tip="{Binding QuickLookTooltip}"/>
-                <Button Content="[?]" FontSize="12" Padding="3,0"
-                        VerticalAlignment="Center" Click="OnHelpQuickLook_Click"/>
-                <Button Classes="toolbar"
-                        Content="⏹  Cancel"
-                        Command="{Binding CancelExoticCommand}"
-                        IsVisible="{Binding IsExoticRunning}"
-                        Foreground="{StaticResource BrushErr}"/>
-                <TextBlock Text="{Binding ExoticStatusText}"
-                           Classes="hint"
-                           VerticalAlignment="Center"
-                           IsVisible="{Binding IsExoticRunning}"/>
-            </StackPanel>
-        </Border>
-
         <!-- ── Separator ────────────────────────────────────────────────── -->
         <Rectangle DockPanel.Dock="Top"
                    Height="1"

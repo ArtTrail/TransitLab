@@ -468,6 +468,9 @@ public partial class MainWindowViewModel : ViewModelBase
         // Wire operation status sounds (NEA fetch, plate solve, AAVSO comp fetch)
         EquipmentTarget.PlayStatusSoundAction = success => { if (StatusAlertsEnabled) PlayStatusSoundAction?.Invoke(success); };
 
+        // Wire Cancel on the Results tab to the actual EXOTIC-cancelling logic here
+        Results.CancelExoticAction = CancelExotic;
+
         // Stone pipeline settings
         EquipmentTarget.MaxCompStars  = _cfg.MaxCompStars;
 
@@ -1713,6 +1716,7 @@ public partial class MainWindowViewModel : ViewModelBase
         IsExoticRunning          = true;
         Results.IsExoticRunning  = true;
         ExoticStatusText         = "Running…";
+        Results.ExoticStatusText = "Running…";
         _ldtkCorruptionAlerted      = false;
         _sawLdtkTracebackFrame      = false;
         _ldtkNetworkFailureDetected = false;
@@ -1834,6 +1838,7 @@ public partial class MainWindowViewModel : ViewModelBase
             IsExoticRunning         = false;
             Results.IsExoticRunning = false;
             ExoticStatusText        = "";
+            Results.ExoticStatusText = "";
         }
 
         if (_ldtkNetworkFailureDetected && !isRetry)

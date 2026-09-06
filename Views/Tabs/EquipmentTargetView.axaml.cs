@@ -97,6 +97,14 @@ public partial class EquipmentTargetView : UserControl
 
     // ── [?] Help buttons ──────────────────────────────────────────────────
 
+    private void OnHelpQuickLook_Click(object? sender, RoutedEventArgs e) =>
+        ShowHelpPopup("Quick Look",
+            "Runs a fast least-squares fit instead of EXOTIC's full ultranest posterior inference — useful for a quick preliminary look at a light curve without waiting for the full reduction.\n\n" +
+            "• No AAVSO report is generated — Quick Look results are preliminary and can't be submitted.\n\n" +
+            "• Requires at least one comparison star that's already passed vetting on the Image Analysis tab.\n\n" +
+            "• Uses the same FITS directories, target/comp star selections, and planet parameters as Save & Run EXOTIC — nothing else needs to be reconfigured.\n\n" +
+            "Requires the EXOTIC 4.3.2 pre-release dev build. Install it via Tools → Python & EXOTIC Setup → Pre-release / Development Build, then select it as the active environment.");
+
     private void OnHelpEquipment_Click(object? sender, RoutedEventArgs e) =>
         ShowHelpPopup("Equipment",
             "Camera Type — CCD or DSLR. If your camera is a CMOS sensor, select CCD and note the actual camera model in Observing Notes.\n\n" +

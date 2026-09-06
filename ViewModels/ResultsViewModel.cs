@@ -158,9 +158,17 @@ public partial class ResultsViewModel : ViewModelBase
     [ObservableProperty] private bool _hasLightCurve;
     [ObservableProperty] private bool _hasStellarVar;
     [ObservableProperty] private bool _isExoticRunning;
+    [ObservableProperty] private string _exoticStatusText = "";
 
     /// <summary>Invoked on the UI thread when a light curve is first loaded. Wire to sound playback.</summary>
     public Action? LightCurveReadySound { get; set; }
+
+    /// <summary>Wired by MainWindowViewModel to its own CancelExotic — Cancel is shown here since
+    /// Save &amp; Run switches to this tab the moment a run starts.</summary>
+    public Action? CancelExoticAction { get; set; }
+
+    [RelayCommand]
+    private void CancelExotic() => CancelExoticAction?.Invoke();
 
     partial void OnHasLightCurveChanged(bool value)
     {

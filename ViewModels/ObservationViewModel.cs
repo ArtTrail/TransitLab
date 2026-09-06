@@ -495,6 +495,21 @@ public partial class ObservationViewModel : ViewModelBase
             }
         }
 
+        // Auto-tag MicroObservatory data: add "MOBS" to Secondary Observer Codes so AAVSO
+        // submissions credit the network, without clobbering any collaborator code already there.
+        if (EquipmentTargetViewModel.LooksLikeMobsHeader(hdr))
+        {
+            var codes = (SecondaryCode ?? "")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+            if (!codes.Contains("MOBS", StringComparer.OrdinalIgnoreCase))
+            {
+                codes.Add("MOBS");
+                SecondaryCode = string.Join(", ", codes);
+                Services.SessionLogService.Write("[FITS] Detected MicroObservatory header (OBSERVAT/TELESCOP) — added \"MOBS\" to Secondary Observer Codes.");
+            }
+        }
+
         FitsHeaderStatus = $"✓  {Path.GetFileName(fitsPath)}";
         _fitsDirNeedsHeaderRead = false;
         FitsDirNeedsHeaderReadChanged?.Invoke();

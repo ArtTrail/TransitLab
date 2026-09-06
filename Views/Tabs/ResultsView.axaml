@@ -22,14 +22,16 @@
                               OffContent="Manual prompts"
                               OnContent="Auto prompts"
                               VerticalAlignment="Center"/>
-                <TextBlock Classes="hint"
+                <Button Classes="toolbar"
+                        Content="⏹  Cancel"
+                        Command="{Binding CancelExoticCommand}"
+                        IsVisible="{Binding IsExoticRunning}"
+                        Foreground="{StaticResource BrushErr}"
+                        Margin="12,0,0,0"/>
+                <TextBlock Text="{Binding ExoticStatusText}"
+                           Classes="hint"
                            VerticalAlignment="Center"
-                           IsVisible="{Binding AutoAnswerPrompts}"
-                           Text="Known prompts answered silently — secondary codes and 'Enter 1 or 2' sent automatically"/>
-                <TextBlock Classes="hint"
-                           VerticalAlignment="Center"
-                           IsVisible="{Binding !AutoAnswerPrompts}"
-                           Text="Every EXOTIC question appears in the input box below for you to answer manually"/>
+                           IsVisible="{Binding IsExoticRunning}"/>
             </StackPanel>
             <TextBlock Grid.Column="2"
                        Text="{Binding ExoticVersion}"

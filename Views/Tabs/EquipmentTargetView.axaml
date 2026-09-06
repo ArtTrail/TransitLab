@@ -13,14 +13,24 @@
                       VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="8,4,8,16" Spacing="2">
 
-                <!-- ── Read FITS Header ── -->
-                <StackPanel Orientation="Horizontal" Margin="4,10,4,6" Spacing="10">
+                <!-- ── Read FITS Header / Save & Run / Quick Look ── -->
+                <StackPanel Orientation="Horizontal" Margin="4,10,4,0" Spacing="10">
                     <Button Classes="primary" Content="Read FITS Header"
                             Command="{Binding Observation.ReadFitsHeaderCommand}"/>
-                    <TextBlock Classes="hint" Text="{Binding Observation.FitsHeaderStatus}"
-                               Foreground="{Binding Observation.FitsHeaderStatus, Converter={StaticResource StatusBrushConverter}}"
-                               VerticalAlignment="Center"/>
+                    <Button Classes="primary"
+                            Content="Save &amp; Run EXOTIC"
+                            Command="{Binding SaveAndRunCommand}"/>
+                    <Button Classes="toolbar"
+                            Content="Quick Look"
+                            Command="{Binding QuickLookCommand}"
+                            IsEnabled="{Binding CanQuickLook}"
+                            ToolTip.Tip="{Binding QuickLookTooltip}"/>
+                    <Button Content="[?]" FontSize="12" Padding="3,0"
+                            VerticalAlignment="Center" Click="OnHelpQuickLook_Click"/>
                 </StackPanel>
+                <TextBlock Classes="hint" Text="{Binding Observation.FitsHeaderStatus}"
+                           Foreground="{Binding Observation.FitsHeaderStatus, Converter={StaticResource StatusBrushConverter}}"
+                           Margin="4,2,4,6"/>
 
                 <!-- ── Equipment ── -->
                 <StackPanel Orientation="Horizontal" Margin="4,6,0,2">
