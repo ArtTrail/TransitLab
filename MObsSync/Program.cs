@@ -49,11 +49,27 @@ foreach (var telescope in telescopes)
 
         var sciFiles = new List<ManifestFileDto>();
         foreach (var f in obs.ScienceFiles)
-            sciFiles.Add(await MirrorFileAsync(s3, BucketName, telescope, dateToken, objectKey, "science", f));
+        {
+            var entry = await MirrorFileAsync(s3, BucketName, telescope, dateToken, objectKey, "science", f);
+            if (entry is not null) sciFiles.Add(entry);   // only list files actually present in R2
+        }
 
         var calFiles = new List<ManifestFileDto>();
         foreach (var f in obs.CalibrationFiles)
-            calFiles.Add(await MirrorFileAsync(s3, BucketName, telescope, dateToken, objectKey, "cal", f));
+        {
+            var entry = await MirrorFileAsync(s3, BucketName, telescope, dateToken, objectKey, "cal", f);
+            if (entry is not null) calFiles.Add(entry);   // only list files actually present in R2
+        }
+
+        // Skip an observation entirely if none of its science frames made it to R2 — a manifest
+        // entry with zero science files would show a phantom target in TransitLab's Fetch List
+        // that fails on every download. Missing files get retried by the next run (ObjectExists
+        // returns false for them), so a transient upstream failure self-heals on the next sync.
+        if (sciFiles.Count == 0)
+        {
+            Console.WriteLine($"  ⚠ {obs.ObjectName} ({dateToken}): 0 of {obs.ScienceFiles.Count} science files reached R2 — omitting from manifest this run.");
+            continue;
+        }
 
         entries.Add(new ManifestObservationDto
         {
@@ -88,36 +104,40 @@ Console.WriteLine($"Uploaded manifest.json ({manifestJson.Length} bytes) coverin
 static string SafeKeySegment(string s) =>
     string.Join("_", s.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Trim();
 
-/// <summary>Uploads one FITS file to R2 if not already present there, and returns its manifest entry.</summary>
-static async Task<ManifestFileDto> MirrorFileAsync(
+/// <summary>Uploads one FITS file to R2 if not already present there. Returns its manifest entry
+/// on success (or if it was already mirrored), or <c>null</c> if the file could not be placed in
+/// R2 — so the caller never lists a key that isn't actually there for download.</summary>
+static async Task<ManifestFileDto?> MirrorFileAsync(
     AmazonS3Client s3, string bucketName, string telescope, string dateToken, string objectKey, string kind, MObsService.FitsFile file)
 {
     var key = $"mobs/{telescope}/{dateToken}/{objectKey}/{kind}/{file.Filename}";
 
-    var alreadyMirrored = await ObjectExistsAsync(s3, bucketName, key);
-    if (!alreadyMirrored)
-    {
-        try
-        {
-            var bytes = await MObsService.DownloadBytesAsync(file.DownloadUrl);
-            using var stream = new MemoryStream(bytes);
-            await s3.PutObjectAsync(new PutObjectRequest
-            {
-                BucketName            = bucketName,
-                Key                   = key,
-                InputStream           = stream,
-                ContentType           = "application/octet-stream",
-                DisablePayloadSigning = true, // R2 doesn't implement the AWS SDK's default chunked/trailer-signed streaming upload
-            });
-            Console.WriteLine($"  + {key} ({bytes.Length:N0} bytes)");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"  ! FAILED {file.Filename}: {ex.Message} — manifest entry will point at a key that doesn't exist in R2 for this file.");
-        }
-    }
+    if (await ObjectExistsAsync(s3, bucketName, key))
+        return new ManifestFileDto { Filename = file.Filename, Key = key };
 
-    return new ManifestFileDto { Filename = file.Filename, Key = key };
+    try
+    {
+        var bytes = await MObsService.DownloadBytesAsync(file.DownloadUrl);
+        using var stream = new MemoryStream(bytes);
+        await s3.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName            = bucketName,
+            Key                   = key,
+            InputStream           = stream,
+            ContentType           = "application/octet-stream",
+            DisablePayloadSigning = true, // R2 doesn't implement the AWS SDK's default chunked/trailer-signed streaming upload
+        });
+        Console.WriteLine($"  + {key} ({bytes.Length:N0} bytes)");
+        return new ManifestFileDto { Filename = file.Filename, Key = key };
+    }
+    catch (Exception ex)
+    {
+        // Don't list it — a common cause is an upstream fetch failure (e.g. Harvard's
+        // mo-www.cfa.harvard.edu FITS host, whose TLS cert has lapsed before). The file
+        // stays absent from R2, so the next run retries it (ObjectExists is false).
+        Console.WriteLine($"  ! FAILED {file.Filename}: {ex.Message} — omitting from manifest; will retry next run.");
+        return null;
+    }
 }
 
 static async Task<bool> ObjectExistsAsync(AmazonS3Client s3, string bucketName, string key)
