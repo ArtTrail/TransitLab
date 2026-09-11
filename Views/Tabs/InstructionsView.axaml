@@ -277,7 +277,7 @@
             <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="AAVSO Exoplanet  (exosite)"/>
             <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="The report file and light curve image are detected automatically. Select Site and Equipment Package, tick 'I accept the GDPR terms', then click Upload to AAVSO Exoplanet. A confirmed upload is recorded automatically in the History tab."/>
             <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="WebObs AID"/>
-            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="The AID file is detected automatically. Click Open WebObs in Browser to go directly to the AAVSO WebObs upload page. WebObs requires manual review and approval of the data before final submission."/>
+            <TextBlock TextWrapping="Wrap" Margin="20,0,0,0" Text="If an AID file is found, it's detected automatically. As of v2.10.1, EXOTIC's runs through TransitLab no longer generate this file — an internal EXOTIC option it depended on was disabled to avoid an intermittent crash (see Revision History), so this section will typically show no file. Click Open WebObs in Browser to go directly to the AAVSO WebObs upload page regardless. WebObs requires manual review and approval of the data before final submission."/>
             <TextBlock TextWrapping="Wrap" Margin="20,4,0,0" FontWeight="SemiBold" Text="Transit Post Generator"/>
             <TextBlock TextWrapping="Wrap" Margin="20,0,0,12" Text="Click Open Transit Post Generator to open the Exoplanet Slacker website, where you can create a formatted Slack/Discord post from your results. (Douglas James &amp; Exoplanet Slacker)"/>
 

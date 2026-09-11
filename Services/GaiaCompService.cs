@@ -34,11 +34,14 @@ public static class GaiaCompService
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
 
-    // Gaia DR3 TAP sync endpoints — tried in order on failure
+    // Gaia DR3 TAP sync endpoints — tried in order on failure. Heidelberg first: ESA's archive
+    // (gea.esac.esa.int) is a high-traffic public service prone to intermittent slowness/timeouts
+    // under load, observed to fail first far more often than Heidelberg — trying it first cost
+    // every query a full timeout before falling back (issue #58).
     private static readonly string[] TapEndpoints =
     [
-        "https://gea.esac.esa.int/tap-server/tap/sync",
         "https://gaia.ari.uni-heidelberg.de/tap/sync",
+        "https://gea.esac.esa.int/tap-server/tap/sync",
     ];
 
     // VizieR TAP sync endpoints for APASS DR9

@@ -426,8 +426,6 @@ public partial class ObservationViewModel : ViewModelBase
                 if (filt.Equals("C", StringComparison.OrdinalIgnoreCase) ||
                     filt.Equals("Clear", StringComparison.OrdinalIgnoreCase))
                     filt = "CV";
-                EquipmentTarget.Filter = filt;
-                populated.Append($"Filter: {filt}  ");
 
                 // Populate filter wavelength range from standard AAVSO filter definitions
                 var (fMin, fMax) = filt.ToUpperInvariant() switch
@@ -447,10 +445,30 @@ public partial class ObservationViewModel : ViewModelBase
                     "OIII"                 => ("493", "503"),
                     _                      => ("", ""),
                 };
-                if (!string.IsNullOrEmpty(fMin))
+
+                // A raw FITS FILTER value isn't always a real filter name — e.g. a filter-wheel
+                // slot number like "1" from some capture software on an unfiltered/OSC camera,
+                // confirmed from a real user's header. Only accept it if it resolves a wavelength
+                // range above, or matches one of the band codes TransitLab's own Filter dropdown
+                // offers; otherwise leave the Filter field as-is rather than copying in a value
+                // that plainly isn't a filter code at all.
+                bool isKnownBand = !string.IsNullOrEmpty(fMin) ||
+                    EquipmentTarget.FilterCodes.Any(f => f.Equals(filt, StringComparison.OrdinalIgnoreCase));
+
+                if (isKnownBand)
                 {
-                    EquipmentTarget.FilterMin = fMin;
-                    EquipmentTarget.FilterMax = fMax;
+                    EquipmentTarget.Filter = filt;
+                    populated.Append($"Filter: {filt}  ");
+                    if (!string.IsNullOrEmpty(fMin))
+                    {
+                        EquipmentTarget.FilterMin = fMin;
+                        EquipmentTarget.FilterMax = fMax;
+                    }
+                }
+                else
+                {
+                    populated.Append($"Filter: '{filt}' not a recognized AAVSO band — left unchanged  ");
+                    Services.SessionLogService.Write($"[FITS] FITS FILTER='{filt}' is not a recognized AAVSO filter code (e.g. a filter-wheel slot number rather than a band name) — Filter field left unchanged rather than copied in. Select a real AAVSO band before running (e.g. CV for an unfiltered/clear camera).");
                 }
             }
 
@@ -828,8 +846,12 @@ public partial class ObservationViewModel : ViewModelBase
         name = Regex.Replace(name, @"\bHATP-", "HAT-P-", RegexOptions.IgnoreCase);
         // TOI1234 → TOI-1234
         name = Regex.Replace(name, @"\bTOI[\s-]*(\d)", "TOI-$1", RegexOptions.IgnoreCase);
-        // Insert space before trailing capital stuck to previous char: WASP-160B → WASP-160 B
-        name = Regex.Replace(name, @"([^\s])([A-Z])$", "$1 $2");
+        // Insert space before a trailing letter stuck to the previous char — covers both a stellar
+        // component designator (WASP-160B → WASP-160 B) and a planet letter with no separating
+        // space (XO-3b → XO-3 b). Previously only matched uppercase, so a lowercase planet letter
+        // already present (e.g. FITS OBJECT="XO-3b") wasn't recognized as already having one and
+        // got a second " b" appended below, producing "XO-3b b" — which then fails NEA lookup.
+        name = Regex.Replace(name, @"([^\s])([A-Za-z])$", "$1 $2");
         // Append ' b' if no trailing lowercase planet letter
         if (!Regex.IsMatch(name, @"\s+[a-z]$"))
             name += " b";

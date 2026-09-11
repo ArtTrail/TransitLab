@@ -155,9 +155,11 @@ public class AppConfig
     public bool ShowTipsAtStartup { get; set; } = true;
     public int  NextTipIndex      { get; set; } = 0;
 
-    // First-launch "What's New" announcements, keyed by version
-    public bool HasSeenV270WhatsNew { get; set; } = false;
-    public bool HasSeenV271WhatsNew { get; set; } = false;
+    // First-launch "What's New" popup — the last version whose Rev History entry has already
+    // been shown. Compared against AppInfo.Version at startup; a mismatch means the current
+    // version hasn't been announced yet. Superseded per-version bool flags (HasSeenV270WhatsNew,
+    // HasSeenV271WhatsNew) that required hand-wiring a new one every release.
+    public string LastSeenWhatsNewVersion { get; set; } = "";
 
     // Stellar Variability Only warning popup
     public bool SuppressStellarVariabilityWarning { get; set; } = false;

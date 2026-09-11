@@ -111,16 +111,10 @@ public partial class MainWindowViewModel : ViewModelBase
         set { _cfg.NextTipIndex = value; ConfigService.Save(_cfg); }
     }
 
-    public bool HasSeenV270WhatsNew
+    public string LastSeenWhatsNewVersion
     {
-        get => _cfg.HasSeenV270WhatsNew;
-        set { _cfg.HasSeenV270WhatsNew = value; ConfigService.Save(_cfg); }
-    }
-
-    public bool HasSeenV271WhatsNew
-    {
-        get => _cfg.HasSeenV271WhatsNew;
-        set { _cfg.HasSeenV271WhatsNew = value; ConfigService.Save(_cfg); }
+        get => _cfg.LastSeenWhatsNewVersion;
+        set { _cfg.LastSeenWhatsNewVersion = value; ConfigService.Save(_cfg); }
     }
 
     /// <summary>Last folder used to save a diagnostics log — tracked independently of the Data tab's directories.</summary>
@@ -940,29 +934,6 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // ── inits.json builder ────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Returns true when the EXOTIC version is 4.3.2 or later.
-    /// Handles version strings with pre-release suffixes (e.g. "4.3.2.dev0").
-    /// Defaults to false (safe for 4.3.1) when version is null or unparseable.
-    /// </summary>
-    private static bool IsExotic432OrLater(string? versionString)
-    {
-        if (string.IsNullOrWhiteSpace(versionString)) return false;
-        var parts = versionString.Trim().Split('.');
-        if (!int.TryParse(parts[0], out var major)) return false;
-        int minor = 0, patch = 0;
-        if (parts.Length >= 2 && !int.TryParse(parts[1], out minor)) return false;
-        if (parts.Length >= 3)
-        {
-            // patch segment may have a non-numeric suffix (e.g. "2dev0"); extract leading digits
-            var patchStr = new string(parts[2].TakeWhile(char.IsDigit).ToArray());
-            if (!int.TryParse(patchStr, out patch)) return false;
-        }
-        return (major > 4) ||
-               (major == 4 && minor > 3) ||
-               (major == 4 && minor == 3 && patch >= 2);
-    }
-
     /// <summary>Trims a reported EXOTIC version like "4.3.2.dev98+g7dd88b98f.d20260724" down to "4.3.2".</summary>
     private static string ExoticVersionTag(string? version)
     {
@@ -1061,10 +1032,16 @@ public partial class MainWindowViewModel : ViewModelBase
             ["Filter Name (aavso.org/filters)"] = N(et.Filter),
             ["Observing Notes"]            = N(et.Notes),
             ["Plate Solution? (y/n)"]      = JsonValue.Create("n"),
-            ["Add Comparison Stars from AAVSO? (y/n)"] = JsonValue.Create(
-                preReduced is not null ? "n" :
-                string.IsNullOrWhiteSpace(et.CompXY) ? "y" :
-                IsExotic432OrLater(_detectedExoticVersion) ? "n" : "y"),
+            // Always "n" — matches EXOTIC's own GUI default (an unchecked checkbox). Enabling this
+            // triggers EXOTIC's own internal AAVSO VSP/VSX lookup (vsp_query in exotic.py), which on
+            // the stable 4.3.1 release still hardcodes www.aavso.org — a host that sits behind a
+            // Cloudflare gate and intermittently serves a challenge page instead of JSON, crashing
+            // EXOTIC with "can only concatenate str (not 'NoneType') to str". TransitLab already runs
+            // its own AAVSO/Gaia/Stone comp-star pipeline (via the fixed apps.aavso.org/vsx.aavso.org
+            // hosts) before this point, so EXOTIC's own internal comp-star addition is redundant
+            // regardless. Trade-off: EXOTIC no longer writes the legacy AID_AAVSO_*.txt WebObs 2.0
+            // extended-format file, since that file is only produced when this flag is "y".
+            ["Add Comparison Stars from AAVSO? (y/n)"] = JsonValue.Create("n"),
             ["Target Star X & Y Pixel"]    = N(et.TargetXY),
             ["Comparison Star(s) X & Y Pixel"] = N(et.CompXY),
             ["Demosaic Format"]            = null,

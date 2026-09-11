@@ -59,8 +59,7 @@ public partial class MainWindow : Window
             if (DataContext is MainWindowViewModel vm)
             {
                 await vm.RunStartupUpdateCheckAsync();
-                await ShowV270WhatsNewAsync(vm);
-                await ShowV271WhatsNewAsync(vm);
+                await ShowWhatsNewAsync(vm);
                 await ShowTipOfDayAsync(vm);
             }
         };
@@ -159,26 +158,59 @@ public partial class MainWindow : Window
         win.Show(this);
     }
 
-    private async Task ShowV270WhatsNewAsync(MainWindowViewModel vm)
+    /// <summary>
+    /// First-launch "What's New" popup — mirrors the current version's own Rev History entry
+    /// verbatim (RevisionHistoryData.All), so there's no separate summary to hand-write (and
+    /// forget to update) per release the way the old per-version methods this replaced required.
+    /// A scrollable, resizable dialog like ShowHelpPopup (some versions run 30+ bullets), but
+    /// truly awaited like ShowInfoAsync so it finishes before ShowTipOfDayAsync runs next.
+    /// </summary>
+    private async Task ShowWhatsNewAsync(MainWindowViewModel vm)
     {
-        if (vm.HasSeenV270WhatsNew) return;
-        await ShowInfoAsync("What's New in TransitLab v2.7.0",
-            "TransitLab v2.7.0 introduces new Comp Star Selection methods — AAVSO VSP, Stone + VSP, and Stone — for finding comparison stars. See Help → User Guide for full details.\n\n" +
-            "Comparison star fetching is now manual: after your plate solve completes, select a method under Star Selection and click Fetch Comps.");
-        vm.HasSeenV270WhatsNew = true;
-    }
+        if (vm.LastSeenWhatsNewVersion == AppInfo.Version) return;
+        vm.LastSeenWhatsNewVersion = AppInfo.Version;
 
-    private async Task ShowV271WhatsNewAsync(MainWindowViewModel vm)
-    {
-        if (vm.HasSeenV271WhatsNew) return;
-        await ShowInfoAsync("What's New in TransitLab v2.7.1",
-            "TransitLab v2.7.1 adds:\n\n" +
-            "•  Stellar Variability Only mode — skip transit fitting for pure variability-monitoring runs.\n\n" +
-            "•  A NextAstro plate-solve option (experimental, requires an EXOTIC pre-release build).\n\n" +
-            "•  Download Full ldtk Library, plus automatic HTTPS fallback if EXOTIC's limb-darkening download fails.\n\n" +
-            "•  A Name column in Comp Star Details, showing each comparison star's VSX or Gaia DR3 identifier.\n\n" +
-            "See Help → Revision History for full details.");
-        vm.HasSeenV271WhatsNew = true;
+        var entry = RevisionHistoryData.All.FirstOrDefault(e => e.Version == AppInfo.Version);
+        if (entry is null) return;   // dev/test build not in the data yet — nothing to show
+
+        var tb = new Avalonia.Controls.TextBlock
+        {
+            Text         = string.Join("\n\n", entry.Bullets),
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            Margin       = new Avalonia.Thickness(16, 14, 16, 10),
+            MaxWidth     = 440,
+            FontSize     = 15,
+        };
+        var scroll = new Avalonia.Controls.ScrollViewer
+        {
+            Content                       = tb,
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility   = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+        };
+        var btn = new Avalonia.Controls.Button
+        {
+            Content             = "OK",
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            MinWidth            = 70,
+            Margin              = new Avalonia.Thickness(0, 2, 0, 14),
+        };
+        var layout = new Avalonia.Controls.DockPanel();
+        Avalonia.Controls.DockPanel.SetDock(btn, Avalonia.Controls.Dock.Bottom);
+        layout.Children.Add(btn);
+        layout.Children.Add(scroll);
+        var dialog = new Window
+        {
+            Title                 = $"What's New in TransitLab v{entry.Version}",
+            Content               = layout,
+            Width                 = 480,
+            MaxHeight             = 700,
+            SizeToContent         = Avalonia.Controls.SizeToContent.Height,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            CanResize             = true,
+            ShowInTaskbar         = false,
+        };
+        btn.Click += (_, _) => dialog.Close();
+        await dialog.ShowDialog(this);
     }
 
     private async Task ShowTipOfDayAsync(MainWindowViewModel vm)

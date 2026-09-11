@@ -18,7 +18,7 @@
 ; AppInfo.Version on every release, same as every other version-stamped location in this repo.
 
 #define MyAppName "TransitLab"
-#define MyAppVersion "2.10.0"
+#define MyAppVersion "2.10.1"
 #define MyAppPublisher "Art Trail"
 #define MyAppURL "https://github.com/ArtTrail/TransitLab"
 #define MyAppExeName "TransitLab.exe"

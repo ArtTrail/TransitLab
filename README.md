@@ -56,10 +56,10 @@
 ## Installation
 
 1. Download the latest release for your platform from **[Releases](https://github.com/ArtTrail/TransitLab/releases/latest)**
-   - **Windows:** `TransitLab-v2.10.0-win-x64.zip` — extract and run `TransitLab.exe` (or use the Inno Setup installer, `TransitLab-Setup-v2.10.0.exe`)
-   - **macOS (Apple Silicon):** `TransitLab-v2.10.0-osx-arm64.dmg` — drag to Applications, right-click → Open the first time
-   - **macOS (Intel):** `TransitLab-v2.10.0-osx-x64.dmg` — drag to Applications, right-click → Open the first time
-   - **Linux:** `TransitLab-v2.10.0-linux-x64.zip` — extract and run `./TransitLab`
+   - **Windows:** `TransitLab-v2.10.1-win-x64.zip` — extract and run `TransitLab.exe` (or use the Inno Setup installer, `TransitLab-Setup-v2.10.1.exe`)
+   - **macOS (Apple Silicon):** `TransitLab-v2.10.1-osx-arm64.dmg` — drag to Applications, right-click → Open the first time
+   - **macOS (Intel):** `TransitLab-v2.10.1-osx-x64.dmg` — drag to Applications, right-click → Open the first time
+   - **Linux:** `TransitLab-v2.10.1-linux-x64.zip` — extract and run `./TransitLab`
 2. Open **Tools → Python & EXOTIC Setup** and click **Check System** to verify or install Python and EXOTIC
 
 No installer required. No .NET installation required.
