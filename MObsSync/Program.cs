@@ -100,27 +100,33 @@ await s3.PutObjectAsync(new PutObjectRequest
 Console.WriteLine($"Uploaded manifest.json ({manifestJson.Length} bytes) covering {manifest.Telescopes.Sum(t => t.Value.Count)} observation(s) across {manifest.Telescopes.Count} telescope(s).");
 
 // ── Run summary for the CI notification step ──────────────────────────────────
-// Writes mobs_sync_summary.txt (target list + counts) that mobs-sync.yml reads into the
-// daily Pushover success push. Lists every target in this run's manifest.
+// Writes mobs_sync_summary.txt for mobs-sync.yml's daily Pushover push. The run mirrors a
+// 14-day window, but the notification should show only the MOST RECENT observation night
+// ("last night"), not the whole backlog. Labelled with the actual date so it stays accurate
+// if MicroObservatory ever publishes late and the newest night is older than last night.
 {
-    var allEntries  = manifest.Telescopes.SelectMany(t => t.Value).ToList();
-    var targetNames = allEntries
+    var allEntries = manifest.Telescopes.SelectMany(t => t.Value).ToList();
+    // Date is "yyyy-MM-dd", so its lexicographic max is the chronological latest night.
+    var latestDate   = allEntries.Count == 0 ? null : allEntries.Max(e => e.Date);
+    var nightEntries = allEntries.Where(e => e.Date == latestDate).ToList();
+
+    var targetNames = nightEntries
         .Select(e => e.ObjectName)
         .Where(n => !string.IsNullOrWhiteSpace(n))
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
         .ToList();
-    var sciCount = allEntries.Sum(e => e.ScienceFiles.Count);
+    var sciCount = nightEntries.Sum(e => e.ScienceFiles.Count);
     var today    = DateTime.UtcNow.ToString("yyyy-MM-dd");
 
-    var summary = allEntries.Count == 0
-        ? $"No new observations mirrored to R2 ({today})."
-        : $"{allEntries.Count} observation(s) mirrored to R2 ({today}):\n"
+    var summary = latestDate is null
+        ? $"MObs R2 sync ran ({today}) - no observations available to mirror."
+        : $"Latest night ({latestDate}): {nightEntries.Count} observation(s) mirrored to R2.\n"
           + string.Join(", ", targetNames)
           + $"\n\n{sciCount} science frame(s).";
 
     File.WriteAllText("mobs_sync_summary.txt", summary);
-    Console.WriteLine("Wrote mobs_sync_summary.txt for the notification step.");
+    Console.WriteLine($"Wrote mobs_sync_summary.txt (latest night: {latestDate ?? "none"}).");
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────

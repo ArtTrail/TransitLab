@@ -20,6 +20,7 @@ main = "src/index.js"
 compatibility_date = "2026-09-04"
 
 [triggers]
-# Same time slot GitHub Actions' own (unreliable) schedule was using -- ~7 AM MDT / UTC-6.
-# Cron doesn't observe DST, so this drifts to ~6 AM during MST season, same caveat as before.
-crons = ["57 12 * * *"]
+# 15:00 UTC = ~8 AM Arizona (MST/UTC-7, where the Cecilia scope is). Chosen (2026-09-24) over the
+# old 12:57 UTC so MicroObservatory has published last night's data before the sync runs, so the
+# daily notification's "latest night" list actually reflects last night. Cron doesn't observe DST.
+crons = ["0 15 * * *"]
