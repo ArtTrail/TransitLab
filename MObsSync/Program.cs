@@ -99,6 +99,30 @@ await s3.PutObjectAsync(new PutObjectRequest
 });
 Console.WriteLine($"Uploaded manifest.json ({manifestJson.Length} bytes) covering {manifest.Telescopes.Sum(t => t.Value.Count)} observation(s) across {manifest.Telescopes.Count} telescope(s).");
 
+// ── Run summary for the CI notification step ──────────────────────────────────
+// Writes mobs_sync_summary.txt (target list + counts) that mobs-sync.yml reads into the
+// daily Pushover success push. Lists every target in this run's manifest.
+{
+    var allEntries  = manifest.Telescopes.SelectMany(t => t.Value).ToList();
+    var targetNames = allEntries
+        .Select(e => e.ObjectName)
+        .Where(n => !string.IsNullOrWhiteSpace(n))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    var sciCount = allEntries.Sum(e => e.ScienceFiles.Count);
+    var today    = DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+    var summary = allEntries.Count == 0
+        ? $"No new observations mirrored to R2 ({today})."
+        : $"{allEntries.Count} observation(s) mirrored to R2 ({today}):\n"
+          + string.Join(", ", targetNames)
+          + $"\n\n{sciCount} science frame(s).";
+
+    File.WriteAllText("mobs_sync_summary.txt", summary);
+    Console.WriteLine("Wrote mobs_sync_summary.txt for the notification step.");
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 static string SafeKeySegment(string s) =>

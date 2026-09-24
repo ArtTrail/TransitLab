@@ -25,3 +25,45 @@ jobs:
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: dotnet run -c Release
+
+      # Daily heartbeat: MObsSync writes MObsSync/mobs_sync_summary.txt (target list + counts).
+      - name: Notify success (Pushover)
+        if: success()
+        env:
+          PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
+          PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          SUMMARY_FILE="MObsSync/mobs_sync_summary.txt"
+          if [ -f "$SUMMARY_FILE" ]; then
+            MESSAGE="$(cat "$SUMMARY_FILE")"
+          else
+            MESSAGE="MObs R2 sync completed (no summary file produced)."
+          fi
+          curl -s \
+            --form-string "token=$PUSHOVER_TOKEN" \
+            --form-string "user=$PUSHOVER_USER" \
+            --form-string "title=MObs R2 sync OK" \
+            --form-string "message=$MESSAGE" \
+            --form-string "url=$RUN_URL" \
+            --form-string "url_title=View run" \
+            --form-string "priority=0" \
+            https://api.pushover.net/1/messages.json
+
+      # Fires if any earlier step failed (fetch/upload error, build failure, etc.).
+      - name: Notify failure (Pushover)
+        if: failure()
+        env:
+          PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
+          PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl -s \
+            --form-string "token=$PUSHOVER_TOKEN" \
+            --form-string "user=$PUSHOVER_USER" \
+            --form-string "title=MObs R2 sync FAILED" \
+            --form-string "message=Daily MObs-to-R2 mirror did not complete. Tap for the log." \
+            --form-string "url=$RUN_URL" \
+            --form-string "url_title=Open Actions log" \
+            --form-string "priority=1" \
+            https://api.pushover.net/1/messages.json
