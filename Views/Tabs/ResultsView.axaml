@@ -266,7 +266,7 @@
                                     </StackPanel>
 
                                     <Button Classes="primary"
-                                            Content="Upload to AAVSO Exoplanet"
+                                            Content="Upload to AAVSO"
                                             Command="{Binding UploadExoplanetCommand}"
                                             IsEnabled="{Binding IsUploadEnabled}"
                                             HorizontalAlignment="Left"/>

@@ -38,9 +38,36 @@ public sealed class AavsoExositeService : IDisposable
 
     // ── HTTP helpers ──────────────────────────────────────────────────────────
 
+    private static string Redact(string key, string value) =>
+        key.Equals("password", StringComparison.OrdinalIgnoreCase) ? "[REDACTED]" : value;
+
+    private static async Task LogResponseAsync(HttpResponseMessage r, bool logBody = false)
+    {
+        try
+        {
+            SessionLogService.Write($"[AAVSO HTTP] <-- {(int)r.StatusCode} {r.ReasonPhrase}  final-url: {r.RequestMessage?.RequestUri}");
+            foreach (var h in r.Headers)
+                SessionLogService.Write($"[AAVSO HTTP]     header: {h.Key} = {string.Join(", ", h.Value)}");
+            foreach (var h in r.Content.Headers)
+                SessionLogService.Write($"[AAVSO HTTP]     content-header: {h.Key} = {string.Join(", ", h.Value)}");
+            if (logBody)
+            {
+                var body = await r.Content.ReadAsStringAsync();
+                SessionLogService.Write($"[AAVSO HTTP]     body ({body.Length} chars):");
+                SessionLogService.Write(body);
+            }
+        }
+        catch (Exception ex)
+        {
+            SessionLogService.Write($"[AAVSO HTTP]     (failed to log response: {ex.Message})");
+        }
+    }
+
     private async Task<(string Html, string Url)> GetAsync(string url, CancellationToken ct)
     {
+        SessionLogService.Write($"[AAVSO HTTP] --> GET {url}");
         var r = await _http.GetAsync(url, ct);
+        await LogResponseAsync(r);
         r.EnsureSuccessStatusCode();
         return (await r.Content.ReadAsStringAsync(ct),
                 r.RequestMessage?.RequestUri?.ToString() ?? url);
@@ -50,10 +77,16 @@ public sealed class AavsoExositeService : IDisposable
         string url, IEnumerable<KeyValuePair<string, string>> data,
         string referer, CancellationToken ct)
     {
+        var dataList = data.ToList();
+        SessionLogService.Write($"[AAVSO HTTP] --> POST {url}  (referer: {referer})");
+        foreach (var kv in dataList)
+            SessionLogService.Write($"[AAVSO HTTP]     {kv.Key} = {Redact(kv.Key, kv.Value)}");
+
         using var req = new HttpRequestMessage(HttpMethod.Post, url);
         req.Headers.Referrer     = new Uri(referer);
-        req.Content              = new FormUrlEncodedContent(data);
+        req.Content              = new FormUrlEncodedContent(dataList);
         var r = await _http.SendAsync(req, ct);
+        await LogResponseAsync(r);
         r.EnsureSuccessStatusCode();
         return (await r.Content.ReadAsStringAsync(ct),
                 r.RequestMessage?.RequestUri?.ToString() ?? url);
@@ -223,6 +256,11 @@ public sealed class AavsoExositeService : IDisposable
             var reportBytes = PatchObscode(reportPath, obscode);
             var reportName  = Path.GetFileName(reportPath);
 
+            SessionLogService.Write($"[AAVSO HTTP] --> POST {submitUrl}  (multipart upload)");
+            SessionLogService.Write($"[AAVSO HTTP]     hidden inputs seen on submit page: {string.Join(", ", inputs.Keys)}");
+            SessionLogService.Write($"[AAVSO HTTP]     csrfmiddlewaretoken={csrf}  site={siteId}  equipment={equipId}  obscode={obscode}");
+            SessionLogService.Write($"[AAVSO HTTP]     report={reportName} ({reportBytes.Length} bytes)  image={(string.IsNullOrEmpty(lcPath) || !File.Exists(lcPath) ? "(none)" : Path.GetFileName(lcPath))}");
+
             var form = new MultipartFormDataContent();
             form.Add(new StringContent(csrf),    "csrfmiddlewaretoken");
             form.Add(new StringContent(siteId),  "site");
@@ -246,6 +284,7 @@ public sealed class AavsoExositeService : IDisposable
             req.Content = form;
 
             var resp = await _http.SendAsync(req, ct);
+            await LogResponseAsync(resp, logBody: true);
             resp.EnsureSuccessStatusCode();
 
             var finalUrl = resp.RequestMessage?.RequestUri?.ToString() ?? submitUrl;

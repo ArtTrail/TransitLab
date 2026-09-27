@@ -14,48 +14,18 @@
                    TextWrapping="Wrap"
                    Margin="0,0,0,10"/>
 
-        <!-- ── Python status row (Stable's base interpreter only — Pre-release now has
-             its own independent Python 3.12+ row/buttons inside its card below, since
-             some branches require a newer Python than Stable's releases do) ── -->
-        <Border DockPanel.Dock="Top"
-                BorderThickness="1"
-                BorderBrush="{StaticResource BrushSep}"
-                CornerRadius="4"
-                Padding="10,8"
-                Margin="0,0,0,10">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="{Binding PythonStatusIcon}"
-                           Foreground="{Binding PythonStatusIcon, Converter={StaticResource StatusBrushConverter}}"
-                           FontWeight="Bold"
-                           Width="16"
-                           VerticalAlignment="Center"/>
-                <TextBlock Text="Python (Stable):" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <TextBlock Text="{Binding PythonStatus}"
-                           Classes="hint"
-                           Foreground="{Binding PythonStatus, Converter={StaticResource StatusBrushConverter}}"
-                           VerticalAlignment="Center"
-                           TextWrapping="NoWrap"/>
-            </StackPanel>
-        </Border>
-
-        <!-- ── Button row (Stable's Python-level actions only) ─────────────── -->
+        <!-- ── Shared Cancel (each card now has its own Check System / Reinstall
+             Python; only one operation runs at a time, so a single Cancel serves both.
+             The status of both cards is detected automatically when this window opens). -->
         <WrapPanel DockPanel.Dock="Top"
                    Orientation="Horizontal"
                    Margin="0,0,0,8">
-            <Button Classes="toolbar" Margin="0,0,8,4"
-                    Content="Check System"
-                    Command="{Binding CheckSystemCommand}"
-                    IsEnabled="{Binding CanCheck}"/>
-            <Button Classes="toolbar" Margin="0,0,8,4"
-                    Content="{Binding GetPythonLabel}"
-                    Command="{Binding GetPythonCommand}"
-                    IsEnabled="{Binding CanGetPython}"
-                    IsVisible="{Binding IsNotLinux}"/>
             <Button Classes="toolbar" Margin="0,0,0,4"
                     Content="Cancel"
                     Command="{Binding CancelCommand}"
                     IsEnabled="{Binding CanCancel}"
-                    Foreground="{StaticResource BrushErr}"/>
+                    Foreground="{StaticResource BrushErr}"
+                    ToolTip.Tip="Stops the operation currently running — a Python download/install, an EXOTIC install, or a version check. Enabled only while something is running; since only one operation runs at a time, this single button covers both cards."/>
         </WrapPanel>
 
         <!-- ── EXOTIC environments: Stable and Pre-release side by side ────────
@@ -100,24 +70,67 @@
                                    TextWrapping="Wrap"
                                    VerticalAlignment="Center"/>
                     </Grid>
+
+                    <!-- Stable's own base Python (independent of Pre-release's — Stable
+                         releases run on 3.10–3.12). Detected automatically on open; the
+                         buttons below re-scan or install a fresh copy. -->
+                    <Border BorderThickness="1"
+                            BorderBrush="{StaticResource BrushSep}"
+                            CornerRadius="4"
+                            Padding="8,6">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="16,Auto,*" ColumnSpacing="8">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding PythonStatusIcon}"
+                                           Foreground="{Binding PythonStatusIcon, Converter={StaticResource StatusBrushConverter}}"
+                                           FontWeight="Bold"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="Python:" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding PythonStatus}"
+                                           Classes="hint"
+                                           Foreground="{Binding PythonStatus, Converter={StaticResource StatusBrushConverter}}"
+                                           VerticalAlignment="Center"
+                                           TextWrapping="Wrap"/>
+                            </Grid>
+                            <WrapPanel Orientation="Horizontal">
+                                <Button Classes="toolbar" Margin="0,0,8,4"
+                                        Content="Check System"
+                                        Command="{Binding CheckSystemCommand}"
+                                        IsEnabled="{Binding CanCheck}"
+                                        ToolTip.Tip="Re-scans for a Python 3.10–3.12 interpreter for Stable EXOTIC (4.3.1) and refreshes the Stable environment's status. Both cards are detected automatically when this window opens."/>
+                                <Button Classes="toolbar" Margin="0,0,0,4"
+                                        Content="{Binding GetPythonLabel}"
+                                        Command="{Binding GetPythonCommand}"
+                                        IsEnabled="{Binding CanGetPython}"
+                                        IsVisible="{Binding IsNotLinux}"
+                                        ToolTip.Tip="Downloads and installs Python 3.10.11 from python.org — the recommended version for Stable EXOTIC (4.3.1). Use it if no Python was found, or to repair a corrupt one. This installs Python only; it doesn't touch EXOTIC or your other packages."/>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
                     <WrapPanel Orientation="Horizontal">
                         <Button Classes="toolbar" Margin="0,0,8,4"
-                                Content="Install / Reinstall"
+                                Content="Install Environment"
                                 Command="{Binding InstallStableCommand}"
                                 IsEnabled="{Binding StableCanInstall}"
-                                ToolTip.Tip="Creates this environment if needed, then installs or reinstalls EXOTIC into it. Safe to click even if already installed — updates it in place."/>
+                                ToolTip.Tip="Creates an isolated environment if needed, then installs EXOTIC into it. Clicking again fully reinstalls EXOTIC in place — this is how you repair a corrupted install. Your system Python is never modified."/>
                         <Button Classes="toolbar" Margin="0,0,8,4"
-                                Content="Uninstall"
+                                Content="Uninstall EXOTIC 4.3.1"
                                 Command="{Binding UninstallStableCommand}"
                                 IsEnabled="{Binding StableCanUninstall}"
-                                ToolTip.Tip="Removes only the EXOTIC package. The environment itself is kept, so a later Install/Reinstall is quick."/>
+                                ToolTip.Tip="Removes only the EXOTIC package (the 4.3.1 release). The environment itself is kept, so a later Install Environment is quick."/>
                         <Button Classes="toolbar" Margin="0,0,0,4"
-                                Content="Remove"
+                                Content="Delete Environment"
                                 Command="{Binding RemoveStableCommand}"
                                 IsEnabled="{Binding StableCanRemove}"
+                                IsVisible="{Binding StableHasVenv}"
                                 Foreground="{StaticResource BrushErr}"
-                                ToolTip.Tip="Deletes this entire environment — EXOTIC and Python itself. A later Install/Reinstall has to rebuild it from scratch."/>
+                                ToolTip.Tip="Deletes this entire isolated environment — EXOTIC and its Python. Use this if the environment itself is broken; a later Install Environment rebuilds it from scratch."/>
                     </WrapPanel>
+                    <TextBlock Classes="hint" TextWrapping="Wrap" Margin="0,8,0,0"
+                               IsVisible="{Binding StableIsBasePython}"
+                               Text="EXOTIC is currently installed in your system Python. Click Install Environment to move it into an isolated environment — your system Python won't be modified, and this becomes the recommended, self-contained setup."/>
                 </StackPanel>
             </Border>
 
@@ -176,12 +189,13 @@
                                         Content="Check System"
                                         Command="{Binding CheckPrereleasePythonCommand}"
                                         IsEnabled="{Binding CanCheck}"
-                                        ToolTip.Tip="Searches for a Python 3.12+ interpreter, used only to create this environment — independent of Stable's Python above."/>
+                                        ToolTip.Tip="Searches for a Python 3.12+ interpreter, used only to create this environment — independent of Stable's Python in its own card."/>
                                 <Button Classes="toolbar" Margin="0,0,0,4"
                                         Content="{Binding PrereleaseGetPythonLabel}"
                                         Command="{Binding GetPrereleasePythonCommand}"
                                         IsEnabled="{Binding PrereleaseCanGetPython}"
-                                        IsVisible="{Binding IsNotLinux}"/>
+                                        IsVisible="{Binding IsNotLinux}"
+                                        ToolTip.Tip="Downloads and installs Python 3.12.10 from python.org — used only to build the Pre-release environment (some dev branches require 3.12+, which Stable's Python can't satisfy). Use it if no 3.12 was found, or to repair a corrupt one. Installs Python only; it doesn't touch EXOTIC."/>
                             </WrapPanel>
                         </StackPanel>
                     </Border>
@@ -203,26 +217,27 @@
                                Text="e.g. https://github.com/rzellem/EXOTIC.git@branch-name — remembered in the dropdown above."/>
                     <WrapPanel Orientation="Horizontal">
                         <Button Classes="toolbar" Margin="0,0,8,4"
-                                Content="Check Version"
+                                Content="Check Dev Version"
                                 Command="{Binding CheckPrereleaseVersionCommand}"
                                 IsEnabled="{Binding CanCheckPrereleaseVersion}"
-                                ToolTip.Tip="Checks the branch's latest commit against what's installed, without reinstalling. Requires Pre-release to be the selected environment (●) above and a branch URL entered."/>
+                                ToolTip.Tip="Checks the branch's latest commit against what's installed in the Pre-release environment, without reinstalling. Just needs a branch URL entered above (pre-filled with the default dev branch)."/>
                         <Button Classes="toolbar" Margin="0,0,8,4"
-                                Content="Install / Reinstall"
+                                Content="Uninstall EXOTIC 4.3.2"
+                                Command="{Binding UninstallPrereleaseCommand}"
+                                IsEnabled="{Binding PrereleaseCanUninstall}"
+                                ToolTip.Tip="Removes only the EXOTIC package (the 4.3.2 dev build). The environment itself is kept, so a later Install Environment is quick."/>
+                        <Button Classes="toolbar" Margin="0,0,8,4"
+                                Content="Install Environment"
                                 Command="{Binding InstallBranchCommand}"
                                 IsEnabled="{Binding CanInstallBranch}"
                                 ToolTip.Tip="Creates this environment if needed, then installs or reinstalls EXOTIC from the branch URL above. Safe to click even if already installed — this is how you pull in the branch's latest commit without uninstalling first."/>
-                        <Button Classes="toolbar" Margin="0,0,8,4"
-                                Content="Uninstall"
-                                Command="{Binding UninstallPrereleaseCommand}"
-                                IsEnabled="{Binding PrereleaseCanUninstall}"
-                                ToolTip.Tip="Removes only the EXOTIC package. The environment itself is kept, so a later Install/Reinstall is quick."/>
                         <Button Classes="toolbar" Margin="0,0,0,4"
-                                Content="Remove"
+                                Content="Delete Environment"
                                 Command="{Binding RemovePrereleaseCommand}"
                                 IsEnabled="{Binding PrereleaseCanRemove}"
+                                IsVisible="{Binding PrereleaseHasVenv}"
                                 Foreground="{StaticResource BrushErr}"
-                                ToolTip.Tip="Deletes this entire environment — EXOTIC and Python itself. A later Install/Reinstall has to rebuild it from scratch."/>
+                                ToolTip.Tip="Deletes this entire isolated environment — EXOTIC and its Python. Use this if the environment itself is broken; a later Install Environment rebuilds it from scratch."/>
                     </WrapPanel>
                     <TextBlock TextWrapping="Wrap"
                                Classes="hint"

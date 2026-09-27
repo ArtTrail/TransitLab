@@ -40,6 +40,12 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
     [ObservableProperty] private int    _downsample      = 0;
     [ObservableProperty] private bool   _solveAllFrames  = false;
 
+    // StarFix's TransitLab integration (install detection via the Windows registry, the .exe
+    // installer, and the headless PySolver\solve\solve.exe) is Windows-only. StarFix ships a macOS
+    // build, but TransitLab has no wiring for it yet — so gate the option off on non-Windows rather
+    // than offering the Windows .exe there (see issue). ASTAP / NextAstro / Astrometry.net cover Mac.
+    public bool StarFixSupported => OperatingSystem.IsWindows();
+
     // ── StarFix settings ──────────────────────────────────────────────────────
     [ObservableProperty] private string _starFixExePath        = "";  // install root, contains StarFix.exe
     [ObservableProperty] private bool   _isStarFixInstalled     = false;
@@ -256,6 +262,11 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
     [RelayCommand]
     private async Task DownloadAndInstallStarFixAsync()
     {
+        if (!StarFixSupported)   // safety net — the UI is gated, but never fetch the Windows .exe on macOS/Linux
+        {
+            StarFixStatus = "StarFix is Windows-only in TransitLab for now. On macOS/Linux use ASTAP, NextAstro, or Astrometry.net.";
+            return;
+        }
         IsStarFixDownloading    = true;
         StarFixDownloadProgress = 0;
         StarFixStatus           = "⟳  Checking latest StarFix release…";
@@ -368,7 +379,7 @@ public partial class PlateSolveSetupViewModel : ViewModelBase
         StarFixExePath   = starFixPath;   // set before UseStarFix so detection reflects the saved path, not a fresh registry lookup
         UseAstap         = solver == "ASTAP";
         UseNextAstro     = solver == "NextAstro";
-        UseStarFix       = solver == "StarFix";
+        UseStarFix       = solver == "StarFix" && StarFixSupported;   // StarFix integration is Windows-only — fall back below on macOS/Linux
         UseAstrometryNet = !UseAstap && !UseNextAstro && !UseStarFix;
         AstapExePath     = astapPath;
         AstapCatalogDir  = catalogDir;

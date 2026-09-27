@@ -34,6 +34,7 @@ public partial class EquipmentTargetViewModel : ViewModelBase
         "Y","J","H","K",
         "CBB","CV","IJ","L","MA","MB","MI","N/A",
         "RJ","STB","STHBN","STHBW","STU","STV","STY",
+        "TB","TG","TR",
     ];
     public ObservableCollection<string> PixelScales   { get; } = new();
     public ObservableCollection<string> NotesList     { get; } = new();
@@ -51,6 +52,9 @@ public partial class EquipmentTargetViewModel : ViewModelBase
         ["STB"]  = (459.55,478.05),  ["STY"]  = (536.7,  559.3),  ["STU"]  = (336.3,  367.7),
         ["STV"]  = (401.5,  418.5),  ["STHBW"]= (481.5,  496.5),  ["STHBN"]= (487.5,  484.5),
         ["MA"]   = (706.5,  717.5),  ["MB"]   = (748.5,  759.5),  ["MI"]   = (1003.0,1045.0),
+        // Tri-color (DSLR / OSC / Seestar) Bayer channels — approximate bandpasses (like CV/L,
+        // these are estimates, not a fixed glass filter; users should confirm against their camera).
+        ["TB"]   = (400.0,  500.0),  ["TG"]   = (490.0,  580.0),  ["TR"]   = (580.0,  700.0),
     };
 
     partial void OnFilterChanged(string value)
@@ -214,6 +218,14 @@ public partial class EquipmentTargetViewModel : ViewModelBase
         _            => new SolidColorBrush(Color.FromRgb(0xEC, 0xEF, 0xF4)),
     };
 
+    /// <summary>
+    /// True when the last Stone / VSP+Stone comp selection ended with NO comp star clearing the
+    /// SNR ≥ 75 quality bar (every star backfilled on a marginal field). Drives the pre-run
+    /// heads-up before EXOTIC launches (issue #62). False when no comp selection has run, or the
+    /// last one produced at least one well-detected comp star.
+    /// </summary>
+    public bool LastCompSelectionAllLowSnr => _lastImageQuality?.AllCompsLowSnr == true;
+
     private void SetImageQuality(GaiaCompService.ImageQualityInfo? q)
     {
         _lastImageQuality = q;
@@ -223,6 +235,7 @@ public partial class EquipmentTargetViewModel : ViewModelBase
         OnPropertyChanged(nameof(QualityPrecision));
         OnPropertyChanged(nameof(QualityGrade));
         OnPropertyChanged(nameof(QualityGradeColor));
+        OnPropertyChanged(nameof(LastCompSelectionAllLowSnr));
     }
 
     // ── Injected ──────────────────────────────────────────────────────────────
@@ -360,6 +373,20 @@ public partial class EquipmentTargetViewModel : ViewModelBase
 
         if (ct.IsCancellationRequested) return;
 
+        // AAVSO VSP needs a filter to map to a VSP band. If none is set yet (e.g. this fetch was
+        // auto-triggered right after a header read / NEA lookup, before the filter resolved), skip
+        // with a gentle heads-up instead of firing a fetch that can only error. The Stone methods
+        // don't require a mapped filter, so they still run.
+        if (SelectedCompMethod is not ("VSP + Stone" or "Stone") && string.IsNullOrWhiteSpace(Filter))
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                AavsoCompStatus = "⚠  Set a filter before fetching AAVSO VSP comparison stars";
+                Services.SessionLogService.Write("[AavsoComp] Skipped auto-fetch — no filter set for AAVSO VSP");
+            }
+            return;
+        }
+
         // ── Route to the selected method ──────────────────────────────────────
         switch (SelectedCompMethod)
         {
@@ -445,6 +472,10 @@ public partial class EquipmentTargetViewModel : ViewModelBase
             var progress    = new Progress<string>(msg => AavsoCompStatus = msg);
             var logProgress = new Progress<string>(msg => CompLogAction?.Invoke(msg + "\n"));
 
+            // NEA proper motion (mas/yr) for PM-correcting the target to the obs epoch (issue #63).
+            double? pmRaVal  = NumericParseService.TryParse(PmRa,  out var _pmr) ? _pmr : null;
+            double? pmDecVal = NumericParseService.TryParse(PmDec, out var _pmd) ? _pmd : null;
+
             var result = await GaiaCompService.FetchAsync(
                 fitsPath, ra, dec, filter,
                 aavsoCode: null,
@@ -452,7 +483,9 @@ public partial class EquipmentTargetViewModel : ViewModelBase
                 progress: progress,
                 logProgress: logProgress,
                 maxCompStars: MaxCompStars,
-                ct);
+                targetPmRa: pmRaVal,
+                targetPmDec: pmDecVal,
+                ct: ct);
             if (ct.IsCancellationRequested) return;
 
             AavsoCompStatus = result.StatusMessage;
@@ -737,7 +770,26 @@ public partial class EquipmentTargetViewModel : ViewModelBase
             var naxis1 = hdr.GetInt("NAXIS1") ?? 0;
             var naxis2 = hdr.GetInt("NAXIS2") ?? 0;
 
-            var pixel = WcsService.SkyToPixel(wcs, ra, dec);
+            // Proper-motion correct the target to the observation epoch before projecting (issue #63).
+            // NEA RA/Dec are at the Gaia epoch (~2016.0, verified); propagate by NEA PM to the obs
+            // epoch so a high-PM target lands on the actual star, not its 2016 position. Negligible
+            // (sub-pixel) for low-PM targets; a no-op if PM is unavailable.
+            double corrRa = ra, corrDec = dec;
+            if (NumericParseService.TryParse(PmRa, out var pmRa) &&
+                NumericParseService.TryParse(PmDec, out var pmDec) && (pmRa != 0 || pmDec != 0))
+            {
+                var dateObs = hdr.Get("DATE-OBS");
+                if (!string.IsNullOrWhiteSpace(dateObs))
+                {
+                    var obsEpoch = GaiaCompService.DateObsToEpoch(dateObs);
+                    (corrRa, corrDec) = GaiaCompService.ApplyPm(ra, dec, pmRa, pmDec, 2016.0, obsEpoch);
+                    if (corrRa != ra || corrDec != dec)
+                        Services.SessionLogService.Write(
+                            $"[AutoTarget] PM-corrected target {ra:F6},{dec:F6} → {corrRa:F6},{corrDec:F6} (epoch 2016.0→{obsEpoch:F2})");
+                }
+            }
+
+            var pixel = WcsService.SkyToPixel(wcs, corrRa, corrDec);
             if (pixel is null)
             {
                 AutoTargetStatus = "⚠  WCS coordinate conversion failed";

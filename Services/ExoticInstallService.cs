@@ -14,13 +14,13 @@ namespace TransitLab.Services;
 
 public record PythonInfo(string Version, string ExePath)
 {
-    public static bool IsCompatible(string version, int minMinor = 10)
+    public static bool IsCompatible(string version, int minMinor = 10, int maxMinor = int.MaxValue)
     {
         var parts = version.Split('.');
         if (parts.Length < 2) return false;
         return int.TryParse(parts[0], out var maj) &&
                int.TryParse(parts[1], out var min) &&
-               maj == 3 && min >= minMinor;
+               maj == 3 && min >= minMinor && min <= maxMinor;
     }
 
     public static bool IsOutOfSupportedRange(string version)
@@ -61,10 +61,27 @@ public static class ExoticInstallService
 
     // ── Python detection ──────────────────────────────────────────────────────
 
-    public static async Task<PythonInfo?> FindPythonAsync(CancellationToken ct = default, int minMinor = 10)
+    /// <param name="maxMinor">
+    /// Upper bound on Python's minor version. When set (Stable passes 12, EXOTIC 4.3.1's
+    /// supported ceiling), an in-range interpreter is preferred; only if NONE exists does the
+    /// search fall back to a newer one so Check System can still detect it and warn. Pre-release
+    /// and the generic callers leave this unbounded, so their behavior is unchanged.
+    /// </param>
+    public static async Task<PythonInfo?> FindPythonAsync(
+        CancellationToken ct = default, int minMinor = 10, int maxMinor = int.MaxValue)
+    {
+        // Prefer an interpreter inside the supported range. Fall back to an unbounded search
+        // only when a ceiling was requested and nothing in-range turned up — that returns a
+        // too-new interpreter (e.g. 3.13) which the caller flags via IsOutOfSupportedRange.
+        var inRange = await FindInRangeAsync(ct, minMinor, maxMinor);
+        if (inRange != null || maxMinor == int.MaxValue) return inRange;
+        return await FindInRangeAsync(ct, minMinor, int.MaxValue);
+    }
+
+    private static async Task<PythonInfo?> FindInRangeAsync(CancellationToken ct, int minMinor, int maxMinor)
     {
         // 1. py launcher lists all installed versions
-        var fromLauncher = await FindViaPyLauncherAsync(ct, minMinor);
+        var fromLauncher = await FindViaPyLauncherAsync(ct, minMinor, maxMinor);
         if (fromLauncher != null) return fromLauncher;
 
         // 2. macOS absolute paths first — app bundles don't inherit shell PATH,
@@ -93,7 +110,7 @@ public static class ExoticInstallService
             foreach (var absPath in macosPaths)
             {
                 if (!File.Exists(absPath)) continue;
-                var p = await ProbeExeAsync(absPath, ct, minMinor);
+                var p = await ProbeExeAsync(absPath, ct, minMinor, maxMinor);
                 if (p != null) return p;
             }
         }
@@ -101,12 +118,12 @@ public static class ExoticInstallService
         // 3. python3.12 / python3.10 / python3 / python on PATH (newest-first)
         foreach (var cmd in new[] { "python3.12", "python3.11", "python3.10", "python3.9", "python3", "python" })
         {
-            var p = await ProbeExeAsync(cmd, ct, minMinor);
+            var p = await ProbeExeAsync(cmd, ct, minMinor, maxMinor);
             if (p != null) return p;
         }
 
         // 4. Common install paths (Windows)
-        var fromScan = ScanCommonPaths(minMinor);
+        var fromScan = ScanCommonPaths(minMinor, maxMinor);
         if (fromScan != null) return fromScan;
 
         // 4. Derive python.exe from exotic.exe — covers conda envs and pip --user installs
@@ -123,7 +140,7 @@ public static class ExoticInstallService
                     var candidate = Path.Combine(envDir, name);
                     if (!File.Exists(candidate)) continue;
                     var ver = await GetVersionAsync(candidate, ct);
-                    if (ver is not null && PythonInfo.IsCompatible(ver, minMinor))
+                    if (ver is not null && PythonInfo.IsCompatible(ver, minMinor, maxMinor))
                         return new PythonInfo(ver, candidate);
                 }
             }
@@ -132,7 +149,7 @@ public static class ExoticInstallService
         return null;
     }
 
-    private static async Task<PythonInfo?> FindViaPyLauncherAsync(CancellationToken ct, int minMinor)
+    private static async Task<PythonInfo?> FindViaPyLauncherAsync(CancellationToken ct, int minMinor, int maxMinor = int.MaxValue)
     {
         if (!OperatingSystem.IsWindows()) return null;
         try
@@ -148,19 +165,19 @@ public static class ExoticInstallService
                 var path     = m.Groups[2].Value.Trim();
                 if (!File.Exists(path)) continue;
                 var full = await GetVersionAsync(path, ct) ?? verShort;
-                if (PythonInfo.IsCompatible(full, minMinor)) return new PythonInfo(full, path);
+                if (PythonInfo.IsCompatible(full, minMinor, maxMinor)) return new PythonInfo(full, path);
             }
         }
         catch { }
         return null;
     }
 
-    private static async Task<PythonInfo?> ProbeExeAsync(string exe, CancellationToken ct, int minMinor)
+    private static async Task<PythonInfo?> ProbeExeAsync(string exe, CancellationToken ct, int minMinor, int maxMinor = int.MaxValue)
     {
         try
         {
             var ver = await GetVersionAsync(exe, ct);
-            if (ver == null || !PythonInfo.IsCompatible(ver, minMinor)) return null;
+            if (ver == null || !PythonInfo.IsCompatible(ver, minMinor, maxMinor)) return null;
             var path = await RunCaptureAsync(exe, "-c \"import sys; print(sys.executable)\"", ct);
             path = path.Trim();
             return File.Exists(path) ? new PythonInfo(ver, path) : null;
@@ -182,7 +199,7 @@ public static class ExoticInstallService
         catch { return null; }
     }
 
-    private static PythonInfo? ScanCommonPaths(int minMinor)
+    private static PythonInfo? ScanCommonPaths(int minMinor, int maxMinor = int.MaxValue)
     {
         var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var roots = new[]
@@ -204,7 +221,7 @@ public static class ExoticInstallService
                 var dm = Regex.Match(Path.GetFileName(dir), @"Python(\d)(\d+)");
                 if (!dm.Success) continue;
                 var ver = $"{dm.Groups[1].Value}.{dm.Groups[2].Value}";
-                if (PythonInfo.IsCompatible(ver, minMinor)) return new PythonInfo(ver, exe);
+                if (PythonInfo.IsCompatible(ver, minMinor, maxMinor)) return new PythonInfo(ver, exe);
             }
         }
         return null;
@@ -431,11 +448,11 @@ public static class ExoticInstallService
             log, ct);
 
         Report(log,"\nInstalling EXOTIC (this may take several minutes)…");
-        // --force-reinstall ensures a dev/branch build is replaced by the latest stable PyPI
-        // release in the legacy single-install path. Without it, pip sees the dev version as
-        // newer and skips the install. Not needed (or usable well) for a fresh venv.
-        var forceReinstall = targetVenv ? "" : " --force-reinstall";
-        await RunStreamAsync(pythonExe, $"-m pip install --upgrade{forceReinstall} exotic{userFlag} --no-warn-script-location", log, ct);
+        // Always --force-reinstall so a click genuinely REPAIRS a corrupted EXOTIC install
+        // (a plain --upgrade skips a same-version package, so corruption would never be fixed),
+        // and, on the legacy base-Python path, replaces a dev build with the stable release.
+        // pip reuses its wheel cache, so this overwrites without re-downloading unnecessarily.
+        await RunStreamAsync(pythonExe, $"-m pip install --upgrade --force-reinstall exotic{userFlag} --no-warn-script-location", log, ct);
     }
 
     // ── Git detection and install ─────────────────────────────────────────────
@@ -462,9 +479,27 @@ public static class ExoticInstallService
             return;
         }
 
-        if (!OperatingSystem.IsWindows())
+        if (OperatingSystem.IsMacOS())
         {
-            Report(log,"Git not found. Install it with:  sudo apt install git  then try again.");
+            // On macOS, git may be PRESENT (Apple's /usr/bin/git) but refuse to run until the
+            // Xcode / Command Line Tools license is accepted — a plain `git --version` then fails
+            // and looks identical to "git not found". Capture stderr to tell the two apart.
+            var diag = await RunCaptureBothAsync("git", "--version", ct);
+            if (diag.Contains("xcodebuild -license", StringComparison.OrdinalIgnoreCase) ||
+                (diag.Contains("Xcode", StringComparison.OrdinalIgnoreCase) &&
+                 diag.Contains("license", StringComparison.OrdinalIgnoreCase)))
+            {
+                Report(log,"Git is installed but blocked by the Xcode license agreement.");
+                Report(log,"Open Terminal and run:  sudo xcodebuild -license accept   then click Install Environment again.");
+                throw new InvalidOperationException("Git is blocked by the un-accepted Xcode license. In Terminal run: sudo xcodebuild -license accept");
+            }
+            Report(log,"Git not found. In Terminal run:  xcode-select --install   (installs Apple's Command Line Tools, which include git) — or  brew install git  — then click Install Environment again.");
+            throw new InvalidOperationException("Git is required. In Terminal run: xcode-select --install");
+        }
+
+        if (!OperatingSystem.IsWindows())   // Linux
+        {
+            Report(log,"Git not found. Install it with your package manager (e.g.  sudo apt install git ), then try again.");
             throw new InvalidOperationException("Git is required. Install it with: sudo apt install git");
         }
 
@@ -527,7 +562,7 @@ public static class ExoticInstallService
         try
         {
             if (!await IsGitAvailableAsync(ct))
-                return new BranchVersionCheckResult(null, "Git is not installed — install it via Install / Reinstall first.");
+                return new BranchVersionCheckResult(null, "Git is not installed — install it via Install Environment first.");
 
             var trimmed = repoUrlWithRef.Trim();
             var pipUrl = trimmed.StartsWith("git+", StringComparison.OrdinalIgnoreCase) ? trimmed : "git+" + trimmed;
@@ -579,8 +614,10 @@ public static class ExoticInstallService
 
         Report(log,$"\nInstalling EXOTIC pre-release from branch…");
         Report(log,$"  {pipUrl}\n");
+        // --force-reinstall so a click always pulls the branch's LATEST commit (pip otherwise sees
+        // the same dev version string as already-satisfied and skips it) and repairs a corrupt install.
         await RunStreamAsync(pythonExe,
-            $"-m pip install --upgrade \"{pipUrl}\"{userFlag} --no-warn-script-location",
+            $"-m pip install --upgrade --force-reinstall \"{pipUrl}\"{userFlag} --no-warn-script-location",
             log, ct);
     }
 
@@ -1167,6 +1204,29 @@ public static class ExoticInstallService
         var stdout = await proc.StandardOutput.ReadToEndAsync(ct);
         await proc.WaitForExitAsync(ct);
         return stdout;
+    }
+
+    /// <summary>Runs a command and returns stdout + stderr combined — used to diagnose a tool
+    /// that is present but failing (e.g. macOS git blocked by the un-accepted Xcode license,
+    /// whose message goes to stderr). Never throws.</summary>
+    private static async Task<string> RunCaptureBothAsync(string exe, string args, CancellationToken ct)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo(exe, args)
+            {
+                RedirectStandardOutput = true, RedirectStandardError = true,
+                UseShellExecute = false,       CreateNoWindow        = true,
+            };
+            using var proc = Process.Start(psi);
+            if (proc is null) return "";
+            var so = proc.StandardOutput.ReadToEndAsync(ct);
+            var se = proc.StandardError.ReadToEndAsync(ct);
+            await Task.WhenAll(so, se);
+            await proc.WaitForExitAsync(ct);
+            return so.Result + "\n" + se.Result;
+        }
+        catch { return ""; }
     }
 
     public static string PyInstallerPath =>

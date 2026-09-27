@@ -18,7 +18,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
     // environments below — it is not necessarily what actually runs a reduction.
     [ObservableProperty] private string  _pythonStatus     = "—";
     [ObservableProperty] private string  _pythonStatusIcon = "·";
-    [ObservableProperty] private string  _headlineText     = "Click  Check System  to detect your Python and EXOTIC installation.";
+    [ObservableProperty] private string  _headlineText     = "Detecting your Python and EXOTIC installation…";
     [ObservableProperty] private string  _logText          = "";
 
     // ── Pre-release's own base interpreter (Python 3.12+) ───────────────────────
@@ -39,6 +39,8 @@ public partial class ExoticSetupViewModel : ViewModelBase
     [ObservableProperty] private bool   _stableCanInstall      = false;
     [ObservableProperty] private bool   _stableCanUninstall    = false;
     [ObservableProperty] private bool   _stableCanRemove       = false;
+    [ObservableProperty] private bool   _stableHasVenv         = false;   // Delete Environment is shown only when a managed venv exists
+    [ObservableProperty] private bool   _stableIsBasePython    = false;   // installed in the user's base Python (legacy) — no venv
     [ObservableProperty] private bool   _stableIsActive        = true;
 
     [ObservableProperty] private string _prereleaseStatusIcon   = "·";
@@ -46,6 +48,8 @@ public partial class ExoticSetupViewModel : ViewModelBase
     [ObservableProperty] private bool   _prereleaseCanInstall   = false;
     [ObservableProperty] private bool   _prereleaseCanUninstall = false;
     [ObservableProperty] private bool   _prereleaseCanRemove    = false;
+    [ObservableProperty] private bool   _prereleaseHasVenv      = false;
+    [ObservableProperty] private bool   _prereleaseIsBasePython = false;
     [ObservableProperty] private bool   _prereleaseIsActive     = false;
 
     private const string StableName     = "Stable";
@@ -98,21 +102,34 @@ public partial class ExoticSetupViewModel : ViewModelBase
     // ── Button enable flags ────────────────────────────────────────────────────
     [ObservableProperty] private bool   _canCheck             = true;
     [ObservableProperty] private bool   _canGetPython         = false;
-    [ObservableProperty] private string _getPythonLabel       = "Download & Install Python";
+    [ObservableProperty] private string _getPythonLabel       = "Download & Install Python 3.10.11";
     [ObservableProperty] private bool   _canInstallBranch     = false;
     [ObservableProperty] private bool   _canCancel            = false;
 
     // ── Pre-release branch URL ─────────────────────────────────────────────────
-    [ObservableProperty] private string _branchUrl = "";
+    [ObservableProperty] private string _branchUrl = WbomBranchUrl;   // pre-fill the pinned WBoM URL so the branch buttons are usable immediately
     [ObservableProperty] private bool   _canCheckPrereleaseVersion = false;
     [ObservableProperty] private string _prereleaseVersionCheckStatus = "";
 
     public ObservableCollection<string> BranchUrls { get; } = new();
 
+    // The canonical EXOTIC pre-release dev branch ("Wonderful Branch of Magic"). Pinned as a
+    // permanent, non-removable entry in BranchUrls (issue #61) so users always have a known-good
+    // URL and can neither typo the branch name nor accidentally delete it. Stored WITH the git+
+    // scheme prefix so it's install/update-ready as-is: the install path leaves an already-git+
+    // URL untouched (never double-prefixes), and paths that don't normalise (e.g. the branch
+    // version check) require the git+ form to reach the repo.
+    public const string WbomBranchUrl =
+        "git+https://github.com/rzellem/EXOTIC.git@michael_fitzgeralds_wonderful_branch_of_magic";
+
+    private static bool IsWbom(string url) =>
+        string.Equals(url?.Trim(), WbomBranchUrl, System.StringComparison.OrdinalIgnoreCase);
+
     partial void OnBranchUrlChanged(string value)
     {
         UpdateCanInstallBranch();
         UpdateCanCheckPrereleaseVersion();
+        RemoveBranchUrlCommand.NotifyCanExecuteChanged();
     }
 
     // Installing the pre-release needs its OWN base Python (3.12+) to be ready (to create its venv) —
@@ -120,18 +137,23 @@ public partial class ExoticSetupViewModel : ViewModelBase
     private void UpdateCanInstallBranch() =>
         CanInstallBranch = !string.IsNullOrWhiteSpace(BranchUrl) && _prereleasePythonBaseExe is not null;
 
-    // Checking the branch's latest commit only needs a URL and Pre-release actually selected —
-    // per the user's own spec, deliberately narrower than CanInstallBranch (which doesn't care
-    // which environment is active) so the button only lights up once Pre-release is the one
-    // being considered, not just because a URL happens to be typed in.
+    // Checking the branch's latest commit only needs a URL — it's a Pre-release-scoped action
+    // ("Check Dev Version") that's meaningful whenever a branch URL is present, regardless of
+    // which environment is currently the active (●) one.
     private void UpdateCanCheckPrereleaseVersion() =>
-        CanCheckPrereleaseVersion = PrereleaseIsActive && !string.IsNullOrWhiteSpace(BranchUrl);
+        CanCheckPrereleaseVersion = !string.IsNullOrWhiteSpace(BranchUrl);
 
     // ── Population from config ────────────────────────────────────────────────
     public void LoadFromConfig(IEnumerable<string> branchUrlsFromCfg)
     {
         BranchUrls.Clear();
-        foreach (var u in branchUrlsFromCfg) BranchUrls.Add(u);
+        // Pin the WBoM branch first, always — injected even if the persisted config never had it.
+        BranchUrls.Add(WbomBranchUrl);
+        foreach (var u in branchUrlsFromCfg)
+        {
+            if (string.IsNullOrWhiteSpace(u) || IsWbom(u) || BranchUrls.Contains(u)) continue; // de-dupe pinned + repeats
+            BranchUrls.Add(u);
+        }
     }
 
     // ── Expose live list for config snapshot ──────────────────────────────────
@@ -162,6 +184,8 @@ public partial class ExoticSetupViewModel : ViewModelBase
             _prereleaseBranchUrlInstalled = pre.SourceBranchUrl;
             _prereleaseConfirmedInstalled = true;   // persisted from a prior session's confirmed state
             SeedPrereleasePythonBaseExe(pre.BasePythonExePath);
+            // Show the branch that's actually installed (falls back to the pre-filled WBoM default otherwise).
+            if (!string.IsNullOrWhiteSpace(pre.SourceBranchUrl)) BranchUrl = pre.SourceBranchUrl!;
             RefreshPrereleaseStatus();
         }
 
@@ -170,7 +194,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Seeds the base Python path from a previous session's config, so Install/Reinstall is
+    /// Seeds the base Python path from a previous session's config, so Install Environment is
     /// usable immediately on load rather than staying disabled until Check System is run.
     /// _pythonExe (the base interpreter used to create a new venv) is a session-only field —
     /// unlike each environment's own PythonExePath, it was never persisted or restored here,
@@ -233,8 +257,11 @@ public partial class ExoticSetupViewModel : ViewModelBase
         StableStatusText   = installed
             ? (_stableCachedVersion is not null ? $"EXOTIC {_stableCachedVersion}" : "Installed")
             : "Not installed";
+        var hasVenv = !string.IsNullOrEmpty(_stableVenvPath);
+        StableHasVenv      = hasVenv;
+        StableIsBasePython = installed && !hasVenv;          // legacy: EXOTIC in the user's base Python
         StableCanUninstall = installed;
-        StableCanRemove    = installed && !string.IsNullOrEmpty(_stableVenvPath);
+        StableCanRemove    = hasVenv;                        // a venv can be deleted even if EXOTIC was uninstalled from it
     }
 
     private void RefreshPrereleaseStatus()
@@ -244,8 +271,11 @@ public partial class ExoticSetupViewModel : ViewModelBase
         PrereleaseStatusText   = installed
             ? (_prereleaseCachedVersion is not null ? $"EXOTIC {_prereleaseCachedVersion}  [pre-release]" : "Installed  [pre-release]")
             : "Not installed";
+        var hasVenv = !string.IsNullOrEmpty(_prereleaseVenvPath);
+        PrereleaseHasVenv      = hasVenv;
+        PrereleaseIsBasePython = installed && !hasVenv;
         PrereleaseCanUninstall = installed;
-        PrereleaseCanRemove    = installed && !string.IsNullOrEmpty(_prereleaseVenvPath);
+        PrereleaseCanRemove    = hasVenv;
     }
 
     /// <summary>
@@ -322,15 +352,19 @@ public partial class ExoticSetupViewModel : ViewModelBase
     private void RememberBranchUrl()
     {
         var url = BranchUrl.Trim();
-        if (string.IsNullOrWhiteSpace(url) || BranchUrls.Contains(url)) return;
+        if (string.IsNullOrWhiteSpace(url) || IsWbom(url) || BranchUrls.Contains(url)) return;
         BranchUrls.Add(url);
         ConfigSaveCallback?.Invoke();
     }
 
-    [RelayCommand]
+    // The pinned WBoM entry is permanent — the Remove button is disabled while it (or nothing)
+    // is selected, and the command itself no-ops as a second line of defence (issue #61).
+    private bool CanRemoveBranchUrl() => !string.IsNullOrWhiteSpace(BranchUrl) && !IsWbom(BranchUrl);
+
+    [RelayCommand(CanExecute = nameof(CanRemoveBranchUrl))]
     private void RemoveBranchUrl()
     {
-        if (string.IsNullOrWhiteSpace(BranchUrl)) return;
+        if (string.IsNullOrWhiteSpace(BranchUrl) || IsWbom(BranchUrl)) return;
         BranchUrls.Remove(BranchUrl);
         ConfigSaveCallback?.Invoke();
     }
@@ -348,15 +382,45 @@ public partial class ExoticSetupViewModel : ViewModelBase
     public Action<string>?        PythonFoundCallback    { get; set; }
     public Action<string>?        ExoticExeFoundCallback { get; set; }
     public Func<string, Task>?    ShowWarningAsync       { get; set; }
+    public Func<string, string, Task<bool>>? ShowConfirmAsync { get; set; }  // (title, message) → proceed?
     public Action?                ConfigSaveCallback     { get; set; }
 
     // ── Commands ───────────────────────────────────────────────────────────────
+
+    // True while DetectAllAsync is chaining the two per-card checks — tells each check to skip
+    // its own ClearLog() so the second check doesn't wipe the first's output.
+    private bool _detectingAll;
+
+    /// <summary>
+    /// Detects both environments' base Python and installed EXOTIC status. Called once when the
+    /// Setup window opens so the user sees current state without clicking anything. Runs the two
+    /// per-card checks in sequence (each manages its own busy state); skips if a check is already
+    /// running (e.g. the window was reopened mid-operation, which can't normally happen).
+    /// </summary>
+    public async Task DetectAllAsync()
+    {
+        if (!CanCheck) return;
+        _detectingAll = true;
+        ClearLog();
+        try
+        {
+            await CheckSystem();            // Stable base Python (3.10–3.12) + Stable EXOTIC status
+            await CheckPrereleasePython();  // Pre-release base Python (3.12+) + Pre-release EXOTIC status
+        }
+        finally { _detectingAll = false; }
+
+        // The two checks each set a card-specific headline; replace it with neutral overall guidance
+        // so it doesn't read as though only Pre-release matters.
+        HeadlineText = (_pythonExe is not null || _prereleasePythonBaseExe is not null)
+            ? "Ready.  Install, reinstall, or manage either environment below, and pick which one runs next."
+            : "No compatible Python found.  Use  Download & Install Python  on either card to set one up.";
+    }
 
     [RelayCommand]
     private async Task CheckSystem()
     {
         SetBusy();
-        ClearLog();
+        if (!_detectingAll) ClearLog();
         HeadlineText        = "Scanning for Python and EXOTIC…";
         IsProgressVisible   = true;
         IsProgressIndeterminate = true;
@@ -365,8 +429,8 @@ public partial class ExoticSetupViewModel : ViewModelBase
         _cts = cts;
         try
         {
-            Log("Searching for Python (≥ 3.10)…");
-            var py = await ExoticInstallService.FindPythonAsync(cts.Token);
+            Log("Searching for Python (3.10–3.12 preferred)…");
+            var py = await ExoticInstallService.FindPythonAsync(cts.Token, minMinor: 10, maxMinor: 12);
             if (py is null)
             {
                 PythonStatusIcon = "✗";
@@ -375,12 +439,12 @@ public partial class ExoticSetupViewModel : ViewModelBase
                 HeadlineText     = OperatingSystem.IsWindows()
                     ? "Python is not installed.  Download and install it below, then install EXOTIC."
                     : "Python 3.10 is not installed.  Install it manually, then click Check System.";
-                GetPythonLabel   = OperatingSystem.IsWindows() ? "Download & Install Python" : "Python Setup Help";
+                GetPythonLabel   = OperatingSystem.IsWindows() ? "Download & Install Python 3.10.11" : "Python Setup Help";
                 CanGetPython     = true;
                 // Existing installed environments (if any) don't need the base Python to
-                // still exist — only creating a NEW one does. Just disable new installs.
+                // still exist — only creating a NEW one does. Just disable new Stable installs;
+                // Pre-release is gated independently by its own check.
                 StableCanInstall     = false;
-                PrereleaseCanInstall = false;
                 UpdateCanInstallBranch();
             }
             else
@@ -397,10 +461,9 @@ public partial class ExoticSetupViewModel : ViewModelBase
                     HeadlineText     = OperatingSystem.IsWindows()
                         ? "Python installation is corrupt.  Click  Reinstall Python  to reinstall."
                         : "Python installation is corrupt.  Reinstall Python manually, then click Check System.";
-                    GetPythonLabel   = OperatingSystem.IsWindows() ? "Reinstall Python" : "Python Setup Help";
+                    GetPythonLabel   = OperatingSystem.IsWindows() ? "Reinstall Python 3.10.11" : "Python Setup Help";
                     CanGetPython     = true;
                     StableCanInstall     = false;
-                    PrereleaseCanInstall = false;
                     UpdateCanInstallBranch();
                     return;
                 }
@@ -410,8 +473,8 @@ public partial class ExoticSetupViewModel : ViewModelBase
                 PythonStatusIcon = "✓";
                 PythonStatus     = $"Python {py.Version}   {py.ExePath}";
                 StableCanInstall     = true;
-                PrereleaseCanInstall = true;
                 UpdateCanInstallBranch();
+                Log($"  Python {py.Version} verified.");
 
                 if (PythonInfo.IsOutOfSupportedRange(py.Version) && ShowWarningAsync is not null)
                     await ShowWarningAsync(
@@ -419,13 +482,12 @@ public partial class ExoticSetupViewModel : ViewModelBase
                         "The detected version is outside this range and may not work correctly. " +
                         "Python 3.10.11 is recommended.");
 
-                Log("Checking installed environments…");
+                Log("Checking installed Stable environment…");
                 await RefreshEnvironmentVersionAsync(isStable: true,  cts.Token);
                 ReclassifyMigratedDevBuildIfNeeded();
-                await RefreshEnvironmentVersionAsync(isStable: false, cts.Token);
 
-                HeadlineText   = "Ready.  Install, reinstall, or remove either environment below, and pick which one runs next.";
-                GetPythonLabel = OperatingSystem.IsWindows() ? "Reinstall Python" : "Python Setup Help";
+                HeadlineText   = "Stable ready.  Install, reinstall, or manage it below.";
+                GetPythonLabel = OperatingSystem.IsWindows() ? "Reinstall Python 3.10.11" : "Python Setup Help";
                 CanGetPython   = true;
             }
         }
@@ -528,7 +590,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
     private async Task CheckPrereleasePython()
     {
         SetBusy();
-        ClearLog();
+        if (!_detectingAll) ClearLog();
         HeadlineText        = "Scanning for Python 3.12+…";
         IsProgressVisible   = true;
         IsProgressIndeterminate = true;
@@ -537,6 +599,12 @@ public partial class ExoticSetupViewModel : ViewModelBase
         _cts = cts;
         try
         {
+            // Pre-release EXOTIC status is independent of the 3.12 base interpreter — an env may
+            // already be installed even if the base Python isn't currently found. (On open this
+            // runs after CheckSystem's dev-build reclassification, so a moved env is picked up.)
+            Log("Checking installed Pre-release environment…");
+            await RefreshEnvironmentVersionAsync(isStable: false, cts.Token);
+
             Log("Searching for Python (≥ 3.12) for Pre-release…");
             var py = await ExoticInstallService.FindPythonAsync(cts.Token, minMinor: 12);
             if (py is null)
@@ -577,8 +645,9 @@ public partial class ExoticSetupViewModel : ViewModelBase
                 PrereleasePythonStatus     = $"Python {py.Version}   {py.ExePath}";
                 PrereleaseCanInstall       = true;
                 UpdateCanInstallBranch();
+                Log($"  Python {py.Version} verified — ready for Pre-release.");
 
-                HeadlineText              = "Ready.  Install / Reinstall the pre-release branch below.";
+                HeadlineText              = "Pre-release ready.  Install Environment for the branch below.";
                 PrereleaseGetPythonLabel  = OperatingSystem.IsWindows() ? "Reinstall Python 3.12" : "Python 3.12 Setup Help";
                 PrereleaseCanGetPython    = true;
                 ConfigSaveCallback?.Invoke();
@@ -736,6 +805,14 @@ public partial class ExoticSetupViewModel : ViewModelBase
     {
         if (_pythonExe is null) { HeadlineText = "Python is not detected.  Run  Check System  first."; return; }
 
+        if (ShowConfirmAsync is not null)
+        {
+            var msg = StableHasVenv
+                ? "Reinstall EXOTIC into the Stable environment?\n\nThis overwrites the current EXOTIC install (it repairs a corrupted one). Your Python environment and system Python are left as-is. This can take a few minutes."
+                : "Set up the Stable environment?\n\nThis creates an isolated Python environment for Stable EXOTIC and installs EXOTIC into it — your system Python is not modified. This can take a few minutes.";
+            if (!await ShowConfirmAsync("Install Environment — Stable", msg)) return;
+        }
+
         SetBusy();
         HeadlineText = "Installing Stable EXOTIC…";
         IsProgressVisible = true; IsProgressIndeterminate = true; ProgressText = "";
@@ -780,7 +857,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
             _stableCachedVersion      = null;
             _stableConfirmedInstalled = false;
             RefreshStableStatus();
-            HeadlineText = "Stable EXOTIC uninstalled.  Click  Install / Reinstall  to reinstall.";
+            HeadlineText = "Stable EXOTIC uninstalled.  Click  Install Environment  to reinstall.";
             ConfigSaveCallback?.Invoke();
         }
         catch (OperationCanceledException) { HeadlineText = "Cancelled."; }
@@ -839,7 +916,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
             {
                 PrereleaseVersionCheckStatus =
                     $"⚠  New version available — installed: {_prereleaseCachedVersion}, latest: {result.RemoteVersion}. " +
-                    "Click Install / Reinstall to update.";
+                    "Click Install Environment to update.";
             }
         }
         catch (OperationCanceledException) { PrereleaseVersionCheckStatus = "Cancelled."; }
@@ -852,6 +929,14 @@ public partial class ExoticSetupViewModel : ViewModelBase
     {
         if (_prereleasePythonBaseExe is null) { HeadlineText = "Python 3.12+ is not detected.  Run  Check System  on the Pre-release card first."; return; }
         if (string.IsNullOrWhiteSpace(BranchUrl)) { HeadlineText = "Paste a GitHub repository URL above before installing."; return; }
+
+        if (ShowConfirmAsync is not null)
+        {
+            var msg = PrereleaseHasVenv
+                ? "Reinstall EXOTIC into the Pre-release environment?\n\nThis pulls the branch's latest commit and overwrites the current install (it also repairs a corrupted one). Your system Python is left as-is. This can take a few minutes."
+                : "Set up the Pre-release environment?\n\nThis creates an isolated Python environment for the pre-release build and installs EXOTIC from the branch URL above — your system Python is not modified. This can take a few minutes.";
+            if (!await ShowConfirmAsync("Install Environment — Pre-release", msg)) return;
+        }
 
         RememberBranchUrl();
 
@@ -874,7 +959,18 @@ public partial class ExoticSetupViewModel : ViewModelBase
             _prereleaseConfirmedInstalled = true;
             _prereleaseBranchUrlInstalled = BranchUrl;
             RefreshPrereleaseStatus();
-            HeadlineText = "Pre-release installation complete!" + OtherSlotNotIsolatedNote(justInstalledStable: false);
+
+            var verText = string.IsNullOrEmpty(_prereleaseCachedVersion) ? "" : $" {_prereleaseCachedVersion}";
+            HeadlineText = $"Pre-release EXOTIC{verText} installed successfully.";
+            // Replace any earlier "new version available" warning with a clear success line.
+            PrereleaseVersionCheckStatus = string.IsNullOrEmpty(_prereleaseCachedVersion)
+                ? "✓  Installed from this branch — up to date."
+                : $"✓  Installed — EXOTIC {_prereleaseCachedVersion} (this branch's latest).";
+            // The "other slot still on the shared system Python" heads-up is a long aside — log it
+            // rather than crowd the headline (keeps the success message short and unambiguous).
+            var note = OtherSlotNotIsolatedNote(justInstalledStable: false);
+            if (!string.IsNullOrWhiteSpace(note)) Log(note.Trim());
+
             ConfigSaveCallback?.Invoke();
         }
         catch (OperationCanceledException) { HeadlineText = "Cancelled."; }
@@ -958,6 +1054,7 @@ public partial class ExoticSetupViewModel : ViewModelBase
         IsProgressIndeterminate = false;
         ProgressText            = "";
         CanCheck                = true;
+        CanGetPython            = true;   // you can always (re)install Stable's Python when idle — mirror PrereleaseCanGetPython
         PrereleaseCanGetPython  = true;
         StableCanInstall        = _pythonExe is not null;
         PrereleaseCanInstall    = _prereleasePythonBaseExe is not null;

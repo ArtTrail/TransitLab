@@ -258,6 +258,22 @@ public partial class MainWindowViewModel : ViewModelBase
             });
             await ExoticInstallService.DownloadFileAsync(_pendingInstallerUpdate.DownloadUrl, destPath, progress, default);
 
+            // ── Verify the downloaded installer's signature BEFORE running it ──────────
+            // Refuses to launch anything that wasn't signed by the offline TransitLab release key,
+            // so a tampered/replaced release asset can't be silently installed.
+            UpdateStatusText = "Verifying update authenticity…";
+            var verify = await UpdateService.VerifyInstallerAsync(destPath, _pendingInstallerUpdate.SignatureUrl, default);
+            if (!verify.Ok)
+            {
+                SessionLogService.Write($"[Update] SIGNATURE CHECK FAILED ({verify.Reason}); installer NOT run and discarded: {destPath}");
+                try { System.IO.File.Delete(destPath); } catch { }
+                UpdateStatusText    = $"Update blocked — could not verify authenticity ({verify.Reason}). The download was discarded and NOT installed. Download the release manually from GitHub if this persists.";
+                IsUpdateDownloading = false;
+                IsUpdateDone        = true;
+                return;
+            }
+            SessionLogService.Write("[Update] Installer signature verified against the TransitLab release key.");
+
             UpdateStatusText = "Installing update — TransitLab will close and reopen automatically…";
             SessionLogService.Write($"[Update] Launching silent installer: {destPath}");
             UpdateService.LaunchSilentInstall(destPath);
@@ -1069,7 +1085,20 @@ public partial class MainWindowViewModel : ViewModelBase
         if (_detectedExoticVersion?.StartsWith("4.3.2.dev", StringComparison.OrdinalIgnoreCase) == true)
         {
             optional["use_ensemble_photometry_rather_than_single_comp"] = JsonValue.Create(_cfg.UseEnsemblePhotometry);
-            optional["use_exactly_the_comps_provided"] = JsonValue.Create(_cfg.UseExactlyTheCompsProvided);
+
+            // Issue #64: when the last comp selection came back with NO star clearing the SNR bar
+            // (a marginal field), do NOT force EXOTIC to use exactly those comps. With
+            // use_exactly_the_comps_provided on, EXOTIC 4.3.2 can't drop a "required" comp that
+            // fails frame coverage, so it aborts with "no coverage-qualified comparison stars."
+            // Turning it off here lets EXOTIC re-rank/cull (what 4.3.1 does — which succeeds on the
+            // same data). Good fields keep the strict Stone-vetted set.
+            var exactComps = _cfg.UseExactlyTheCompsProvided;
+            if (exactComps && et.LastCompSelectionAllLowSnr)
+            {
+                exactComps = false;
+                SessionLogService.Write("[Inits] All selected comps are low-SNR (marginal field) — overriding use_exactly_the_comps_provided=false so EXOTIC can cull uncovered comps (issue #64).");
+            }
+            optional["use_exactly_the_comps_provided"] = JsonValue.Create(exactComps);
         }
 
         if (preReduced is not null)
@@ -1314,6 +1343,31 @@ public partial class MainWindowViewModel : ViewModelBase
                     $"Rp/Rs = {rprsCheck:G6} is outside the expected range (0.01 – 0.35) for a transiting exoplanet.\n\n" +
                     "This value will likely produce an invalid result. Please verify and correct the Rp/Rs field before running.");
             return;
+        }
+
+        // ── Marginal-field heads-up: all comp stars were low-SNR backfills (issue #62) ──
+        // The last Stone / VSP+Stone selection ended with no comp star clearing the SNR≥75 bar —
+        // a marginal field. EXOTIC can often still extract a usable (if lower-significance) result
+        // from it, so this is an advisory heads-up, not a predicted failure. Automation
+        // auto-proceeds (logged), same policy as the excluded-frames confirmation below.
+        if (et.LastCompSelectionAllLowSnr)
+        {
+            if (_isAutomationRunning)
+            {
+                SessionLogService.Write("[Automation] Proceeding despite marginal comp-star field — all selected comps were low-SNR backfills (SNR<75).");
+            }
+            else if (ShowConfirmFunc is not null)
+            {
+                var proceed = await ShowConfirmFunc("Marginal Comparison-Star Field",
+                    "None of the selected comparison stars cleared the SNR ≥ 75 quality bar — every one is a faint backfill.\n\n" +
+                    "This is a marginal field (often a bright target in a small field of view with few good comparison stars). EXOTIC can usually still extract a usable light curve from it — the 4.3.2 build in particular handles faint comparison-star ensembles well — but expect a lower-significance result, and the older 4.3.1 build may do poorly here.\n\n" +
+                    "You can proceed, or cancel and try a longer exposure, a different filter, or a wider field for a stronger detection.");
+                if (!proceed)
+                {
+                    SessionLogService.Write("[Run] Cancelled by user at marginal comp-star field warning.");
+                    return;
+                }
+            }
         }
 
         var ts = DateTime.Now.ToString("yyyyMMdd_HHmmss");
@@ -1602,10 +1656,46 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // ── EXOTIC launch + output streaming ──────────────────────────────────────
 
+    // EXOTIC 4.3.2 writes MasterBias/MasterDark/MasterFlat.fits into the lights folder while it
+    // calibrates. 4.3.2 skips them on its own next scan, but 4.3.1 does NOT — it reads one as a
+    // science frame and crashes (a master has no time-of-observation header, so EXOTIC's time
+    // lookup throws "Header indices must be either a string, a 2-tuple, or an integer"). Move any
+    // such stray masters into a subfolder before every run so neither version can trip on them.
+    // Both EXOTIC versions scan the lights folder non-recursively (Path.iterdir), so the subfolder
+    // is invisible to them; the files are kept (not deleted) and EXOTIC regenerates them from the
+    // raw darks as needed. Only the LIGHTS folder is touched — a MasterDark the user placed in the
+    // Darks folder as a calibration input is left alone.
+    private static void QuarantineCalibrationMasters(string fitsDir)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(fitsDir) || !Directory.Exists(fitsDir)) return;
+            var masters = new[] { "MasterBias.fits", "MasterDark.fits", "MasterFlat.fits" };
+            string? quarantine = null;
+            foreach (var file in Directory.EnumerateFiles(fitsDir))
+            {
+                var name = Path.GetFileName(file);
+                if (!masters.Any(m => string.Equals(m, name, StringComparison.OrdinalIgnoreCase))) continue;
+                quarantine ??= Directory.CreateDirectory(Path.Combine(fitsDir, "_exotic_masters")).FullName;
+                var dst = Path.Combine(quarantine, name);
+                if (File.Exists(dst)) File.Delete(dst);
+                File.Move(file, dst);
+                SessionLogService.Write($"[Run] Moved a stray calibration master out of the lights folder so EXOTIC won't read it as a science frame: {name} -> _exotic_masters\\");
+            }
+        }
+        catch (Exception ex)
+        {
+            SessionLogService.Write($"[Run] Could not move stray calibration masters out of the lights folder: {ex.Message}");
+        }
+    }
+
     private async Task LaunchExoticAsync(string initsPath, bool isRetry = false, string mode = "-red",
         ExoticRuntime? preResolvedRuntime = null)
     {
         _exoticCts = new CancellationTokenSource();
+
+        // Keep EXOTIC-written calibration masters from being re-read as science frames (see helper).
+        QuarantineCalibrationMasters(Observation.FitsDir);
 
         // If the caller already resolved the runtime (e.g. SaveAndRunAsync, so the EXOTIC
         // version used for the Results-folder name is guaranteed to be the same one that

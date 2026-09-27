@@ -60,6 +60,8 @@ public static class GaiaCompService
         ["I"]   = "Ic", ["Ic"]  = "Ic", ["CV"]  = "V",  ["C"]   = "V",
         ["SR"]  = "Rc", ["SG"]  = "V",  ["SI"]  = "Ic", ["SZ"]  = "Ic",
         ["CBB"] = "Rc", ["L"]   = "V",  ["RJ"]  = "Rc", ["IJ"]  = "Ic",
+        // Tri-color (DSLR / OSC / Seestar) channels → their AAVSO comp bands.
+        ["TG"]  = "V",  ["TB"]  = "B",  ["TR"]  = "Rc",
     };
 
     // APASS DR9 VizieR column pair per filter.
@@ -76,6 +78,7 @@ public static class GaiaCompService
         ["C"]    = ("Vmag",   "e_Vmag"),
         ["CV"]   = ("Vmag",   "e_Vmag"),
         ["TG"]   = ("Vmag",   "e_Vmag"),
+        ["TB"]   = ("Bmag",   "e_Bmag"),   // tri-color blue → APASS B (TR omitted: no Cousins R in APASS, falls to GSPC like R/Rc)
         ["L"]    = ("Vmag",   "e_Vmag"),
         ["CBB"]  = ("r'mag",  "e_r'mag"),
     };
@@ -96,6 +99,7 @@ public static class GaiaCompService
         ["CBB"]  = "r_sdss_mag",
         ["C"]    = "v_jkc_mag",  ["CV"]  = "v_jkc_mag",
         ["TG"]   = "v_jkc_mag",  ["L"]   = "v_jkc_mag",
+        ["TB"]   = "b_jkc_mag",  ["TR"]  = "r_jkc_mag",   // tri-color blue/red → Johnson B / Cousins R synthetic
     };
 
     // ── Public types ──────────────────────────────────────────────────────────
@@ -130,6 +134,7 @@ public static class GaiaCompService
         string   FwhmUniformity,    // "uniform" | "mild" | "significant" | "—"
         bool     TargetSaturated,
         string   OverallGrade,      // "good" | "acceptable" | "marginal" | "poor" | "—"
+        bool     AllCompsLowSnr,    // true — no selected comp cleared the SNR≥75 bar (marginal field, issue #62)
         string   Summary);          // one-line human-readable
 
     public record CompResult(
@@ -221,6 +226,8 @@ public static class GaiaCompService
         IProgress<string>?  progress     = null,
         IProgress<string>?  logProgress  = null,
         int                 maxCompStars = 10,
+        double?             targetPmRa   = null,
+        double?             targetPmDec  = null,
         CancellationToken   ct           = default)
     {
         var _sw = System.Diagnostics.Stopwatch.StartNew();
@@ -260,8 +267,12 @@ public static class GaiaCompService
         }
 
         // ── Target pixel position (for PSF measurement later) ─────────────────
+        // PM-correct the target to the observation epoch before projecting — NEA coords are at the
+        // Gaia epoch (~2016.0, verified), the same baseline the comps below are propagated from, so
+        // a high-PM target lands on the actual star instead of its 2016 position (issue #63).
         int? targetXPx = null, targetYPx = null;
-        var tPx = WcsService.SkyToPixel(wcs, targetRa, targetDec);
+        var (tRa, tDec) = ApplyPm(targetRa, targetDec, targetPmRa, targetPmDec, 2016.0, obsEpoch);
+        var tPx = WcsService.SkyToPixel(wcs, tRa, tDec);
         if (tPx.HasValue) { targetXPx = tPx.Value.X; targetYPx = tPx.Value.Y; }
 
         // ── FOV from WCS pixel scale ──────────────────────────────────────────
@@ -1048,6 +1059,7 @@ public static class GaiaCompService
             FwhmUniformity:   _fwhmUniformity,
             TargetSaturated:  _targetSat,
             OverallGrade:     _grade,
+            AllCompsLowSnr:   noneValidated,
             Summary:          _qSummary);
 
         // ── Build pixel-coordinate pairs and CompStarInfo list ────────────────
@@ -1124,7 +1136,7 @@ public static class GaiaCompService
 
         string icon = noneValidated ? "⚠" : "✓";
         string noneValidatedNote = noneValidated
-            ? "  — none of these cleared the SNR quality bar; this field/exposure may be too faint for reliable photometry"
+            ? "  — none of these cleared the SNR quality bar (marginal field); EXOTIC can often still extract a usable, lower-significance result — 4.3.2 handles faint ensembles best"
             : "";
         string msg = $"{icon}  {pairs.Count} comp star{(pairs.Count == 1 ? "" : "s")} — {src}{magSummary}{psfSummary}{noneValidatedNote}";
 
@@ -1720,7 +1732,7 @@ public static class GaiaCompService
         return 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a)) * 180.0 / Math.PI * 3600.0;
     }
 
-    private static (double Ra, double Dec) ApplyPm(
+    internal static (double Ra, double Dec) ApplyPm(
         double ra, double dec,
         double? pmra, double? pmdec, double? refEpoch, double obsEpoch)
     {
@@ -1732,7 +1744,7 @@ public static class GaiaCompService
         return (ra + dra, dec + ddec);
     }
 
-    private static double DateObsToEpoch(string dateObs)
+    internal static double DateObsToEpoch(string dateObs)
     {
         if (!DateTime.TryParse(dateObs, null,
                                System.Globalization.DateTimeStyles.AssumeUniversal |

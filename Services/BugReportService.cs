@@ -38,7 +38,7 @@ public static class BugReportService
 
     public static async Task SubmitAsync(
         string type, string summary, string description,
-        string email, string version, string os,
+        string email, string version, string os, string githubUser,
         CancellationToken ct = default)
     {
         var payload = JsonSerializer.Serialize(new
@@ -50,6 +50,7 @@ public static class BugReportService
             email,
             version,
             os,
+            github_user = githubUser,
         });
 
         var req = new HttpRequestMessage(HttpMethod.Post, WorkerUrl)

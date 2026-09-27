@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace TransitLab.Services;
 
-public record UpdateInfo(string Version, string AssetName, string DownloadUrl);
+public record UpdateInfo(string Version, string AssetName, string DownloadUrl, string? SignatureUrl = null);
 public record ReleaseInfo(string Version, string Released, string AssetName, string DownloadUrl, bool HasAsset);
 
 public static class UpdateService
@@ -131,14 +131,27 @@ public static class UpdateService
             var assets = root?["assets"]?.AsArray();
             if (assets is null) return null;
 
+            string exeName = "", exeUrl = "", sigUrl = "";
             foreach (var asset in assets)
             {
                 var name = asset?["name"]?.GetValue<string>() ?? "";
                 var url  = asset?["browser_download_url"]?.GetValue<string>() ?? "";
                 if (name.StartsWith("TransitLab-Setup-", StringComparison.OrdinalIgnoreCase) &&
                     name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                    return new UpdateInfo(latestVersion, name, url);
+                { exeName = name; exeUrl = url; }
             }
+            if (exeName.Length == 0) return null;
+
+            // Pair the installer with its detached signature asset ("<installer>.exe.sig").
+            // Absent here → SignatureUrl stays null → VerifyInstallerAsync refuses the update.
+            foreach (var asset in assets)
+            {
+                var name = asset?["name"]?.GetValue<string>() ?? "";
+                if (string.Equals(name, exeName + ".sig", StringComparison.OrdinalIgnoreCase))
+                { sigUrl = asset?["browser_download_url"]?.GetValue<string>() ?? ""; break; }
+            }
+
+            return new UpdateInfo(latestVersion, exeName, exeUrl, sigUrl.Length == 0 ? null : sigUrl);
         }
         catch { }
         return null;
@@ -171,6 +184,47 @@ public static class UpdateService
         using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
             $@"Software\Microsoft\Windows\CurrentVersion\Uninstall\{InstallerAppId}");
         return key?.GetValue("InstallLocation") as string;
+    }
+
+    // Public half of the TransitLab release-signing keypair (ECDSA P-256, SPKI base64). The
+    // private key is held offline by the maintainer and is never in this repo or the public
+    // mirror. VerifyInstallerAsync checks that a downloaded installer's SHA-256 was signed by that
+    // private key before the updater will run it, so a tampered or replaced release asset — even
+    // one uploaded by someone with GitHub write access — is rejected and never executed. Rotating
+    // this key requires shipping a build carrying the new key via a manual (non-self-update) install.
+    private const string SigningPublicKeyB64 =
+        "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEZLVgEBXuKVyLb1f1b+xcG5s6PiaoP7OTd9qdhF9teMS1G2BVWe1EOsWtMBXmHDCJ3KBaqQZuQfgqc7jRTTBGQw==";
+
+    /// <summary>
+    /// Verifies that the downloaded installer was signed by the TransitLab release key before it is
+    /// allowed to run. Downloads the detached signature, computes the installer's SHA-256, and
+    /// checks the ECDSA-P256/SHA-256 signature against the embedded public key. A missing signature
+    /// (unsigned release) is treated as a failure — that is the tampering case this defends against.
+    /// Format is fixed (Rfc3279DerSequence) and must match the SignRelease tool.
+    /// </summary>
+    public static async Task<(bool Ok, string Reason)> VerifyInstallerAsync(
+        string installerPath, string? signatureUrl, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(signatureUrl))
+            return (false, "no signature published for this release");
+        try
+        {
+            byte[] sig = await Http.GetByteArrayAsync(signatureUrl, ct);
+
+            byte[] hash;
+            using (var fs = System.IO.File.OpenRead(installerPath))
+                hash = System.Security.Cryptography.SHA256.HashData(fs);
+
+            using var ec = System.Security.Cryptography.ECDsa.Create();
+            ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(SigningPublicKeyB64), out _);
+            bool ok = ec.VerifyHash(hash, sig,
+                System.Security.Cryptography.DSASignatureFormat.Rfc3279DerSequence);
+            return ok ? (true, "ok") : (false, "signature does not match the TransitLab release key");
+        }
+        catch (Exception ex)
+        {
+            return (false, $"verification error: {ex.Message}");
+        }
     }
 
     /// <summary>

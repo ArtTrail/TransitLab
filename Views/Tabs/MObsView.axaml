@@ -91,6 +91,44 @@
                         Command="{Binding Observation.BrowseSaveDirCommand}"/>
             </Grid>
 
+            <!-- ========== IMPORT EXOPLANET WATCH (DCS) DATA ========== -->
+            <StackPanel Orientation="Horizontal" Margin="4,14,0,2">
+                <TextBlock Classes="h2" Text="Import Exoplanet Watch Data"/>
+                <Button Content="[?]" FontSize="12" Padding="3,0" Margin="8,0,0,0"
+                        VerticalAlignment="Center" Click="OnHelpDcs_Click"/>
+            </StackPanel>
+            <Rectangle Height="1" Fill="{StaticResource BrushSep}" Margin="4,0,4,2"/>
+            <TextBlock Classes="hint"
+                       Text="Unpack a NASA Exoplanet Watch (Data Checkout System) download into ready-to-use FITS."
+                       TextWrapping="Wrap"
+                       Margin="4,0,4,6"/>
+
+            <StackPanel Orientation="Horizontal" Spacing="12" Margin="4,4,4,0" VerticalAlignment="Center">
+                <Button Classes="toolbar" Content="Import Zip"
+                        Command="{Binding Observation.ImportDcsCommand}"
+                        IsEnabled="{Binding !Observation.IsDcsImporting}"/>
+                <CheckBox Content="Unpack in the same folder as the zip"
+                          IsChecked="{Binding Observation.UnpackInSameDir}"
+                          VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <Grid Margin="4,6,4,0" IsEnabled="{Binding !Observation.UnpackInSameDir}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Unpack to folder:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBox Grid.Column="1" Text="{Binding Observation.DcsOutputDir}" Margin="0,0,4,0"
+                         ToolTip.Tip="{Binding Observation.DcsOutputDir}"/>
+                <Button Grid.Column="2" Classes="toolbar" Content="Browse"
+                        Command="{Binding Observation.BrowseDcsOutputCommand}"/>
+            </Grid>
+
+            <TextBlock Classes="hint" Margin="4,6,4,0" TextWrapping="Wrap"
+                       Text="{Binding Observation.DcsImportStatus}"
+                       IsVisible="{Binding Observation.DcsImportStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
             <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• MObs â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
             <StackPanel Orientation="Horizontal" Margin="4,14,0,2">
                 <TextBlock Classes="h2" Text="MicroObservatory (MObs)"/>

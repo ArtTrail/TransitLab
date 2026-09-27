@@ -49,6 +49,17 @@
                          IsEnabled="{Binding !IsSubmitted}"/>
             </StackPanel>
 
+            <!-- GitHub username (optional) -->
+            <StackPanel Spacing="4">
+                <TextBlock Text="GitHub username  (optional)" FontWeight="SemiBold"/>
+                <TextBox Text="{Binding GitHubUser}"
+                         Watermark="your-github-username"
+                         IsEnabled="{Binding !IsSubmitted}"/>
+                <TextBlock Classes="hint"
+                           TextWrapping="Wrap"
+                           Text="Have a GitHub account? Add your username and we'll @mention you on the issue, so GitHub notifies you when it's updated or closed."/>
+            </StackPanel>
+
             <!-- Auto-filled info -->
             <StackPanel Orientation="Horizontal" Spacing="20">
                 <StackPanel Orientation="Horizontal" Spacing="6">

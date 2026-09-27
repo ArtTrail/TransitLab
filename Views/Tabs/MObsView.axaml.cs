@@ -25,6 +25,7 @@ public partial class MObsView : UserControl
             {
                 // Wire folder pickers for ObservationViewModel (directory browse buttons)
                 vm.Observation.FolderPickerFunc = PickFolderAsync;
+                vm.Observation.ZipFilePickerFunc = PickZipFileAsync;
 
                 // Wire folder picker for MObsViewModel (download folder browse)
                 vm.MObs.FolderPickerFunc = PickMObsFolderAsync;
@@ -89,6 +90,25 @@ public partial class MObsView : UserControl
         return results.Count > 0 ? results[0].Path.LocalPath : null;
     }
 
+    private async Task<string?> PickZipFileAsync()
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is null) return null;
+
+        var results = await topLevel.StorageProvider.OpenFilePickerAsync(
+            new FilePickerOpenOptions
+            {
+                Title         = "Select Exoplanet Watch (DCS) .zip",
+                AllowMultiple = false,
+                FileTypeFilter = new System.Collections.Generic.List<FilePickerFileType>
+                {
+                    new("Zip archives") { Patterns = new[] { "*.zip" } },
+                    new("All files")    { Patterns = new[] { "*" } },
+                },
+            });
+        return results.Count > 0 ? results[0].Path.LocalPath : null;
+    }
+
     private async Task<string?> PickMObsFolderAsync()
     {
         var topLevel = TopLevel.GetTopLevel(this);
@@ -117,6 +137,13 @@ public partial class MObsView : UserControl
             "Flats Directory — folder containing flat-field calibration frames. Leave blank if not using flats.\n\n" +
             "Biases Directory — folder containing bias (zero-second) calibration frames. Leave blank if not using biases.\n\n" +
             "Save Plots Directory — the output folder where EXOTIC writes the reduced light curve, stellar variability plot, AAVSO report file, and FITS output. Each run creates its own subfolder here, named '{Target Name}_{Obs Date}_Results{n}_{EXOTIC version}' — {n} counts how many times that exact target + date has already been run, so re-processing the same night's data never overwrites a previous run.");
+
+    private void OnHelpDcs_Click(object? sender, RoutedEventArgs e) =>
+        ShowHelpPopup("Import Exoplanet Watch Data",
+            "NASA's Exoplanet Watch Data Checkout System (DCS) hands you a single .zip that is double-compressed: the .zip contains one gzipped file per frame (…​.FITS.gz), a darks/ subfolder, and a README. To use it in EXOTIC you'd otherwise have to unzip it and then decompress every .gz by hand.\n\n" +
+            "Import Zip… — pick the downloaded .zip. TransitLab decompresses every frame to a plain .FITS, keeping science frames and darks in separate folders, and then automatically sets the Lights Directory (and Darks Directory) to the unpacked result. Click Read FITS Header afterward to populate the parameters and plate-solve as usual.\n\n" +
+            "Unpack in the same folder as the zip — creates the unpacked folder right next to the downloaded .zip. Uncheck it to choose a different destination with the Browse button.\n\n" +
+            "The original .zip is left untouched.");
 
     private void OnHelpMObs_Click(object? sender, RoutedEventArgs e) =>
         ShowHelpPopup("MicroObservatory (MObs)",

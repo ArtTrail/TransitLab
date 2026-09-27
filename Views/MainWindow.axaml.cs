@@ -86,7 +86,65 @@ public partial class MainWindow : Window
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Content = new Tabs.SetupView { DataContext = vm.ExoticSetup },
         };
+
+        // Confirmation pop-up for Install Environment, owned by the Setup window so it
+        // sits over it (not the main window).
+        vm.ExoticSetup.ShowConfirmAsync = (title, message) => ShowSetupConfirmAsync(win, title, message);
+
         win.Show(this);
+
+        // Auto-detect both environments' Python + EXOTIC status as soon as the window is up,
+        // so each card shows current state without the user having to click Check System first.
+        _ = vm.ExoticSetup.DetectAllAsync();
+    }
+
+    private static async Task<bool> ShowSetupConfirmAsync(Window owner, string title, string message)
+    {
+        var result = false;
+        var proceed = new Avalonia.Controls.Button
+        {
+            Content = "Continue", MinWidth = 90,
+            HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            Classes = { "primary" },
+        };
+        var cancel = new Avalonia.Controls.Button
+        {
+            Content = "Cancel", MinWidth = 90,
+            HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+        };
+        var dialog = new Window
+        {
+            Title                 = title,
+            Width                 = 470,
+            SizeToContent         = Avalonia.Controls.SizeToContent.Height,
+            CanResize             = false,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowInTaskbar         = false,
+            Content = new Avalonia.Controls.StackPanel
+            {
+                Margin   = new Avalonia.Thickness(28, 24, 28, 20),
+                Spacing  = 18,
+                Children =
+                {
+                    new Avalonia.Controls.TextBlock
+                    {
+                        Text         = message,
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                    },
+                    new Avalonia.Controls.StackPanel
+                    {
+                        Orientation         = Avalonia.Layout.Orientation.Horizontal,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+                        Spacing             = 10,
+                        Children            = { cancel, proceed },
+                    },
+                },
+            },
+        };
+        proceed.Click += (_, _) => { result = true;  dialog.Close(); };
+        cancel.Click  += (_, _) => { result = false; dialog.Close(); };
+        await dialog.ShowDialog(owner);
+        return result;
     }
 
     private void OnQuickStartClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

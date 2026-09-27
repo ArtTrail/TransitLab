@@ -55,6 +55,14 @@ public partial class ObservationViewModel : ViewModelBase
     // (Darks/Flats/Bias auto-derivation) is in progress, so the cascade produces exactly
     // one combined check/prompt instead of one per cascaded directory.
     private bool _suppressOscCheck = false;
+    // Reentrancy guard for the OSC check/debayer pass. The pass has awaits (confirm dialog,
+    // per-directory debayer) during which another directory-changed trigger can fire; without
+    // this, each overlapping pass builds its own toPrompt list before any directory is marked
+    // handled and re-debayers the same files (issue #59). Only one pass runs at a time; a
+    // trigger arriving mid-flight sets _oscCheckPending so exactly one more pass runs after,
+    // covering any directory that genuinely changed during the run.
+    private bool _oscCheckInFlight = false;
+    private bool _oscCheckPending  = false;
 
     // ── Observer Information ──────────────────────────────────────────────────
     [ObservableProperty] private string _aavsoCode      = "";
@@ -76,6 +84,13 @@ public partial class ObservationViewModel : ViewModelBase
     // Injected by the View. Args: (dialog title, suggested starting directory).
     public Func<string, string, Task<string?>>? FolderPickerFunc  { get; set; }
     public Func<string, Task<string?>>? NameDialogFunc    { get; set; }  // shows input dialog, returns typed name or null
+    public Func<Task<string?>>?         ZipFilePickerFunc { get; set; }  // picks a NASA Exoplanet Watch (DCS) .zip
+
+    // ── NASA Exoplanet Watch (DCS) import ──────────────────────────────────────
+    [ObservableProperty] private bool   _unpackInSameDir = true;
+    [ObservableProperty] private string _dcsOutputDir    = "";
+    [ObservableProperty] private string _dcsImportStatus = "";
+    [ObservableProperty] private bool   _isDcsImporting  = false;
 
     // ── FITS dir / header-read tracking (item 9) ──────────────────────────────
     // Set to true only when user browses to a new directory; cleared when header is read.
@@ -154,12 +169,36 @@ public partial class ObservationViewModel : ViewModelBase
     partial void OnBiasDirChanged(string value)  { if (!_suppressOscCheck) _ = CheckForOscAndPromptAsync(); }
 
     /// <summary>
+    /// Reentrancy-guarded entry point for the OSC check. Serializes overlapping triggers so a
+    /// single debayer pass can never run twice on the same directory (issue #59). If a trigger
+    /// arrives while a pass is in flight, one more pass runs after the current one finishes.
+    /// </summary>
+    private async Task CheckForOscAndPromptAsync()
+    {
+        if (_oscCheckInFlight) { _oscCheckPending = true; return; }
+        _oscCheckInFlight = true;
+        try
+        {
+            do
+            {
+                _oscCheckPending = false;
+                await RunOscCheckOnceAsync();
+            }
+            while (_oscCheckPending);
+        }
+        finally
+        {
+            _oscCheckInFlight = false;
+        }
+    }
+
+    /// <summary>
     /// Checks Lights/Darks/Flats/Biases for raw one-shot-color (Bayer) data and, if found,
     /// offers to debayer them in-app before Image Analysis, Plate Solve, or the Stone comp
     /// method ever touch the mosaic pixels. Shows one combined prompt covering whichever
     /// directories are affected, rather than one prompt per directory.
     /// </summary>
-    private async Task CheckForOscAndPromptAsync()
+    private async Task RunOscCheckOnceAsync()
     {
         var candidates = new (string Label, string Dir)[]
         {
@@ -271,6 +310,81 @@ public partial class ObservationViewModel : ViewModelBase
             ClearSessionFieldsCallback?.Invoke();
             Services.SessionLogService.Write($"[FITS] FITS dir: {v}");
         });
+
+    // ── NASA Exoplanet Watch (DCS) import ──────────────────────────────────────
+    [RelayCommand] private async Task BrowseDcsOutput()
+    {
+        if (FolderPickerFunc is null) return;
+        var start = !string.IsNullOrEmpty(DcsOutputDir) ? DcsOutputDir : FitsDir;
+        var path = await FolderPickerFunc("Select folder to unpack into", start);
+        if (!string.IsNullOrEmpty(path)) DcsOutputDir = path;
+    }
+
+    [RelayCommand] private async Task ImportDcs()
+    {
+        if (IsDcsImporting || ZipFilePickerFunc is null) return;
+
+        var zipPath = await ZipFilePickerFunc();
+        if (string.IsNullOrEmpty(zipPath)) return;
+
+        string baseDir;
+        if (UnpackInSameDir)
+        {
+            baseDir = Path.GetDirectoryName(zipPath) ?? "";
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(DcsOutputDir))
+            {
+                DcsImportStatus = "⚠  Choose a folder to unpack into, or check \"Unpack in the same folder\".";
+                return;
+            }
+            baseDir = DcsOutputDir;
+        }
+
+        // Unpack into a per-download subfolder so multiple checkouts never mix.
+        var target = Path.Combine(baseDir, Path.GetFileNameWithoutExtension(zipPath));
+
+        IsDcsImporting  = true;
+        DcsImportStatus = "⟳  Unpacking…";
+        try
+        {
+            var progress = new Progress<string>(s => DcsImportStatus = "⟳  " + s);
+            var result = await Services.DcsImportService.ImportAsync(zipPath, target, progress);
+
+            if (!result.Ok)
+            {
+                DcsImportStatus = "✗  " + result.Message;
+                Services.SessionLogService.Write($"[DCS] Import failed for {Path.GetFileName(zipPath)}: {result.Message}");
+                return;
+            }
+
+            // Point TransitLab at the unpacked frames, same as browsing to them:
+            // set Lights explicitly (darks handled below, so suppress the auto-cascade).
+            _darksAuto = _flatsAuto = _biasAuto = false;
+            FitsDir = result.ScienceDir;
+            _fitsDirNeedsHeaderRead = true;
+            FitsDirNeedsHeaderReadChanged?.Invoke();
+            ClearSessionFieldsCallback?.Invoke();
+            DarksDir = result.DarksDir ?? "";
+
+            Services.SessionLogService.Write(
+                $"[DCS] Imported {result.ScienceCount} science + {result.DarkCount} dark frame(s) from " +
+                $"{Path.GetFileName(zipPath)} → {result.ScienceDir}");
+            DcsImportStatus = $"✓  {result.Message}  Lights set to the unpacked folder"
+                            + (result.DarksDir is not null ? " (darks auto-set)." : ".");
+            ConfigSaveCallback?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            DcsImportStatus = "✗  " + ex.Message;
+            Services.SessionLogService.Write($"[DCS] Import error: {ex.Message}");
+        }
+        finally
+        {
+            IsDcsImporting = false;
+        }
+    }
 
     [RelayCommand] private async Task BrowseSaveDir()
         => await BrowseFolder("Select Save Plots Directory", StartDirFor(SaveDir), v =>

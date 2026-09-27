@@ -14,6 +14,7 @@ public partial class BugReportViewModel : ViewModelBase
     [ObservableProperty] private string _summary      = "";
     [ObservableProperty] private string _description  = "";
     [ObservableProperty] private string _email        = "";
+    [ObservableProperty] private string _gitHubUser   = "";
     [ObservableProperty] private string _statusText   = "";
     [ObservableProperty] private bool   _isSubmitting = false;
     [ObservableProperty] private bool   _isSubmitted  = false;
@@ -35,7 +36,7 @@ public partial class BugReportViewModel : ViewModelBase
         try
         {
             await BugReportService.SubmitAsync(
-                ReportType, Summary, Description, Email, Version, OsName);
+                ReportType, Summary, Description, Email, Version, OsName, GitHubUser);
             IsSubmitted = true;
             StatusText  = "Thank you — your report has been submitted.";
         }

@@ -327,25 +327,69 @@ public class TransitGeometryControl : Control
 
     // ── Active starspot rendering ─────────────────────────────────────────────
 
+    // A real starspot isn't a clean disk: a dark, ragged umbra inside a larger,
+    // lighter, irregular penumbra. Build fixed "wobbly circle" outlines once (seeded,
+    // so the shape stays stable and doesn't shimmer while the sliders move) and just
+    // translate/scale them by the spot's position and radius.
+    private static readonly double[][] _spotPenumbra = MakeBlob(unchecked((int)0x9E3779B9), 16, 0.80, 1.20);
+    private static readonly double[][] _spotUmbra    = MakeBlob(unchecked((int)0x51AB1E57), 13, 0.70, 1.08);
+    private static readonly double[][] _spotCore     = MakeBlob(unchecked((int)0x2545F491), 11, 0.58, 1.00);
+
+    private static double[][] MakeBlob(int seed, int n, double lo, double hi)
+    {
+        var rng = new Random(seed);
+        var pts = new double[n][];
+        for (int i = 0; i < n; i++)
+            pts[i] = new[] { i / (double)n * 2 * Math.PI, lo + rng.NextDouble() * (hi - lo) };
+        return pts;
+    }
+
+    // Smooth closed "blob" traced through a shape's vertices (quadratic-bezier midpoints),
+    // centred at (x,y), scaled by r, elongated by aspect and turned by rot.
+    private static StreamGeometry BlobGeometry(double x, double y, double r, double[][] shape, double rot, double aspect)
+    {
+        int n = shape.Length;
+        var P = new Point[n];
+        for (int i = 0; i < n; i++)
+        {
+            double a = shape[i][0] + rot, rad = shape[i][1] * r;
+            P[i] = new Point(x + Math.Cos(a) * rad * aspect, y + Math.Sin(a) * rad);
+        }
+        Point Mid(int i) => new Point((P[i].X + P[(i + 1) % n].X) / 2, (P[i].Y + P[(i + 1) % n].Y) / 2);
+
+        var geo = new StreamGeometry();
+        using (var g = geo.Open())
+        {
+            g.BeginFigure(Mid(n - 1), true);
+            for (int i = 0; i < n; i++)
+                g.QuadraticBezierTo(P[i], Mid(i));
+            g.EndFigure(true);
+        }
+        return geo;
+    }
+
     private static void DrawActiveSpot(DrawingContext ctx, double x, double y, double r, double deltaT)
     {
         // Intensity scales with temperature contrast
         byte pa = (byte)Math.Clamp((int)(90 + deltaT * 0.05), 70, 180);
         byte ua = (byte)Math.Clamp((int)(150 + deltaT * 0.05), 140, 235);
+        const double rot = 0.7, aspect = 1.18;   // fixed slight elongation — starspots are rarely round
 
-        // Penumbra halo
-        ctx.DrawEllipse(new SolidColorBrush(Color.FromArgb(pa, 80, 28, 4)), null,
-            new Point(x, y), r * 1.65, r * 1.45);
-        // Umbra
-        ctx.DrawEllipse(new SolidColorBrush(Color.FromArgb(ua, 16, 5, 0)), null,
-            new Point(x, y), r, r);
-        // Highlight ring so the spot is identifiable at any star color
-        ctx.DrawEllipse(null,
-            new Pen(new SolidColorBrush(Color.FromArgb(170, 255, 130, 40)), 1.5),
-            new Point(x, y), r, r);
+        // Penumbra — larger, lighter, ragged outline
+        ctx.DrawGeometry(new SolidColorBrush(Color.FromArgb(pa, 84, 30, 5)), null,
+            BlobGeometry(x, y, r * 1.55, _spotPenumbra, rot, aspect));
+        // Umbra — dark irregular blob, nudged off-centre within the penumbra
+        ctx.DrawGeometry(new SolidColorBrush(Color.FromArgb(ua, 16, 5, 0)), null,
+            BlobGeometry(x - r * 0.10, y + r * 0.06, r, _spotUmbra, rot, aspect));
+        // Darkest core, offset again for depth
+        ctx.DrawGeometry(new SolidColorBrush(Color.FromArgb((byte)Math.Min(250, ua + 20), 3, 1, 0)), null,
+            BlobGeometry(x - r * 0.14, y + r * 0.10, r * 0.55, _spotCore, rot + 0.5, aspect));
+        // Faint warm rim on the umbra edge so the spot stays identifiable at any star color
+        ctx.DrawGeometry(null, new Pen(new SolidColorBrush(Color.FromArgb(115, 255, 130, 40)), 1.2),
+            BlobGeometry(x - r * 0.10, y + r * 0.06, r, _spotUmbra, rot, aspect));
         // Label
         var lbl = MakeText("spot", 16, new SolidColorBrush(Color.FromArgb(210, 255, 160, 60)));
-        ctx.DrawText(lbl, new Point(x - lbl.Width / 2, y + r + 3));
+        ctx.DrawText(lbl, new Point(x - lbl.Width / 2, y + r * 1.55 + 3));
     }
 
     // ── Planet rendering ──────────────────────────────────────────────────────

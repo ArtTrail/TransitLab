@@ -28,6 +28,12 @@ public static class AavsoCompService
         int targetPx = 0, int targetPy = 0,
         CancellationToken ct = default)
     {
+        // Guard a null/empty filter BEFORE the dictionary lookup — TryGetValue(null, …) throws
+        // ArgumentNullException("key"), which is what crashed the AAVSO VSP fetch when the filter
+        // field wasn't set (e.g. a Seestar "TG" file before TG was a recognized code). Fail with a
+        // clear message instead.
+        if (string.IsNullOrWhiteSpace(filterCode))
+            return new CompResult([], "✗  No filter set — choose a filter before fetching AAVSO comps");
         if (!GaiaCompService.VspFilterMap.TryGetValue(filterCode, out var vspBand))
             return new CompResult([], $"✗  Filter '{filterCode}' has no known AAVSO VSP band mapping");
         // ── Read FITS header for WCS + image size ─────────────────────────
