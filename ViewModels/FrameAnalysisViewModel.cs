@@ -104,6 +104,18 @@ public partial class FrameAnalysisViewModel : ViewModelBase
     [ObservableProperty] private bool _isVspLoading = false;
     private CancellationTokenSource? _vspCts;
 
+    // ── Scan cancellation ─────────────────────────────────────────────────────
+    // A scan enumerates a directory once and estimates the background of every frame;
+    // on a large set that takes a while. If the FITS directory changes (or a new scan
+    // starts) we must abandon the in-flight scan instead of letting it run to completion
+    // over the now-stale set. _scanGeneration lets a superseded scan detect it is no
+    // longer the current one and stop touching shared UI state.
+    private CancellationTokenSource? _scanCts;
+    private int _scanGeneration;
+
+    /// <summary>Cancels any in-flight frame scan (e.g. when the FITS directory changes).</summary>
+    public void CancelScan() => _scanCts?.Cancel();
+
     partial void OnIsVspLoadingChanged(bool value) => OnPropertyChanged(nameof(VspButtonLabel));
     public string VspButtonLabel => IsVspLoading ? "⟳  Fetching chart…" : "VSP Chart";
 
@@ -406,6 +418,13 @@ public partial class FrameAnalysisViewModel : ViewModelBase
             return;
         }
 
+        // Supersede any in-flight scan (e.g. the auto-scan of the previous directory)
+        _scanCts?.Cancel();
+        _scanCts?.Dispose();
+        _scanCts  = new CancellationTokenSource();
+        var ct    = _scanCts.Token;
+        int myGen = ++_scanGeneration;
+
         IsScanRunning   = true;
         ScanStatus      = "⟳  Scanning…";
         Frames.Clear();
@@ -430,10 +449,13 @@ public partial class FrameAnalysisViewModel : ViewModelBase
                 .OrderBy(f => f)
                 .ToList();
 
+            if (ct.IsCancellationRequested) return;
+
             if (files.Count == 0)
             {
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
+                    if (myGen != _scanGeneration) return;
                     ScanStatus    = "No FITS files found in directory.";
                     IsScanRunning = false;
                 });
@@ -443,6 +465,7 @@ public partial class FrameAnalysisViewModel : ViewModelBase
             var backgrounds = new double[files.Count];
             for (int i = 0; i < files.Count; i++)
             {
+                if (ct.IsCancellationRequested) return;
                 try
                 {
                     if (IsDarkSubtract && _masterDark is not null)
@@ -461,7 +484,10 @@ public partial class FrameAnalysisViewModel : ViewModelBase
                 catch { backgrounds[i] = double.NaN; }
                 int idx = i;
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                    ScanStatus = $"⟳  Scanning {idx + 1} / {files.Count}…");
+                {
+                    if (myGen == _scanGeneration)
+                        ScanStatus = $"⟳  Scanning {idx + 1} / {files.Count}…";
+                });
             }
 
             // Read OBJECT keyword from the first file — used as VSP Star fallback when
@@ -486,8 +512,11 @@ public partial class FrameAnalysisViewModel : ViewModelBase
 
             double threshold = (double)FlagSigma;
 
+            if (ct.IsCancellationRequested) return;
+
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
+                if (myGen != _scanGeneration) return;  // a newer scan superseded this one
                 int flagged = 0;
                 for (int i = 0; i < files.Count; i++)
                 {
@@ -518,6 +547,14 @@ public partial class FrameAnalysisViewModel : ViewModelBase
                     VspStar = targetName;
             });
         });
+
+        // If this scan was cancelled (directory changed / superseded) and no newer scan
+        // has taken over, clear the running flag so the next scan isn't blocked waiting on it.
+        if (ct.IsCancellationRequested && myGen == _scanGeneration)
+        {
+            IsScanRunning = false;
+            ScanStatus    = "";
+        }
     }
 
     private bool CanScanFiles() => !IsScanRunning;

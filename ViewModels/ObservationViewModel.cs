@@ -107,6 +107,10 @@ public partial class ObservationViewModel : ViewModelBase
     // Injected by MainWindowViewModel — auto-scan + exclude flagged, return first non-excluded path
     public Func<Task<string?>>? AutoScanAndGetFitsFunc { get; set; }
 
+    /// <summary>Cancels any in-flight frame scan (wired to FrameAnalysis.CancelScan) so a
+    /// directory change abandons the scan of the previous set instead of waiting it out.</summary>
+    public Action? CancelScanFunc { get; set; }
+
     private System.Threading.Timer? _fitsDirScanTimer;
 
     // ── Population from config ────────────────────────────────────────────────
@@ -152,6 +156,10 @@ public partial class ObservationViewModel : ViewModelBase
         if (_flatsAuto) FlatsDir = FindCalibDir(fitsDir, parent, "flat", "flats") ?? "";
         if (_biasAuto)  BiasDir  = FindCalibDir(fitsDir, parent, "bias", "biases", "biasd", "bias frames") ?? "";
         _suppressOscCheck = false;
+
+        // Abandon any in-flight scan of the previous directory immediately (its file list
+        // is now stale) — otherwise it would run to completion before the new scan starts.
+        CancelScanFunc?.Invoke();
 
         // Debounced auto-scan: cancel any pending scan and schedule a new one 600ms out
         _fitsDirScanTimer?.Dispose();

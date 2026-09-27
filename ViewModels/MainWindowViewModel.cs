@@ -490,6 +490,7 @@ public partial class MainWindowViewModel : ViewModelBase
         // Stream Stone Method verbose log into the Results tab log window
         EquipmentTarget.CompLogAction = msg => AppendLog(msg);
         Observation.AutoScanAndGetFitsFunc = FrameAnalysis.ScanExcludeAndGetFirstAsync;
+        Observation.CancelScanFunc         = FrameAnalysis.CancelScan;
         FrameAnalysis.EquipmentTarget = EquipmentTarget;
         FrameAnalysis.DarksDirFunc = () => Observation.DarksDir;
         EquipmentTarget.FitsDirFunc   = () => Observation.FitsDir;
