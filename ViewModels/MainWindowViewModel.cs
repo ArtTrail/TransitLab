@@ -503,6 +503,8 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             Observation.FitsDir  = scienceDir;
             Observation.DarksDir = darksDir;
+            Observation.BiasDir  = "";  // MObs "Use this data" only provides science + darks — clear any
+            Observation.FlatsDir = "";  // stale bias/flats from a prior reduction (wrong camera/dimensions)
             Observation.SaveDir  = scienceDir;  // override parent-default; save plots into the science folder
             SelectTabFunc?.Invoke(0); // stay on Data=0
         };
