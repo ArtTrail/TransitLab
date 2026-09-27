@@ -2045,6 +2045,16 @@ public partial class MainWindowViewModel : ViewModelBase
                             // Auto mode: use launcher's defined parameters, no prompt needed
                             response = "1";
                         }
+                        else if (Results.AutoAnswerPrompts && stripped.Contains("re-enter the pixel coordinates"))
+                        {
+                            // Keep TransitLab's Target X,Y. It is proper-motion-corrected to the
+                            // observation epoch (issue #63 — the star's real position on the night),
+                            // whereas EXOTIC's "calculated" pixel comes from the catalog-epoch RA/Dec
+                            // with no PM applied, so a mismatch is EXPECTED for high-proper-motion
+                            // targets. Answering "n" keeps our corrected value; "y" would revert to
+                            // EXOTIC's uncorrected one. (Turn off Auto prompts to review it by hand.)
+                            response = "n";
+                        }
                         else if (stripped.Contains("alternate image extension"))
                         {
                             // No alternate extension needed — avoids re-entering calibration loop
