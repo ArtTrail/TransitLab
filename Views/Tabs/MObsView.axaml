@@ -148,7 +148,7 @@
             <StackPanel Orientation="Horizontal" Spacing="10" Margin="4,4,4,0" VerticalAlignment="Center">
                 <TextBlock Text="Lookback days:" VerticalAlignment="Center"/>
                 <NumericUpDown Value="{Binding MObs.LookbackDays}"
-                               Minimum="1" Maximum="14"
+                               Minimum="1" Maximum="30"
                                FormatString="0"
                                Width="130"/>
                 <Button Classes="toolbar"

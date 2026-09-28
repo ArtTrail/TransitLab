@@ -10,7 +10,7 @@ var accountId = RequireEnv("R2_ACCOUNT_ID");
 var accessKey = RequireEnv("R2_ACCESS_KEY_ID");
 var secretKey = RequireEnv("R2_SECRET_ACCESS_KEY");
 const string BucketName    = "transitlab-mobs-mirror";
-const int    LookbackDays  = 14;
+const int    LookbackDays  = 30;
 var telescopes = new[] { "Cecilia" };
 
 static string RequireEnv(string name) =>
