@@ -20,7 +20,7 @@ public static class MObsService
         DefaultRequestHeaders = { { "User-Agent", "Mozilla/5.0" } },
     };
 
-    private const string BaseUrl  = "https://waps.cfa.harvard.edu/microobservatory/MOImageDirectory/ImageDirectory.php?SortBy=Date&SortPos=DESC&SearchFor=&Type=&SortRange=60";
+    private const string BaseUrl  = "https://waps.cfa.harvard.edu/microobservatory/MOImageDirectory/ImageDirectory.php?SortBy=Date&SortPos=DESC&SearchFor=&Type=&SortRange=30";
     private const string SiteRoot = "https://waps.cfa.harvard.edu";
 
     private static readonly string[] IgnoreWords =
