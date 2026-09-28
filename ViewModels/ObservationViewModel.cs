@@ -200,13 +200,47 @@ public partial class ObservationViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Fires when IsDebayering changes — lets the host refresh Save &amp; Run availability.</summary>
+    public Action? IsDebayeringChanged { get; set; }
+    partial void OnIsDebayeringChanged(bool value) => IsDebayeringChanged?.Invoke();
+
+    /// <summary>True if any loaded directory still holds raw one-shot-color (Bayer) data that
+    /// has not yet been debayered/handled this session.</summary>
+    public bool HasUnhandledOscData()
+    {
+        foreach (var dir in new[] { FitsDir, DarksDir, FlatsDir, BiasDir })
+        {
+            if (string.IsNullOrWhiteSpace(dir) || _oscHandledDirs.Contains(dir)) continue;
+            if (DebayerService.Detect(dir).IsOsc) return true;
+        }
+        return false;
+    }
+
+    /// <summary>Called by Save &amp; Run BEFORE launching EXOTIC: waits out any OSC prompt/debayer
+    /// already in flight, then runs a definitive detect+prompt+debayer pass — so the color prompt
+    /// can never appear mid-run and EXOTIC never receives a mix of debayered lights and raw
+    /// calibration frames. Returns true when it is safe to run (nothing raw remains). When
+    /// <paramref name="autoProceed"/> is true (Automation), it debayers without prompting.</summary>
+    public async Task<bool> EnsureOscResolvedForRunAsync(bool autoProceed = false)
+    {
+        // Wait out any in-flight OSC prompt or debayer (e.g. one triggered by a directory change).
+        while (_oscCheckInFlight || IsDebayering) await Task.Delay(100);
+
+        _oscCheckInFlight = true;
+        try { await RunOscCheckOnceAsync(autoProceed); }
+        finally { _oscCheckInFlight = false; }
+
+        // If anything is still raw, the user declined (or a debayer failed) — not safe to run.
+        return !HasUnhandledOscData();
+    }
+
     /// <summary>
     /// Checks Lights/Darks/Flats/Biases for raw one-shot-color (Bayer) data and, if found,
     /// offers to debayer them in-app before Image Analysis, Plate Solve, or the Stone comp
     /// method ever touch the mosaic pixels. Shows one combined prompt covering whichever
     /// directories are affected, rather than one prompt per directory.
     /// </summary>
-    private async Task RunOscCheckOnceAsync()
+    private async Task RunOscCheckOnceAsync(bool autoProceed = false)
     {
         var candidates = new (string Label, string Dir)[]
         {
@@ -222,19 +256,29 @@ public partial class ObservationViewModel : ViewModelBase
         }
         if (toPrompt.Count == 0) return;
 
-        if (ShowConfirmFunc is null) return;
+        bool proceed;
+        if (autoProceed)
+        {
+            // Unattended (Automation): debayer without prompting, so a scheduled run isn't
+            // left hanging on a dialog nobody is present to answer.
+            proceed = true;
+        }
+        else
+        {
+            if (ShowConfirmFunc is null) return;
 
-        var camera  = toPrompt[0].Detect.CameraName;
-        var pattern = toPrompt[0].Detect.BayerPattern;
-        var dirList = string.Join(", ", toPrompt.Select(t => t.Label));
-        var cameraNote = string.IsNullOrEmpty(camera) ? $"Bayer pattern {pattern}" : $"{camera}, Bayer pattern {pattern}";
+            var camera  = toPrompt[0].Detect.CameraName;
+            var pattern = toPrompt[0].Detect.BayerPattern;
+            var dirList = string.Join(", ", toPrompt.Select(t => t.Label));
+            var cameraNote = string.IsNullOrEmpty(camera) ? $"Bayer pattern {pattern}" : $"{camera}, Bayer pattern {pattern}";
 
-        var proceed = await ShowConfirmFunc("One-Shot-Color Data Detected",
-            $"The {dirList} director{(toPrompt.Count == 1 ? "y appears" : "ies appear")} to contain " +
-            $"raw color camera data ({cameraNote}).\n\n" +
-            "Debayering should happen before Image Analysis, Plate Solve, or comp star selection — " +
-            "running these on raw mosaic data distorts star detection and photometry.\n\n" +
-            "Debayer these frames now with TransitLab?");
+            proceed = await ShowConfirmFunc("One-Shot-Color Data Detected",
+                $"The {dirList} director{(toPrompt.Count == 1 ? "y appears" : "ies appear")} to contain " +
+                $"raw color camera data ({cameraNote}).\n\n" +
+                "Debayering should happen before Image Analysis, Plate Solve, or comp star selection — " +
+                "running these on raw mosaic data distorts star detection and photometry.\n\n" +
+                "Debayer these frames now with TransitLab?");
+        }
 
         // Declining marks nothing as handled — the same directory (or the same folder
         // re-selected later) is checked fresh again next time. "Skip" shouldn't

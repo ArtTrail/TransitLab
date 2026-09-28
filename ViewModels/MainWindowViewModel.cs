@@ -376,7 +376,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private string exoticStatusText = "";
 
     // True while EXOTIC is not running AND FITS header has been read (or no FitsDir set yet)
-    public bool CanSaveAndRun => !IsExoticRunning && !Observation.FitsDirNeedsHeaderRead;
+    public bool CanSaveAndRun => !IsExoticRunning && !Observation.FitsDirNeedsHeaderRead && !Observation.IsDebayering;
 
     // Quick Look (-ql) only exists in the EXOTIC 4.3.2 pre-release dev build — same detection
     // pattern as PlateSolveSetupViewModel.IsNextAstroSupported. Defaults to false (button
@@ -512,6 +512,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
         // Propagate FitsDirNeedsHeaderRead changes to CanSaveAndRun / CanQuickLook
         Observation.FitsDirNeedsHeaderReadChanged = () =>
+        {
+            OnPropertyChanged(nameof(CanSaveAndRun));
+            OnPropertyChanged(nameof(CanQuickLook));
+        };
+
+        // Disable Save & Run / Quick Look while a debayer is in progress
+        Observation.IsDebayeringChanged = () =>
         {
             OnPropertyChanged(nameof(CanSaveAndRun));
             OnPropertyChanged(nameof(CanQuickLook));
@@ -1257,6 +1264,25 @@ public partial class MainWindowViewModel : ViewModelBase
                     "The FITS Files Directory has changed since the last header read.\n\n" +
                     "Please click 'Read FITS Header' on the Parameters tab to update observation data and trigger a plate solve before running.");
             return;
+        }
+
+        // ── One-shot-color gate ──────────────────────────────────────────────────
+        // If any loaded directory still holds raw Bayer data, debayer it now — BEFORE the run —
+        // so the color prompt can never surface mid-run and EXOTIC never gets debayered Lights
+        // mixed with raw calibration frames (which silently corrupts the calibration). Show the
+        // Data tab first so the debayer progress bar is visible during any wait.
+        if (Observation.HasUnhandledOscData())
+        {
+            SelectTabFunc?.Invoke(0); // Data tab — debayer progress + status are shown here
+            var oscOk = await Observation.EnsureOscResolvedForRunAsync(autoProceed: _isAutomationRunning);
+            if (!oscOk)
+            {
+                Observation.DebayerStatus =
+                    "⚠  Run cancelled — raw color frames were not debayered. Debayer them (or clear that directory) before running.";
+                if (_isAutomationRunning)
+                    SessionLogService.Write("[Automation] Aborted — raw one-shot-color frames were not debayered.");
+                return;
+            }
         }
 
         // Switch to Results tab immediately so the user lands there for validation messages and the live log
