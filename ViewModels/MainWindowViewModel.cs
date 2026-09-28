@@ -491,6 +491,7 @@ public partial class MainWindowViewModel : ViewModelBase
         EquipmentTarget.CompLogAction = msg => AppendLog(msg);
         Observation.AutoScanAndGetFitsFunc = FrameAnalysis.ScanExcludeAndGetFirstAsync;
         Observation.CancelScanFunc         = FrameAnalysis.CancelScan;
+        Observation.SelectTabFunc          = i => SelectTabFunc?.Invoke(i);
         FrameAnalysis.EquipmentTarget = EquipmentTarget;
         FrameAnalysis.DarksDirFunc = () => Observation.DarksDir;
         EquipmentTarget.FitsDirFunc   = () => Observation.FitsDir;

@@ -111,6 +111,10 @@ public partial class ObservationViewModel : ViewModelBase
     /// directory change abandons the scan of the previous set instead of waiting it out.</summary>
     public Action? CancelScanFunc { get; set; }
 
+    /// <summary>Switches the main tab (wired to MainWindowViewModel) so a debayer triggered from
+    /// this VM can show the Data tab, where the debayer progress bar lives.</summary>
+    public Action<int>? SelectTabFunc { get; set; }
+
     private System.Threading.Timer? _fitsDirScanTimer;
 
     // ── Population from config ────────────────────────────────────────────────
@@ -491,6 +495,20 @@ public partial class ObservationViewModel : ViewModelBase
         {
             FitsHeaderStatus = "⚠  Set the FITS Files Directory first.";
             return;
+        }
+
+        // OSC gate: if any loaded directory still holds raw Bayer data, debayer it now — BEFORE
+        // the plate solve and comp-star selection this triggers, which must not run on raw mosaic
+        // data (it distorts star detection/photometry). Shows the Data tab so the progress bar is
+        // visible while debayering.
+        if (HasUnhandledOscData())
+        {
+            SelectTabFunc?.Invoke(0);
+            if (!await EnsureOscResolvedForRunAsync())
+            {
+                FitsHeaderStatus = "⚠  Read FITS Header cancelled — raw color frames were not debayered.";
+                return;
+            }
         }
 
         // Clear pixel coordinates and stale WCS — both are image-specific and must come from the new plate solve
