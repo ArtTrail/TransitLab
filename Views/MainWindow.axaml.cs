@@ -30,6 +30,8 @@ public partial class MainWindow : Window
                 vm.ShowConfirmFunc                 = ShowConfirmAsync;
                 vm.BrowseUpdateFolderFunc          = BrowseUpdateFolderAsync;
                 vm.ShowInfoFunc                    = ShowInfoAsync;
+                vm.ShowDebayerProgressFunc         = ShowDebayerProgressWindow;
+                vm.DebayerCompleteFunc             = msg => _debayerProgressVm?.MarkComplete(msg);
                 vm.RequestAppExitAction            = () => Close();
                 vm.EquipmentTarget.ShowInfoFunc    = ShowErrorAsync;
                 vm.EquipmentTarget.ShowStellarVariabilityWarningFunc = async () =>
@@ -903,6 +905,46 @@ public partial class MainWindow : Window
             }
         });
         return results.Count > 0 ? results[0].Path.LocalPath : null;
+    }
+
+    // Live debayer session-log popup — kept as fields so DebayerCompleteFunc can enable OK.
+    private DebayerProgressViewModel? _debayerProgressVm;
+    private Window?                    _debayerProgressWin;
+
+    /// <summary>Opens (or re-focuses) the live session-log popup shown over the GUI while
+    /// TransitLab debayers one-shot-color data. Non-modal so debayering keeps running and
+    /// streaming into it; the OK button (enabled on completion) closes it.</summary>
+    private void ShowDebayerProgressWindow()
+    {
+        // A pass can touch several directories in one call — reuse the open window rather
+        // than stacking a second one.
+        if (_debayerProgressWin is not null)
+        {
+            _debayerProgressWin.Activate();
+            return;
+        }
+
+        var vm = new DebayerProgressViewModel();
+        Window win = new Window
+        {
+            Title                 = "TransitLab — Debayering",
+            Width                 = 760,
+            Height                = 460,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Topmost               = true,
+            Content               = new DebayerProgressView { DataContext = vm },
+        };
+        vm.CloseCallback = () => win.Close();
+        win.Opened += (_, _) => vm.Connect();
+        win.Closed += (_, _) =>
+        {
+            vm.Disconnect();
+            _debayerProgressVm  = null;
+            _debayerProgressWin = null;
+        };
+        _debayerProgressVm  = vm;
+        _debayerProgressWin = win;
+        win.Show(this);
     }
 
     private void OnDiagnosticsClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

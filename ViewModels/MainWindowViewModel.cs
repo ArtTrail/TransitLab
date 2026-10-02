@@ -157,6 +157,10 @@ public partial class MainWindowViewModel : ViewModelBase
     public Func<string, string, Task<bool>>?      ShowConfirmFunc         { get; set; }
     public Func<Task<string?>>?                   BrowseUpdateFolderFunc  { get; set; }
     public Func<string, string, Task>?            ShowInfoFunc            { get; set; }
+    /// <summary>Opens the live debayer session-log popup over the GUI (wired in code-behind).</summary>
+    public Action?                                ShowDebayerProgressFunc { get; set; }
+    /// <summary>Tells the open debayer popup the pass finished (enables its OK button).</summary>
+    public Action<string>?                        DebayerCompleteFunc     { get; set; }
     /// <summary>Closes the main window through its normal Closing path (SaveOnExit still runs) — used as a fallback if the installer's own close-and-reinstall doesn't complete promptly during self-update.</summary>
     public Action?                                RequestAppExitAction    { get; set; }
 
@@ -492,6 +496,9 @@ public partial class MainWindowViewModel : ViewModelBase
         Observation.AutoScanAndGetFitsFunc = FrameAnalysis.ScanExcludeAndGetFirstAsync;
         Observation.CancelScanFunc         = FrameAnalysis.CancelScan;
         Observation.SelectTabFunc          = i => SelectTabFunc?.Invoke(i);
+        // Live debayer session-log popup (forward to whatever the View wired at call time)
+        Observation.ShowDebayerProgressAction = () => ShowDebayerProgressFunc?.Invoke();
+        Observation.DebayerCompleteAction     = msg => DebayerCompleteFunc?.Invoke(msg);
         FrameAnalysis.EquipmentTarget = EquipmentTarget;
         FrameAnalysis.DarksDirFunc = () => Observation.DarksDir;
         EquipmentTarget.FitsDirFunc   = () => Observation.FitsDir;

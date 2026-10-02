@@ -115,6 +115,14 @@ public partial class ObservationViewModel : ViewModelBase
     /// this VM can show the Data tab, where the debayer progress bar lives.</summary>
     public Action<int>? SelectTabFunc { get; set; }
 
+    /// <summary>Opens the live session-log popup over the GUI when debayering starts, so the
+    /// user can see work is happening. Wired (via MainWindowViewModel) to the view layer.</summary>
+    public Action? ShowDebayerProgressAction { get; set; }
+
+    /// <summary>Signals the debayer popup that the pass has finished (message = final status),
+    /// which enables its OK button. Wired (via MainWindowViewModel) to the view layer.</summary>
+    public Action<string>? DebayerCompleteAction { get; set; }
+
     private System.Threading.Timer? _fitsDirScanTimer;
 
     // ── Population from config ────────────────────────────────────────────────
@@ -297,41 +305,66 @@ public partial class ObservationViewModel : ViewModelBase
         _biasAuto  = false;
 
         IsDebayering = true;
-        foreach (var (label, dir, _) in toPrompt)
+        // Attended run: pop the live session-log window over the GUI so the user can see
+        // debayering is happening (it can take a while and otherwise looks frozen). Skipped
+        // for unattended Automation, which must not wait on an OK click.
+        if (!autoProceed) ShowDebayerProgressAction?.Invoke();
+
+        bool debayerFailed = false;
+        try
         {
-            DebayerProgress    = 0;
-            DebayerProgressMax = 1;
-            DebayerStatus      = $"⟳  Debayering {label}…";
-            var result = await DebayerService.DebayerDirectoryAsync(dir, ExoticExePath, PythonExePath,
-                new Progress<DebayerService.Progress>(p =>
+            foreach (var (label, dir, _) in toPrompt)
+            {
+                DebayerProgress    = 0;
+                DebayerProgressMax = 1;
+                DebayerStatus      = $"⟳  Debayering {label}…";
+                var result = await DebayerService.DebayerDirectoryAsync(dir, ExoticExePath, PythonExePath,
+                    new Progress<DebayerService.Progress>(p =>
+                    {
+                        DebayerProgress    = p.Done;
+                        DebayerProgressMax = Math.Max(p.Total, 1);
+                        DebayerStatus      = $"⟳  Debayering {label}: {p.LastMessage}";
+                    }));
+                if (!result.Success)
                 {
-                    DebayerProgress    = p.Done;
-                    DebayerProgressMax = Math.Max(p.Total, 1);
-                    DebayerStatus      = $"⟳  Debayering {label}: {p.LastMessage}";
-                }));
-            if (!result.Success)
-            {
-                DebayerStatus = $"✗  {label}: {result.Message}";
-                continue; // not marked handled — a failed directory can be retried later
-            }
+                    DebayerStatus = $"✗  {label}: {result.Message}";
+                    debayerFailed = true;
+                    continue; // not marked handled — a failed directory can be retried later
+                }
 
-            // Only mark handled once debayering has actually succeeded for this directory.
-            _oscHandledDirs.Add(dir);
+                // Only mark handled once debayering has actually succeeded for this directory.
+                _oscHandledDirs.Add(dir);
 
-            _suppressOscCheck = true;
-            switch (label)
-            {
-                case "Lights": FitsDir  = result.OutputDir; break;
-                case "Darks":  DarksDir = result.OutputDir; break;
-                case "Flats":  FlatsDir = result.OutputDir; break;
-                case "Biases": BiasDir  = result.OutputDir; break;
+                _suppressOscCheck = true;
+                switch (label)
+                {
+                    case "Lights": FitsDir  = result.OutputDir; break;
+                    case "Darks":  DarksDir = result.OutputDir; break;
+                    case "Flats":  FlatsDir = result.OutputDir; break;
+                    case "Biases": BiasDir  = result.OutputDir; break;
+                }
+                _suppressOscCheck = false;
             }
-            _suppressOscCheck = false;
         }
-        IsDebayering  = false;
-        DebayerStatus = "✓  Debayering complete.";
+        catch (Exception ex)
+        {
+            // Never leave the popup hanging with OK disabled (DebayerDirectoryAsync has no
+            // catch of its own — e.g. a bad Python path throws on process start).
+            debayerFailed = true;
+            DebayerStatus = $"✗  Debayering error: {ex.Message}";
+            SessionLogService.Write($"[Debayer] ✗  {ex.Message}");
+        }
+        finally
+        {
+            _suppressOscCheck = false;
+            IsDebayering      = false;
+            if (!debayerFailed) DebayerStatus = "✓  Debayering complete.";
+            // Enable the popup's OK button so the user knows the pass has ended (either way).
+            if (!autoProceed) DebayerCompleteAction?.Invoke(DebayerStatus);
+        }
 
-        if (TriggerScanFramesFunc is not null)
+        // Only refresh the frame scan when debayering actually produced usable output.
+        if (!debayerFailed && TriggerScanFramesFunc is not null)
             await TriggerScanFramesFunc();
     }
 
