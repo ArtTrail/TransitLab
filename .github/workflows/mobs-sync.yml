@@ -6,7 +6,12 @@ on:
   # 2026-09-04, tried at both '0 13 * * *' and '57 12 * * *'), with only manual runs ever
   # actually completing. The daily trigger now comes from a Cloudflare Worker Cron Trigger
   # instead (CloudflareWorkers/mobs-sync-trigger), which POSTs to this workflow_dispatch event.
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      rebuild_from_r2:
+        description: "Recovery mode: rebuild manifest.json from files already in R2, skipping the MicroObservatory fetch (use when MObs is down). Default = normal sync."
+        type: boolean
+        default: false
 
 jobs:
   sync:
@@ -24,6 +29,7 @@ jobs:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          REBUILD_FROM_R2: ${{ inputs.rebuild_from_r2 }}
         run: dotnet run -c Release
 
       # Daily heartbeat: MObsSync writes MObsSync/mobs_sync_summary.txt (target list + counts).

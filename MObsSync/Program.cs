@@ -23,8 +23,23 @@ using var s3 = new AmazonS3Client(accessKey, secretKey, new AmazonS3Config
     ForcePathStyle = true,
 });
 
+// Recovery mode (REBUILD_FROM_R2=true, or --rebuild-from-r2): MicroObservatory is unreachable,
+// but its FITS files are still mirrored in R2. Rebuild the manifest purely from the R2 key layout
+// (mobs/{telescope}/{date}/{object}/{science|cal}/{filename}) so TransitLab can list and download
+// them again without waiting for MObs. Metadata not encoded in the keys (weather, exact display
+// date, cal-fallback) comes back blank; the next normal sync restores it once MObs is back up.
+var rebuildFromR2 = string.Equals(Environment.GetEnvironmentVariable("REBUILD_FROM_R2"), "true", StringComparison.OrdinalIgnoreCase)
+                    || args.Contains("--rebuild-from-r2");
+
 var manifest = new ManifestDto { GeneratedUtc = DateTime.UtcNow.ToString("O") };
 
+if (rebuildFromR2)
+{
+    Console.WriteLine("REBUILD MODE: reconstructing manifest from objects already in R2 (MicroObservatory is NOT contacted).");
+    foreach (var telescope in telescopes)
+        manifest.Telescopes[telescope] = await RebuildTelescopeFromR2Async(s3, BucketName, telescope, LookbackDays);
+}
+else
 foreach (var telescope in telescopes)
 {
     Console.WriteLine($"[{telescope}] Fetching observation list from MicroObservatory…");
@@ -146,6 +161,84 @@ Console.WriteLine($"Uploaded manifest.json ({manifestJson.Length} bytes) coverin
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+/// <summary>Recovery path: rebuild a telescope's manifest entries purely from the objects already
+/// mirrored in R2, by parsing the key layout mobs/{telescope}/{date}/{object}/{science|cal}/{filename}.
+/// Used when MicroObservatory is unreachable but its FITS files are still present. Metadata not
+/// encoded in keys (weather, cal-fallback date) is left blank; a later normal sync restores it.</summary>
+static async Task<List<ManifestObservationDto>> RebuildTelescopeFromR2Async(
+    AmazonS3Client s3, string bucketName, string telescope, int lookbackDays)
+{
+    var prefix = $"mobs/{telescope}/";
+    var groups = new Dictionary<(string date, string obj), (List<ManifestFileDto> sci, List<ManifestFileDto> cal)>();
+    var cutoff = DateTime.UtcNow.Date.AddDays(-lookbackDays);
+    string? token = null;
+    int objectCount = 0;
+
+    do
+    {
+        var resp = await s3.ListObjectsV2Async(new ListObjectsV2Request
+        {
+            BucketName        = bucketName,
+            Prefix            = prefix,
+            ContinuationToken = token,
+        });
+
+        foreach (var o in resp.S3Objects ?? new List<S3Object>())
+        {
+            // mobs / {telescope} / {date} / {object} / {science|cal} / {filename}
+            var parts = o.Key.Split('/');
+            if (parts.Length != 6) continue;
+            var (date, obj, kind, filename) = (parts[2], parts[3], parts[4], parts[5]);
+            if (string.IsNullOrEmpty(filename)) continue;
+            if (!DateTime.TryParseExact(date, "yyyy-MM-dd",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.None, out var dt)) continue;
+            if (dt < cutoff) continue; // honour the lookback window (R2 lifecycle also expires >30d)
+
+            if (!groups.TryGetValue((date, obj), out var g))
+                g = (new List<ManifestFileDto>(), new List<ManifestFileDto>());
+            var entry = new ManifestFileDto { Filename = filename, Key = o.Key };
+            if      (kind == "science") g.sci.Add(entry);
+            else if (kind == "cal")     g.cal.Add(entry);
+            else continue;
+            groups[(date, obj)] = g;
+            objectCount++;
+        }
+
+        token = resp.IsTruncated == true ? resp.NextContinuationToken : null;
+    }
+    while (token != null);
+
+    var entries = new List<ManifestObservationDto>();
+    foreach (var kv in groups.OrderBy(k => k.Key.date).ThenBy(k => k.Key.obj))
+    {
+        var (date, obj) = kv.Key;
+        var (sci, cal)  = kv.Value;
+        if (sci.Count == 0) continue; // never list a target with no science frames
+
+        var dateDisplay = DateTime.TryParseExact(date, "yyyy-MM-dd",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var dd)
+            ? dd.ToString("dd-MMM-yyyy", System.Globalization.CultureInfo.InvariantCulture)
+            : date;
+
+        entries.Add(new ManifestObservationDto
+        {
+            ObjectName       = obj,
+            Date             = date,
+            DateDisplay      = dateDisplay,
+            Weather          = "",   // not encoded in R2 keys
+            CalFallbackDate  = null, // not encoded in R2 keys
+            ScienceFiles     = sci.OrderBy(f => f.Filename).ToList(),
+            CalibrationFiles = cal.OrderBy(f => f.Filename).ToList(),
+        });
+        Console.WriteLine($"  [R2] {obj} ({date}): {sci.Count} science, {cal.Count} cal");
+    }
+
+    Console.WriteLine($"[{telescope}] reconstructed {entries.Count} observation(s) from {objectCount} R2 object(s) within {lookbackDays} days.");
+    return entries;
+}
 
 static string SafeKeySegment(string s) =>
     string.Join("_", s.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries)).Trim();
