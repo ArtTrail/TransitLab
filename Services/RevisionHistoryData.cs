@@ -12,6 +12,7 @@ public static class RevisionHistoryData
         new("2.10.3", "2026-10-03",
         [
             "• New: a live progress window now appears over the app while TransitLab is debayering one-shot-color data. Debayering a full set of frames can take a while, and previously the only on-screen feedback was a small progress bar on the Data tab — easy to miss, so the app could look like it had frozen. A pop-up window now shows the debayering log line by line as each frame is processed, with a spinner while it runs and an OK button that enables the moment it finishes (click it to close the window). It appears for normal runs and is skipped during unattended Automation so a scheduled run never waits on a dialog.",
+            "• Fix: the MObs observation list is now resilient to MicroObservatory outages. The Data tab reads from a daily Cloudflare mirror of the Cecilia telescope's data; if MicroObservatory is unreachable when that mirror runs (its server returning timeouts or errors), the mirror previously overwrote itself with an empty index — blanking the observation list for everyone until the next good run. The mirror now keeps the last good data when the source is down instead of wiping it, and retries a slow server before giving up, so a temporary MicroObservatory outage no longer makes your MObs list disappear. (Server-side change — no action needed on your end.)",
         ]),
         new("2.10.2", "2026-09-27",
         [
