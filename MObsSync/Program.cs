@@ -86,6 +86,22 @@ foreach (var telescope in telescopes)
     manifest.Telescopes[telescope] = entries;
 }
 
+// ── Safety: never overwrite a good manifest with an empty one ─────────────────
+// If this run assembled zero observations — because MicroObservatory was down/returned an
+// error (e.g. 504), returned an unparseable page, or no FITS files reached R2 — do NOT upload.
+// Overwriting mobs/manifest.json with an empty object would blank out every mirrored
+// observation in TransitLab until the next successful run. Instead, leave the previous
+// (last-good) manifest in place; a transient upstream outage then costs nothing.
+var assembledObservations = manifest.Telescopes.Sum(t => t.Value.Count);
+if (assembledObservations == 0)
+{
+    Console.WriteLine("No observations assembled this run (upstream unavailable, errored, or nothing reached R2) " +
+                      "— KEEPING the existing R2 manifest instead of overwriting it with an empty one.");
+    File.WriteAllText("mobs_sync_summary.txt",
+        $"MObs R2 sync ({DateTime.UtcNow:yyyy-MM-dd}): MicroObservatory unavailable — kept the previous manifest (no overwrite).");
+    return;
+}
+
 // ── Upload the aggregate manifest, overwriting the previous run's ──────────────
 
 var manifestJson = JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = false });

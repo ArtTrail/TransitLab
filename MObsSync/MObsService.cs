@@ -16,7 +16,7 @@ public static class MObsService
         AllowAutoRedirect = true,
     })
     {
-        Timeout    = TimeSpan.FromSeconds(30),
+        Timeout    = TimeSpan.FromSeconds(90),   // MicroObservatory is frequently slow; ride out slowness (was 30s)
         DefaultRequestHeaders = { { "User-Agent", "Mozilla/5.0" } },
     };
 
@@ -46,12 +46,29 @@ public static class MObsService
         public string DownloadUrl { get; init; } = "";
     }
 
-    /// <summary>Fetch and parse the MObs observation list for a given telescope, straight from MicroObservatory.</summary>
+    /// <summary>Fetch and parse the MObs observation list for a given telescope, straight from MicroObservatory.
+    /// Retries a few times with backoff, since MicroObservatory frequently returns transient 5xx/timeouts
+    /// (e.g. 504 Gateway Timeout when its backend is overloaded) that clear on a second attempt.</summary>
     public static async Task<List<Observation>> FetchListAsync(
         string telescope, int lookbackDays, CancellationToken ct = default)
     {
-        var html = await Http.GetStringAsync(BaseUrl, ct);
-        return ParseHtml(html, telescope, lookbackDays);
+        const int maxAttempts = 3;
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                var html = await Http.GetStringAsync(BaseUrl, ct);
+                return ParseHtml(html, telescope, lookbackDays);
+            }
+            catch (Exception ex) when (attempt < maxAttempts)
+            {
+                var delay = TimeSpan.FromSeconds(attempt * 10); // 10s, then 20s
+                Console.WriteLine($"[{telescope}] fetch attempt {attempt}/{maxAttempts} failed: {ex.Message} — retrying in {delay.TotalSeconds:0}s…");
+                await Task.Delay(delay, ct);
+            }
+            // On the final attempt the `when (attempt < maxAttempts)` filter is false, so the
+            // exception propagates to Program.cs, which logs it and skips this telescope.
+        }
     }
 
     /// <summary>Exposed so Program.cs can download each FITS file's bytes directly (to re-upload to R2)
