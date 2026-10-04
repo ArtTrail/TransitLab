@@ -144,7 +144,7 @@ public class AppConfig
     // exactly the Stone-vetted comp stars TransitLab supplies as a combined ensemble,
     // rather than re-ranking them itself and picking (or capping to) a subset.
     public bool UseEnsemblePhotometry         { get; set; } = true;
-    public bool UseExactlyTheCompsProvided    { get; set; } = true;
+    public bool UseExactlyTheCompsProvided    { get; set; } = false;
 
     // One-time "What's New" style alert shown the first time v2.9.1 detects the active
     // EXOTIC environment is the 4.3.2 pre-release dev build, introducing the six
