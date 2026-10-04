@@ -9,6 +9,10 @@ public static class RevisionHistoryData
 {
     public static readonly RevisionEntry[] All =
     [
+        new("2.10.3", "2026-10-03",
+        [
+            "• New: a live progress window now appears over the app while TransitLab is debayering one-shot-color data. Debayering a full set of frames can take a while, and previously the only on-screen feedback was a small progress bar on the Data tab — easy to miss, so the app could look like it had frozen. A pop-up window now shows the debayering log line by line as each frame is processed, with a spinner while it runs and an OK button that enables the moment it finishes (click it to close the window). It appears for normal runs and is skipped during unattended Automation so a scheduled run never waits on a dialog.",
+        ]),
         new("2.10.2", "2026-09-27",
         [
             "• Fix: the first-launch \"What's New\" popup showed the wrong versions. The v2.10.1 build that was released predated the popup feature itself, so on launch it fell back to the old per-version popups and displayed the v2.7.0 and v2.7.1 summaries instead of the current version's changes. This release ships the intended behavior — a single popup showing only the current version's Revision History entry, the first time each new version runs.",

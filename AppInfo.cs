@@ -7,5 +7,5 @@ namespace TransitLab;
 /// </summary>
 public static class AppInfo
 {
-    public const string Version = "2.10.2";
+    public const string Version = "2.10.3";
 }
