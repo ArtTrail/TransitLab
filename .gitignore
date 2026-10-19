@@ -1,6 +1,8 @@
 # .NET build artifacts
 bin/
 obj/
+__pycache__/
+.pytest_cache/
 publish/
 
 # Visual Studio / Rider

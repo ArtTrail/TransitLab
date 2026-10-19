@@ -49,6 +49,7 @@ save_dir    = sys.argv[3]
 ra          = sys.argv[4] if len(sys.argv) > 4 and sys.argv[4] else None
 dec         = sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] else None
 pixel_scale = sys.argv[6] if len(sys.argv) > 6 and sys.argv[6] else None
+app_version = sys.argv[7]
 
 # Redirect library stdout to stderr so progress text doesn't pollute our
 # result channel — only the final path (or FAILED: line) goes to stdout.
@@ -69,6 +70,10 @@ try:
             ra=float(ra) if ra else None,
             dec=float(dec) if dec else None,
             pixel_scale=float(pixel_scale) if pixel_scale else None,
+            client_name="transitlab",
+            client_api_key="nextastro-transitlab-astrometry-v1",
+            software_name=f"TransitLab/{app_version}",
+            origin="transitlab",
         )
     else:
         from exotic.api.plate_solution import PlateSolution
@@ -204,6 +209,7 @@ else:
             psi.ArgumentList.Add(solverConfig?.PixelScaleArcsec > 0
                 ? solverConfig.PixelScaleArcsec.ToString("F4", System.Globalization.CultureInfo.InvariantCulture)
                 : "");
+            psi.ArgumentList.Add(AppInfo.Version);
 
             using var proc = new Process { StartInfo = psi };
 
