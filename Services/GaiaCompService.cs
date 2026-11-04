@@ -26,7 +26,7 @@ namespace TransitLab.Services;
 ///   8.  Score by color match, magnitude, RUWE, centrality, flux quality
 ///   9.  Spatial deduplication; split into selected (top N, configurable 1–25) + backfill pool
 ///   10. Query Gaia GSPC synthetic photometry for filter-matched magnitudes
-///   11. PSF measurement + validation loop (up to 3 passes; backfill replaces failures)
+///   11. PSF measurement + validation loop (each replacement is measured; failures leave the pool)
 ///   12. Assign filter-matched magnitudes via preference chain (GSPC → APASS → G→V → VSP)
 ///   13. Return up to 10 pixel coordinate pairs with per-star detail
 /// </summary>
@@ -837,7 +837,7 @@ public static class GaiaCompService
             }
             if (imageData != null)
                 Log($"[Stone]   FITS pixels: {imageData.GetLength(1)}×{imageData.GetLength(0)} px  |  " +
-                    $"sat={saturationAdu:F0} ADU  |  gain={gainEPerAdu:F2} e-/ADU",
+                    $"sat={saturationAdu:F0} ADU  |  rejection threshold={saturationAdu * 0.90:F1} ADU  |  gain={gainEPerAdu:F2} e-/ADU",
                     logProgress);
             else
                 Log("[Stone]   ⚠  FITS pixel read returned null — PSF validation skipped", logProgress);
@@ -851,7 +851,10 @@ public static class GaiaCompService
         int psfRejected = 0;
         if (imageData != null && selected.Count > 0)
         {
-            for (int pass = 0; pass < 3; pass++)
+            // Each failed candidate leaves the selection permanently. Every
+            // replacement gets measured on the following pass; the finite pool
+            // bounds this loop without accepting an untested final replacement.
+            for (int pass = 0; selected.Count > 0; pass++)
             {
                 Log($"[Stone]   Pass {pass + 1}:", logProgress);
 
@@ -917,48 +920,10 @@ public static class GaiaCompService
                 }
 
                 psfRejected += toReject.Count;
-                int replaced = 0;
-
-                foreach (var bad in toReject)
-                {
-                    selected.Remove(bad);
-                    backfill.Add(bad);
-
-                    // Find the next backfill candidate that passes spatial dedup against
-                    // survivors. In VSP + Stone mode, a rejected slot is refilled from a VSP
-                    // candidate first if one is available — otherwise a rejected VSP star could
-                    // end up replaced by a Stone candidate purely because of list order, quietly
-                    // breaking the "VSP always ahead of Stone" guarantee this mode promises.
-                    bool TooClose(GaiaCandidate c) => selected.Any(s =>
-                        s.XPixel.HasValue && s.YPixel.HasValue &&
-                        c.XPixel.HasValue && c.YPixel.HasValue &&
-                        Math.Abs(s.XPixel.Value - c.XPixel.Value) <= 20 &&
-                        Math.Abs(s.YPixel.Value - c.YPixel.Value) <= 20);
-
-                    int FindBackfillIndex(bool vspOnly)
-                    {
-                        for (int bi = 0; bi < backfill.Count - 1; bi++)  // -1 excludes the one just added
-                        {
-                            var candidate = backfill[bi];
-                            if (!candidate.XPixel.HasValue || !candidate.YPixel.HasValue) continue;
-                            if (vspOnly && candidate.Source != "VSP") continue;
-                            if (!TooClose(candidate)) return bi;
-                        }
-                        return -1;
-                    }
-
-                    int idx = useVsp ? FindBackfillIndex(vspOnly: true) : -1;
-                    if (idx < 0) idx = FindBackfillIndex(vspOnly: false);
-
-                    if (idx >= 0)
-                    {
-                        var candidate = backfill[idx];
-                        backfill.RemoveAt(idx);
-                        selected.Add(candidate);
-                        replaced++;
-                        Log($"[Stone]     Backfill: added {CandLabel(candidate)} (score={candidate.Score:F3})", logProgress);
-                    }
-                }
+                var replacements = ReplaceRejectedComparisons(selected, backfill, toReject, useVsp);
+                int replaced = replacements.Count;
+                foreach (var candidate in replacements)
+                    Log($"[Stone]     Backfill: added {CandLabel(candidate)} (score={candidate.Score:F3})", logProgress);
 
                 Log($"[Stone]     Pass {pass + 1}: {toReject.Count} rejected, {replaced} backfilled", logProgress);
                 if (replaced == 0) break;  // backfill exhausted
@@ -967,27 +932,9 @@ public static class GaiaCompService
             if (psfRejected > 0)
                 Log($"[Stone]   PSF validation total: {psfRejected} rejected, {selected.Count} final comp stars", logProgress);
 
-            // ── Final re-measurement ──────────────────────────────────────────
-            // A star backfilled on the LAST pass never gets measured again before the
-            // loop exits (measurement happens at the top of each pass, backfill at the
-            // bottom) — its Snr/Fwhm could still reflect a stale value from when it was
-            // sitting in the backfill pool. Re-measure whatever ended up in `selected`
-            // once more so every reported value, and the validation check below, reflects
-            // what's actually being used.
-            foreach (var s in selected)
-            {
-                if (!s.XPixel.HasValue || !s.YPixel.HasValue) continue;
-                var psf = PsfService.Measure(imageData, s.XPixel.Value, s.YPixel.Value, saturationAdu, gainEPerAdu);
-                s.FwhmX = psf.FwhmX; s.FwhmY = psf.FwhmY; s.FwhmPx = psf.FwhmMean;
-                s.PeakAdu = psf.PeakAdu; s.Snr = psf.Snr; s.Saturated = psf.Saturated;
-            }
         }
 
-        // A "final comp star" here just means the backfill pool ran dry while trying to
-        // replace rejects — it does NOT mean any of them actually cleared the SNR>=75 bar
-        // above. Every candidate can fail that bar (e.g. a genuinely faint target/field)
-        // and the loop still has to end with *something* selected. Track that distinction
-        // explicitly so the caller can warn instead of silently reporting success.
+        // Retained stars have passed PSF validation when pixels were available.
         int validatedCount = selected.Count(c => c.Snr is > 0 and >= 75);
         bool noneValidated = imageData != null && selected.Count > 0 && validatedCount == 0;
 
@@ -1820,6 +1767,33 @@ public static class GaiaCompService
     {
         var s = GetS(cols, idx);
         return int.TryParse(s, out var i) ? i : 0;
+    }
+
+    private static List<GaiaCandidate> ReplaceRejectedComparisons(
+        List<GaiaCandidate> selected, List<GaiaCandidate> backfill,
+        List<GaiaCandidate> rejected, bool preferVsp)
+    {
+        // Rejects leave both collections permanently; remove the entire batch
+        // before spatial dedup so a failed star cannot block its replacement.
+        selected.RemoveAll(rejected.Contains);
+        backfill.RemoveAll(rejected.Contains);
+        var replacements = new List<GaiaCandidate>();
+        bool Eligible(GaiaCandidate c) => c.XPixel.HasValue && c.YPixel.HasValue
+            && !selected.Any(s => s.XPixel.HasValue && s.YPixel.HasValue
+                && Math.Abs(s.XPixel.Value - c.XPixel.Value) <= 20
+                && Math.Abs(s.YPixel.Value - c.YPixel.Value) <= 20);
+        for (int slot = 0; slot < rejected.Count; slot++)
+        {
+            int index = preferVsp
+                ? backfill.FindIndex(c => c.Source == "VSP" && Eligible(c)) : -1;
+            if (index < 0) index = backfill.FindIndex(Eligible);
+            if (index < 0) break;
+            var candidate = backfill[index];
+            backfill.RemoveAt(index);
+            selected.Add(candidate);
+            replacements.Add(candidate);
+        }
+        return replacements;
     }
 
     // ── Verbose pipeline logger ───────────────────────────────────────────────

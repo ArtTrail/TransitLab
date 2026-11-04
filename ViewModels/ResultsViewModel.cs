@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -177,6 +178,7 @@ public partial class ResultsViewModel : ViewModelBase
 
     public void ClearOutputImages()
     {
+        EnsembleWarning = "";
         LightCurveBitmap = null;
         StellarVarBitmap = null;
         HasLightCurve    = false;
@@ -225,6 +227,10 @@ public partial class ResultsViewModel : ViewModelBase
     [ObservableProperty] private string reportFile = "Report file:  —";
     [ObservableProperty] private string imageFile  = "Image file:  —";
     [ObservableProperty] private string aidFile    = "AID file:  —";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasEnsembleWarning))]
+    private string ensembleWarning = "";
+    public bool HasEnsembleWarning => !string.IsNullOrWhiteSpace(EnsembleWarning);
 
     private string _reportFullPath = "";
     private bool   _reportVerified = false;   // set True when ScanOutputFiles confirms the file exists
@@ -242,12 +248,30 @@ public partial class ResultsViewModel : ViewModelBase
 
     public void ScanOutputFiles(string saveDir)
     {
+        EnsembleWarning = "";
         _reportFullPath = "";
         _reportVerified = false;
         _lcFullPath     = "";
 
         SessionLogService.Write($"[Results] ScanOutputFiles: saveDir=\"{saveDir}\" exists={Directory.Exists(saveDir)}");
         if (!Directory.Exists(saveDir)) return;
+
+        var membershipPath = Path.Combine(saveDir, "ComparisonEnsemble.json");
+        if (File.Exists(membershipPath))
+        {
+            try
+            {
+                using var membership = JsonDocument.Parse(File.ReadAllText(membershipPath));
+                if (membership.RootElement.TryGetProperty("warning", out var warning))
+                    EnsembleWarning = warning.GetString() ?? "";
+                if (EnsembleWarning.Length > 0)
+                    SessionLogService.Write("[Results] " + EnsembleWarning);
+            }
+            catch (Exception ex)
+            {
+                EnsembleWarning = "Could not read comparison ensemble details: " + ex.Message;
+            }
+        }
 
         var reports = Directory.GetFiles(saveDir, "AAVSO_*.txt", SearchOption.AllDirectories);
         SessionLogService.Write($"[Results] ScanOutputFiles: found {reports.Length} AAVSO_*.txt report(s)");

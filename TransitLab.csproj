@@ -10,6 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="tests\**\*.cs" />
+    <Compile Remove="MObsSync\**\*.cs" />
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
     <None Include="README.txt" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />

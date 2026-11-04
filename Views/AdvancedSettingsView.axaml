@@ -65,7 +65,17 @@
                           IsChecked="{Binding UseExactlyTheCompsProvided}"
                           OnContent="On" OffContent="Off"
                           VerticalAlignment="Center"
-                          ToolTip.Tip="Only meaningful with ensemble photometry on. Uses every comp star TransitLab supplies, rather than EXOTIC re-ranking and capping to its own top 5. Default: On."/>
+                          ToolTip.Tip="Use the supplied reference set without automatic additions, ranking or a size cap. If continuation with available members is off, every supplied member is required. Default: Off."/>
+        </Grid>
+
+        <Grid ColumnDefinitions="*,8,Auto,8,Auto">
+            <TextBlock Grid.Column="0" Text="Continue with available ensemble members"
+                       VerticalAlignment="Center"/>
+            <ToggleSwitch Grid.Column="2"
+                          IsChecked="{Binding AllowPartialComparisonEnsemble}"
+                          OnContent="On" OffContent="Off"
+                          VerticalAlignment="Center"
+                          ToolTip.Tip="Continue with measurable members, even when exact supplied comparisons are selected. Omitted comparisons are listed in the results and report. Turn off to require the complete supplied ensemble. Requires the updated EXOTIC pre-release. Default: On."/>
         </Grid>
 
         <!-- Multiprocessing -->

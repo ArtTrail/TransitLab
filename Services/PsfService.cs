@@ -52,20 +52,28 @@ public static class PsfService
 
     // ── Header-derived detector parameters ────────────────────────────────────
 
-    /// <summary>Estimate saturation level (ADU) from FITS header.</summary>
+    /// <summary>Detector saturation in ADU, using the same Cecilia convention as EXOTIC.</summary>
     public static double EstimateSaturation(FitsHeaderService.FitsHeader hdr)
     {
         var sat = hdr.GetDouble("SATURATE");
-        if (sat.HasValue && sat.Value > 0) return sat.Value;
+        bool hasSaturation = sat.HasValue && double.IsFinite(sat.Value) && sat.Value > 0;
+        // EXOTIC writes the summed-pixel saturation when it bins an image itself.
+        if (hdr.Get("EXOBIN").Trim() == "2x2" && hasSaturation) return sat!.Value;
+        // Cecilia's 12-bit detector is stored in 16-bit FITS pixels. BITPIX is
+        // the storage type, not the detector's saturation, even with a nominal
+        // SATURATE card describing the storage range.
+        if (hdr.Get("TELESCOP").Trim().Equals("Cecilia", StringComparison.OrdinalIgnoreCase))
+            return 4096.0;
+        if (hasSaturation) return sat!.Value;
 
         int    bitpix = hdr.GetInt("BITPIX") ?? 16;
         double bzero  = hdr.GetDouble("BZERO") ?? 0.0;
 
         return bitpix switch
         {
-            16  => (bzero > 0 ? 65535.0 : 32767.0) * 0.90,
-            32  => 2_147_483_647.0 * 0.80,
-            8   => 255.0 * 0.90,
+            16  => bzero > 0 ? 65535.0 : 32767.0,
+            32  => 2_147_483_647.0,
+            8   => 255.0,
             -32 => 1e9,
             -64 => 1e9,
             _   => 60_000.0
@@ -73,16 +81,17 @@ public static class PsfService
     }
 
     /// <summary>
-    /// Return detector gain in e-/ADU from EGAIN or GAIN header keywords.
-    /// Sanity-checked to 0.1–10 e-/ADU; falls back to 1.0.
+    /// Return a positive detector gain from FITS, then the Cecilia default used by EXOTIC.
     /// </summary>
     public static double GetGain(FitsHeaderService.FitsHeader hdr)
     {
-        var egain = hdr.GetDouble("EGAIN");
-        if (egain.HasValue && egain.Value is >= 0.1 and <= 10.0) return egain.Value;
-
-        var gain = hdr.GetDouble("GAIN");
-        if (gain.HasValue && gain.Value is >= 0.1 and <= 10.0) return gain.Value;
+        foreach (var key in new[] { "EGAIN", "EPERADU", "E_PER_ADU", "GAIN_EAD", "CCDGAIN", "GAIN" })
+        {
+            var gain = hdr.GetDouble(key);
+            if (gain.HasValue && double.IsFinite(gain.Value) && gain.Value > 0) return gain.Value;
+        }
+        if (hdr.Get("TELESCOP").Trim().Equals("Cecilia", StringComparison.OrdinalIgnoreCase))
+            return 53.6;
 
         return 1.0;
     }
@@ -114,7 +123,8 @@ public static class PsfService
             for (int dx = -10; dx <= 10; dx++)
                 peakAdu = Math.Max(peakAdu, image[cy + dy, cx + dx]);
 
-        bool saturated = peakAdu >= saturationAdu;
+        // Match EXOTIC's existing 90% overexposure rejection threshold.
+        bool saturated = peakAdu > saturationAdu * 0.90;
 
         // ── 2. Background — median of annulus at 13–18 px ────────────────────
         var skyPixels = new List<float>(250);

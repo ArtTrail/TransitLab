@@ -344,7 +344,8 @@ public partial class MainWindow : Window
             MultiprocessLightcurveFitsText    = vm.MultiprocessLightcurveFits?.ToString() ?? "",
             UseEnsemblePhotometry             = vm.UseEnsemblePhotometry,
             UseExactlyTheCompsProvided        = vm.UseExactlyTheCompsProvided,
-            SaveCallback = (nonInteractive, variability, transformations, lightcurveFits, useEnsemble, useExactComps) =>
+            AllowPartialComparisonEnsemble   = vm.AllowPartialComparisonEnsemble,
+            SaveCallback = (nonInteractive, variability, transformations, lightcurveFits, useEnsemble, useExactComps, allowPartial) =>
             {
                 vm.NonInteractiveRun              = nonInteractive;
                 vm.UseNextAstroVariabilityServer  = variability;
@@ -352,6 +353,7 @@ public partial class MainWindow : Window
                 vm.MultiprocessLightcurveFits     = lightcurveFits;
                 vm.UseEnsemblePhotometry          = useEnsemble;
                 vm.UseExactlyTheCompsProvided     = useExactComps;
+                vm.AllowPartialComparisonEnsemble = allowPartial;
             },
         };
         advVm.CloseCallback = () => win?.Close();

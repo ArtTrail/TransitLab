@@ -99,6 +99,12 @@ public partial class MainWindowViewModel : ViewModelBase
         set { _cfg.UseExactlyTheCompsProvided = value; ConfigService.Save(_cfg); }
     }
 
+    public bool AllowPartialComparisonEnsemble
+    {
+        get => _cfg.AllowPartialComparisonEnsemble;
+        set { _cfg.AllowPartialComparisonEnsemble = value; ConfigService.Save(_cfg); }
+    }
+
     public bool ShowTipsAtStartup
     {
         get => _cfg.ShowTipsAtStartup;
@@ -1104,19 +1110,8 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             optional["use_ensemble_photometry_rather_than_single_comp"] = JsonValue.Create(_cfg.UseEnsemblePhotometry);
 
-            // Issue #64: when the last comp selection came back with NO star clearing the SNR bar
-            // (a marginal field), do NOT force EXOTIC to use exactly those comps. With
-            // use_exactly_the_comps_provided on, EXOTIC 4.3.2 can't drop a "required" comp that
-            // fails frame coverage, so it aborts with "no coverage-qualified comparison stars."
-            // Turning it off here lets EXOTIC re-rank/cull (what 4.3.1 does — which succeeds on the
-            // same data). Good fields keep the strict Stone-vetted set.
-            var exactComps = _cfg.UseExactlyTheCompsProvided;
-            if (exactComps && et.LastCompSelectionAllLowSnr)
-            {
-                exactComps = false;
-                SessionLogService.Write("[Inits] All selected comps are low-SNR (marginal field) — overriding use_exactly_the_comps_provided=false so EXOTIC can cull uncovered comps (issue #64).");
-            }
-            optional["use_exactly_the_comps_provided"] = JsonValue.Create(exactComps);
+            optional["use_exactly_the_comps_provided"] = JsonValue.Create(_cfg.UseExactlyTheCompsProvided);
+            optional["allow_partial_comparison_ensemble"] = JsonValue.Create(_cfg.AllowPartialComparisonEnsemble);
         }
 
         if (preReduced is not null)

@@ -40,8 +40,8 @@ public partial class AdvancedSettingsView : UserControl
         ShowHelpPopup("Use Exactly The Comps Provided",
             "Only takes effect when \"Use ensemble photometry\" is also on.\n\n" +
             "Off: even in ensemble mode, EXOTIC re-ranks every supplied comparison star by its own fit-quality scoring and caps the ensemble to its own top 5 candidates — some of Stone's vetted comp stars may be left out.\n\n" +
-            "On: EXOTIC uses every comparison star supplied, full stop — no re-ranking, no cap. If a supplied star can't actually be included (its own flux data fails quality checks), that's treated as an error rather than silently dropping it.\n\n" +
-            "Default: On, since Stone's comp-star selection already does its own thorough vetting (magnitude, color, flux SNR, RUWE, field centrality, PSF, and a VSX variability cross-check) before EXOTIC ever sees these stars — there's usually no reason to let EXOTIC second-guess that selection.\n\n" +
+            "On: EXOTIC uses the supplied reference set without automatic additions, re-ranking or a cap. With Continue with available ensemble members on, unmeasurable members may be omitted and every omission is reported. Turn continuation off to require the complete set.\n\n" +
+            "Default: Off. Continue with available ensemble members defaults to On and requires the updated EXOTIC pre-release.\n\n" +
             "Requires the EXOTIC 4.3.2 pre-release dev build — ignored otherwise.");
 
     private void OnHelpFrameAlignmentCount_Click(object? sender, RoutedEventArgs e) =>

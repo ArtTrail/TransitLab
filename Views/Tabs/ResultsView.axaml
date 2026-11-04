@@ -60,6 +60,11 @@
                        TextWrapping="Wrap"/>
         </Border>
 
+        <Border DockPanel.Dock="Top" Background="#4a3a1a" Padding="12,6" Margin="0,0,0,4"
+                IsVisible="{Binding HasEnsembleWarning}">
+            <TextBlock Text="{Binding EnsembleWarning}" Foreground="#ebcb8b" TextWrapping="Wrap"/>
+        </Border>
+
         <!-- ── Everything below the header scrolls as one column, so the Submit Results
              panel (including the AAVSO login row) is always reachable regardless of window
              height — previously this content was split between a DockPanel "fill" area and
